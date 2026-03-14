@@ -11,17 +11,53 @@ Future routers (added as phases complete):
 Architecture ref: docs/system-architecture.md §3 – Backend Architecture
 """
 
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.ingestion.router import router as ingestion_router
+from app.storage.minio_client import ensure_bucket_exists
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    FastAPI lifespan handler.
+
+    Startup:
+      - Ensures the MinIO document bucket exists.
+        Logs a warning if MinIO is unreachable rather than crashing,
+        so the server can still start in degraded mode during development.
+
+    Shutdown:
+      - (Future) graceful teardown hooks go here.
+    """
+    # --- Startup ---
+    try:
+        ensure_bucket_exists(settings.MINIO_BUCKET_DOCUMENTS)
+        logger.info("MinIO bucket '%s' is ready.", settings.MINIO_BUCKET_DOCUMENTS)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "MinIO bucket initialization failed (is MinIO running?): %s", exc
+        )
+
+    yield  # Application runs here
+
+    # --- Shutdown ---
+    logger.info("InsurAI backend shutting down.")
+
 
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # ---------------------------------------------------------------------------
