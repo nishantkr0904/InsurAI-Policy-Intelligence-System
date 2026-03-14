@@ -23,12 +23,15 @@ Architecture ref:
   docs/roadmap.md Phase 3 – step 2 "Parsing (DeepDoc/OCR)"
 """
 
+import json
 import logging
 from io import BytesIO
 
 from app.workers.celery_app import celery_app
 from app.storage.minio_client import _get_client, upload_file
 from app.core.config import settings
+from app.processing.chunker import chunk_text
+from app.processing.embedder import generate_embeddings
 
 logger = logging.getLogger(__name__)
 
@@ -132,11 +135,52 @@ def ingest_document(
     )
     logger.info("Sidecar text stored at %s", sidecar_key)
 
-    # 4. Return result summary
-    # TODO (Phase P4): trigger chunking + embedding generation here.
+    # 4. Semantic chunking
+    chunks = chunk_text(
+        extracted_text,
+        metadata={"document_id": document_id, "workspace_id": workspace_id},
+    )
+    logger.info("Split document_id=%s into %d chunks", document_id, len(chunks))
+
+    # 5. Generate embeddings for all chunks
+    # NOTE: If OPENAI_API_KEY is empty and EMBEDDING_MODEL requires it,
+    #       this step will raise RuntimeError → Celery will retry up to 3×.
+    chunk_texts = [c.text for c in chunks]
+    vectors = generate_embeddings(chunk_texts)
+    logger.info(
+        "Generated %d embedding vectors for document_id=%s", len(vectors), document_id
+    )
+
+    # 6. Build chunk manifest and store as JSON sidecar in MinIO
+    # Phase P4 T6 (Milvus integration) will read this sidecar to insert vectors.
+    manifest = [
+        {
+            "chunk_index": chunk.chunk_index,
+            "text": chunk.text,
+            "char_start": chunk.char_start,
+            "char_end": chunk.char_end,
+            "token_estimate": chunk.token_estimate,
+            "embedding": vector,
+        }
+        for chunk, vector in zip(chunks, vectors)
+    ]
+    manifest_bytes = json.dumps(manifest, ensure_ascii=False).encode("utf-8")
+    manifest_key_prefix = object_key.rsplit(".", 1)[0]
+    upload_file(
+        file_bytes=manifest_bytes,
+        filename=f"{manifest_key_prefix.split('/')[-1]}_chunks.json",
+        content_type="application/json",
+        workspace_id=workspace_id,
+    )
+    logger.info(
+        "Chunk manifest stored for document_id=%s (%d chunks)", document_id, len(chunks)
+    )
+
     return {
         "document_id": document_id,
-        "status": "parsed",
+        "status": "embedded",
         "extracted_chars": extracted_chars,
         "sidecar_key": sidecar_key,
+        "chunk_count": len(chunks),
+        "embedding_dim": len(vectors[0]) if vectors else 0,
     }
