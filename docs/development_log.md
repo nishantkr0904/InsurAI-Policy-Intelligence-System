@@ -76,18 +76,57 @@ This file is updated after every commit cycle per the agent execution contract.
 
 ---
 
+---
+
+### Commit 7a – `feat(chunking): add semantic text chunker with header and paragraph splitting`
+- **Files created:**
+  - `backend/app/processing/__init__.py`
+  - `backend/app/processing/chunker.py`
+- **Summary:** Header-aware chunker using stdlib `re` only. Splits on Clause/Section/Article keywords and ALL-CAPS headings, then by paragraphs. Configurable max token window (default 512) with 50-token overlap between chunks.
+- **Lines added:** 186
+
+---
+
+### Commit 7b – `feat(embedding): add LiteLLM embedding service with batching and dimension lookup`
+- **Files created:**
+  - `backend/app/processing/embedder.py`
+- **Files modified:**
+  - `backend/app/core/config.py` – added `EMBEDDING_MODEL`, `OPENAI_API_KEY` settings
+  - `backend/pyproject.toml` – added `litellm ^1.40.0`
+- **Summary:** `generate_embeddings()` accepts a list of texts, calls `litellm.embedding()` in configurable batches (default 32), returns `List[List[float]]`. `embedding_dimension()` helper maps model names to vector sizes for Milvus schema creation in T6.
+- **Lines added:** 136
+
+---
+
+### Commit 7c – `feat(worker): extend ingestion task with semantic chunking and embedding generation`
+- **Files modified:**
+  - `backend/app/workers/ingestion_tasks.py`
+- **Summary:** After text extraction, task now calls `chunk_text()` → `generate_embeddings()` → stores `{uuid}_chunks.json` manifest in MinIO. Each chunk record includes `text`, `char_start`, `char_end`, `token_estimate`, and `embedding` vector. Task return status updated to `"embedded"`. This JSON sidecar is the direct input interface for T6 (Milvus insert).
+- **Lines added:** 47
+
+---
+
+### Commit 8 – `docs(state): update runtime state, context memory, and development log`
+- **Files modified:**
+  - `docs/agent_runtime_state.json` – phase advanced to P4, current task set to T6, full completed task list
+  - `docs/context_memory.md` – full module inventory, MinIO sidecar contract, current pipeline status
+  - `docs/development_log.md` – this entry
+- **Lines added:** ~80
+
+---
+
 ## Next Tasks
-- [ ] Phase P4: Implement embedding service (T5)
-- [ ] Semantic chunking of parsed sidecar text
-- [ ] Milvus vector database integration (T6)
+- [ ] **T6** – Milvus client wrapper (`processing/vector_store.py`)
+- [ ] **T6** – Vector insert pipeline: read `_chunks.json` sidecar → insert into Milvus collection
+- [ ] **T6** – Milvus collection schema creation on startup (using `embedding_dimension()`)
 
 ## Phase Status
 | Phase | Status |
 |-------|--------|
-| P1 – Infrastructure | ✅ Complete (docker-compose live) |
+| P1 – Infrastructure | ✅ Complete |
 | P2 – Auth & Core Backend | ✅ Complete |
-| P3 – Document Ingestion | ✅ **Complete** (upload + MinIO + worker pipeline) |
-| P4 – Embedding & Indexing | 🟡 Next |
+| P3 – Document Ingestion | ✅ Complete |
+| P4 – Embedding & Indexing | 🟡 **In Progress** (T5 ✅ done, T6 pending) |
 | P5 – RAG Retrieval | ⬜ Pending |
 | P6 – Chat Interface | ⬜ Pending |
 | P7 – Frontend | ⬜ Pending |
