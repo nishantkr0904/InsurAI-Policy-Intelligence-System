@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     KEYCLOAK_REALM: str = "insurai"
     KEYCLOAK_CLIENT_ID: str = "insurai-backend"
 
+    # Embedding model (Phase P4 – T5)
+    # LiteLLM model string: "text-embedding-3-small" (OpenAI) or
+    # "ollama/nomic-embed-text" (local, no API key needed)
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    OPENAI_API_KEY: str = ""
+
     class Config:
         env_file = ".env"
         case_sensitive = True
