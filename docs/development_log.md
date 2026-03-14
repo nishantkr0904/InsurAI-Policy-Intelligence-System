@@ -115,10 +115,30 @@ This file is updated after every commit cycle per the agent execution contract.
 
 ---
 
+### Commits 8a / 8b / 8c – T6 Milvus Vector Database Integration
+
+**8a** – `chore(infra): add Milvus, etcd, and milvus-minio services to docker-compose`
+- **Files modified:** `docker-compose.yml`
+- **Summary:** Added Milvus v2.4.9 standalone service, etcd v3.5.14 (Milvus metadata), and a dedicated MinIO instance (Milvus segment storage) on port 9002. All three services have healthchecks. Named volumes: `etcd_data`, `milvus_minio_data`, `milvus_data`.
+- **Lines added:** 77
+
+**8b** – `feat(vector-store): add Milvus client wrapper with HNSW collection, insert, and search`
+- **Files created:** `backend/app/processing/vector_store.py`
+- **Files modified:** `backend/app/core/config.py`, `backend/pyproject.toml`
+- **Summary:** `ensure_collection_exists()` creates an HNSW-indexed collection with COSINE metric, auto-detecting vector dimension from settings. `insert_vectors()` performs bulk insert from the chunk manifest. `search_vectors()` is the workspace-scoped ANN search stub consumed by P5 RAG.
+- **Lines added:** 194
+
+**8c** – `feat(worker): wire Milvus vector insert and collection init into ingestion pipeline`
+- **Files modified:** `backend/app/main.py`, `backend/app/workers/ingestion_tasks.py`
+- **Summary:** Step 7 (`insert_vectors()`) added to Celery ingestion task after manifest storage. `ensure_collection_exists()` wired into FastAPI lifespan startup. Task final status updated to `"indexed"`. Return dict now includes `inserted_vectors`.
+- **Lines added:** 25
+
+---
+
 ## Next Tasks
-- [ ] **T6** – Milvus client wrapper (`processing/vector_store.py`)
-- [ ] **T6** – Vector insert pipeline: read `_chunks.json` sidecar → insert into Milvus collection
-- [ ] **T6** – Milvus collection schema creation on startup (using `embedding_dimension()`)
+- [ ] **T7** – RAG query engine using LlamaIndex VectorStoreIndex over Milvus
+- [ ] **T7** – Hybrid retrieval (dense vector search + BM25 keyword fallback)
+- [ ] **T7** – Query router and `/api/v1/chat` endpoint
 
 ## Phase Status
 | Phase | Status |
@@ -126,8 +146,8 @@ This file is updated after every commit cycle per the agent execution contract.
 | P1 – Infrastructure | ✅ Complete |
 | P2 – Auth & Core Backend | ✅ Complete |
 | P3 – Document Ingestion | ✅ Complete |
-| P4 – Embedding & Indexing | 🟡 **In Progress** (T5 ✅ done, T6 pending) |
-| P5 – RAG Retrieval | ⬜ Pending |
+| P4 – Embedding & Indexing | ✅ **Complete** (T5 chunking+embedding, T6 Milvus insert) |
+| P5 – RAG Retrieval | 🟡 **Next** |
 | P6 – Chat Interface | ⬜ Pending |
 | P7 – Frontend | ⬜ Pending |
 | P8 – Security & Logging | ⬜ Pending |
