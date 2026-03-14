@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "text-embedding-3-small"
     OPENAI_API_KEY: str = ""
 
+    # Milvus (Phase P4 – T6)
+    MILVUS_HOST: str = "localhost"
+    MILVUS_PORT: int = 19530
+    MILVUS_COLLECTION: str = "insurai_chunks"
+
     class Config:
         env_file = ".env"
         case_sensitive = True
