@@ -18,6 +18,8 @@ sqlalchemy = { extras = ["asyncio"], version = "^2.0.30" }
 asyncpg = "^0.29.0"
 redis = "^5.0.4"
 celery = { extras = ["redis"], version = "^5.4.0" }
+pymupdf = "^1.24.0"           # PDF text extraction (fitz) for ingestion worker
+python-docx = "^1.1.0"       # DOCX text extraction for ingestion worker
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"

@@ -23,6 +23,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
 from app.ingestion.schemas import DocumentStatus, DocumentUploadResponse
 from app.storage.minio_client import upload_file
+from app.workers.ingestion_tasks import ingest_document
 
 router = APIRouter(prefix="/api/v1/documents", tags=["Document Ingestion"])
 
@@ -97,8 +98,15 @@ async def upload_document(
             detail=f"Object storage unavailable: {exc}",
         ) from exc
 
-    # --- Build response (PostgreSQL write + Celery enqueue in next sub-task) ---
+    # --- Dispatch async ingestion task ---
     document_id = uuid.uuid4().hex
+
+    ingest_document.delay(
+        document_id=document_id,
+        object_key=stored.object_name,
+        content_type=stored.content_type,
+        workspace_id=workspace_id,
+    )
 
     return DocumentUploadResponse(
         document_id=document_id,
