@@ -32,6 +32,7 @@ from app.storage.minio_client import _get_client, upload_file
 from app.core.config import settings
 from app.processing.chunker import chunk_text
 from app.processing.embedder import generate_embeddings
+from app.processing.vector_store import insert_vectors
 
 logger = logging.getLogger(__name__)
 
@@ -176,11 +177,23 @@ def ingest_document(
         "Chunk manifest stored for document_id=%s (%d chunks)", document_id, len(chunks)
     )
 
+    # 7. Insert chunk vectors into Milvus
+    # If Milvus is unreachable the Celery retry mechanism will handle it (max 3×).
+    inserted = insert_vectors(
+        document_id=document_id,
+        workspace_id=workspace_id,
+        chunk_manifest=manifest,
+    )
+    logger.info(
+        "Indexed %d vectors in Milvus for document_id=%s", inserted, document_id
+    )
+
     return {
         "document_id": document_id,
-        "status": "embedded",
+        "status": "indexed",
         "extracted_chars": extracted_chars,
         "sidecar_key": sidecar_key,
         "chunk_count": len(chunks),
+        "inserted_vectors": inserted,
         "embedding_dim": len(vectors[0]) if vectors else 0,
     }

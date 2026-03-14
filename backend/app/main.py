@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.ingestion.router import router as ingestion_router
 from app.storage.minio_client import ensure_bucket_exists
+from app.processing.vector_store import ensure_collection_exists
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,16 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "MinIO bucket initialization failed (is MinIO running?): %s", exc
+        )
+
+    try:
+        ensure_collection_exists()
+        logger.info(
+            "Milvus collection '%s' is ready.", settings.MILVUS_COLLECTION
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Milvus collection initialization failed (is Milvus running?): %s", exc
         )
 
     yield  # Application runs here
