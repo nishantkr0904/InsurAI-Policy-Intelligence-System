@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     MILVUS_PORT: int = 19530
     MILVUS_COLLECTION: str = "insurai_chunks"
 
+    # LLM inference (Phase P5 – T7)
+    # LiteLLM model string, e.g. "gpt-4o-mini", "ollama/llama3"
+    LLM_MODEL: str = "gpt-4o-mini"
+    LLM_TEMPERATURE: float = 0.1
+
     class Config:
         env_file = ".env"
         case_sensitive = True

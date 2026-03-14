@@ -1,0 +1,139 @@
+"""
+LLM answer synthesizer for RAG responses.
+
+Takes a user query and a list of retrieved chunks, builds a structured
+insurance-domain context prompt, and calls an LLM via LiteLLM to
+generate a grounded, cited answer.
+
+Architecture ref:
+  docs/system-architecture.md §9 – LLM Integration Strategy
+  docs/roadmap.md Phase 5 – "LLM answer synthesis with source citation"
+
+Design decisions:
+  - A domain-specific system prompt instructs the LLM to behave as an
+    insurance policy analysis assistant and cite sources.
+  - Context is assembled from the top chunks up to MAX_CONTEXT_TOKENS.
+  - Source citations include document_id and chunk_index so the frontend
+    can deep-link to the original policy clause.
+  - LiteLLM is used so the LLM backend is swappable via config only.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from typing import List
+
+import litellm
+
+from app.core.config import settings
+from app.rag.retriever import RetrievedChunk
+
+logger = logging.getLogger(__name__)
+
+_SYSTEM_PROMPT = """You are InsurAI, an expert insurance policy analysis assistant.
+Your role is to answer questions about insurance policies, claims, and compliance
+documents based ONLY on the provided policy excerpts.
+
+Rules:
+- Answer factually using only the provided context.
+- If the answer is not in the context, say so clearly.
+- Cite the source document and section for every claim you make.
+- Use precise, professional language appropriate for compliance officers and underwriters.
+"""
+
+
+@dataclass
+class SynthesisResult:
+    answer: str
+    sources: List[dict]      # [{document_id, chunk_index, text_preview}]
+    model: str
+    token_usage: dict
+
+
+def _build_context(chunks: List[RetrievedChunk], max_chars: int = 6000) -> str:
+    """Build a numbered context block from the top retrieved chunks."""
+    lines = []
+    total = 0
+    for i, chunk in enumerate(chunks, start=1):
+        excerpt = f"[{i}] (doc={chunk.document_id}, chunk={chunk.chunk_index}):\n{chunk.text}\n"
+        if total + len(excerpt) > max_chars:
+            break
+        lines.append(excerpt)
+        total += len(excerpt)
+    return "\n".join(lines)
+
+
+def synthesize(
+    query: str,
+    chunks: List[RetrievedChunk],
+    model: str | None = None,
+) -> SynthesisResult:
+    """
+    Generate a grounded, cited answer from the retrieved chunks.
+
+    Args:
+        query:  The user's original question.
+        chunks: Retrieved and re-ranked chunks from retriever.retrieve().
+        model:  LiteLLM model string; defaults to settings.LLM_MODEL.
+
+    Returns:
+        SynthesisResult with answer text, sources, model name, and token usage.
+
+    Raises:
+        RuntimeError: if the LLM call fails.
+    """
+    model = model or settings.LLM_MODEL
+
+    if not chunks:
+        return SynthesisResult(
+            answer="I could not find relevant policy information to answer your question.",
+            sources=[],
+            model=model,
+            token_usage={},
+        )
+
+    context = _build_context(chunks)
+
+    user_message = (
+        f"Context from policy documents:\n\n{context}\n\n"
+        f"Question: {query}\n\n"
+        "Answer (cite the numbered sources above):"
+    )
+
+    try:
+        response = litellm.completion(
+            model=model,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user",   "content": user_message},
+            ],
+            temperature=settings.LLM_TEMPERATURE,
+            api_key=settings.OPENAI_API_KEY or None,
+        )
+        answer = response.choices[0].message.content or ""
+        usage = {
+            "prompt_tokens":     response.usage.prompt_tokens,
+            "completion_tokens": response.usage.completion_tokens,
+            "total_tokens":      response.usage.total_tokens,
+        }
+    except Exception as exc:
+        logger.error("LLM synthesis failed: %s", exc)
+        raise RuntimeError(f"LLM synthesis failed (model={model}): {exc}") from exc
+
+    sources = [
+        {
+            "document_id":  c.document_id,
+            "chunk_index":  c.chunk_index,
+            "text_preview": c.text[:200],
+            "score":        round(c.final_score, 4),
+        }
+        for c in chunks
+    ]
+
+    logger.info(
+        "Synthesized answer (%d tokens) for query='%s...'",
+        usage.get("total_tokens", 0),
+        query[:40],
+    )
+    return SynthesisResult(answer=answer, sources=sources, model=model, token_usage=usage)
