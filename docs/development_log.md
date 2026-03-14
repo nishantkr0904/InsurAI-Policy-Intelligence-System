@@ -45,17 +45,49 @@ This file is updated after every commit cycle per the agent execution contract.
 
 ---
 
+---
+
+### Commit 5a – `chore(infra): add docker-compose for PostgreSQL, MinIO, and Redis local services`
+- **Files created:**
+  - `docker-compose.yml`
+- **Summary:** Services defined: PostgreSQL 16, MinIO (with one-shot `mc` bucket init container), Redis 7. All services include healthchecks.
+- **Lines added:** 98
+
+---
+
+### Commit 5b – `feat(startup): auto-initialize MinIO bucket via FastAPI lifespan event`
+- **Files modified:**
+  - `backend/app/main.py`
+- **Summary:** Added `asynccontextmanager` lifespan handler. On startup, calls `ensure_bucket_exists()`. Logs a warning (does not crash) if MinIO is unreachable.
+- **Lines added:** 36
+
+---
+
+### Commit 6 – `feat(worker): add Celery ingestion task with PDF/DOCX parsing and MinIO sidecar storage`
+- **Files created:**
+  - `backend/app/workers/__init__.py`
+  - `backend/app/workers/celery_app.py`
+  - `backend/app/workers/ingestion_tasks.py`
+- **Files modified:**
+  - `backend/app/ingestion/router.py` – wired `ingest_document.delay()` replacing stub comment
+  - `backend/pyproject.toml` – added `pymupdf` and `python-docx`
+- **Summary:** Full async ingestion pipeline. Upload → MinIO → Celery task enqueued → worker fetches file → extracts text (PyMuPDF/python-docx) → stores parsed sidecar `.txt`. Max 3 retries with exponential backoff.
+- **Lines added:** 204
+
+---
+
 ## Next Tasks
-- [ ] `minio_integration` – Wire Docker Compose MinIO service and test bucket creation on startup
-- [ ] `worker_pipeline` – Implement Celery worker that picks up the `document_id` and triggers parsing (T4 continuation → T5)
+- [ ] Phase P4: Implement embedding service (T5)
+- [ ] Semantic chunking of parsed sidecar text
+- [ ] Milvus vector database integration (T6)
 
 ## Phase Status
 | Phase | Status |
 |-------|--------|
-| P1 – Infrastructure | 🟡 In Progress (docker-compose pending) |
+| P1 – Infrastructure | ✅ Complete (docker-compose live) |
 | P2 – Auth & Core Backend | ✅ Complete |
-| P3 – Document Ingestion | 🟡 In Progress (upload endpoint done, worker pending) |
-| P4 – Embedding & Indexing | ⬜ Pending |
+| P3 – Document Ingestion | ✅ **Complete** (upload + MinIO + worker pipeline) |
+| P4 – Embedding & Indexing | 🟡 Next |
 | P5 – RAG Retrieval | ⬜ Pending |
 | P6 – Chat Interface | ⬜ Pending |
 | P7 – Frontend | ⬜ Pending |
