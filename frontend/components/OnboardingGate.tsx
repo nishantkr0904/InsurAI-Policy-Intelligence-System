@@ -2,20 +2,27 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { isAuthenticated, isOnboarded } from "@/lib/auth";
 import OnboardingFlow from "@/components/OnboardingFlow";
 
 /**
- * OnboardingGate – client component rendered at `/`.
- * Checks localStorage for `insurai_onboarded`; if set, redirects to /chat.
- * Otherwise renders the multi-step onboarding flow.
+ * OnboardingGate – client component rendered at `/` for authenticated users.
+ * If user is authenticated but not onboarded → show OnboardingFlow.
+ * If authenticated and onboarded → redirect to /dashboard.
+ * If not authenticated → redirect to landing (handled by LandingOrOnboarding).
  */
 export default function OnboardingGate() {
   const router = useRouter();
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (localStorage.getItem("insurai_onboarded") === "true") {
-      router.replace("/chat");
+    if (!isAuthenticated()) {
+      // Not auth – LandingOrOnboarding handles this case
+      setChecked(true);
+      return;
+    }
+    if (isOnboarded()) {
+      router.replace("/dashboard");
     } else {
       setChecked(true);
     }

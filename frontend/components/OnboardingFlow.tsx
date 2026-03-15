@@ -11,7 +11,7 @@ export default function OnboardingFlow() {
   function launch() {
     localStorage.setItem("insurai_workspace", workspace || "default");
     localStorage.setItem("insurai_onboarded", "true");
-    router.push("/chat");
+    router.push("/dashboard");
   }
 
   return (
@@ -85,20 +85,27 @@ function StepWelcome({ onNext }: { onNext: () => void }) {
         </p>
       </div>
 
-      {/* Metric cards – 3-column grid */}
-      <div className="grid grid-cols-3 gap-4 w-full">
+      {/* Workflow cards – 4-step process */}
+      <div className="grid grid-cols-2 gap-3 w-full">
         {[
-          { value: "94.2%", label: "Answer Accuracy" },
-          { value: "<1%",   label: "Hallucination Rate" },
-          { value: "274×",  label: "Faster Processing" },
-        ].map(({ value, label }) => (
+          { step: "1", icon: "📄", label: "Upload Policies", color: "var(--accent)" },
+          { step: "2", icon: "⚡", label: "AI Indexing",     color: "var(--purple)" },
+          { step: "3", icon: "💬", label: "Ask Questions",   color: "var(--success)" },
+          { step: "4", icon: "✅", label: "Validate Claims", color: "var(--warning)" },
+        ].map(({ step, icon, label, color }) => (
           <div
-            key={label}
-            className="flex flex-col items-center gap-1.5 rounded-xl py-5 px-3"
+            key={step}
+            className="flex flex-col items-center gap-1.5 rounded-xl py-4 px-3"
             style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
           >
-            <span className="text-2xl font-bold gradient-text">{value}</span>
-            <span className="text-xs text-center leading-tight" style={{ color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: "22px" }}>{icon}</span>
+            <span
+              className="text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ background: `${color}1a`, color }}
+            >
+              Step {step}
+            </span>
+            <span className="text-xs text-center font-medium" style={{ color: "var(--text-secondary)" }}>
               {label}
             </span>
           </div>
