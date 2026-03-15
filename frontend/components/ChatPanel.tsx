@@ -12,7 +12,7 @@
  */
 
 import { useRef, useState } from "react";
-import { streamChat } from "@/lib/api";
+import { streamChat, fetchChatResponse, type SourceCitation } from "@/lib/api";
 
 interface Message {
   role: "user" | "assistant";
@@ -22,9 +22,11 @@ interface Message {
 
 interface ChatPanelProps {
   workspaceId: string;
+  /** Called after each completed response with the retrieved source citations. */
+  onCitations?: (sources: SourceCitation[]) => void;
 }
 
-export default function ChatPanel({ workspaceId }: ChatPanelProps) {
+export default function ChatPanel({ workspaceId, onCitations }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -63,6 +65,15 @@ export default function ChatPanel({ workspaceId }: ChatPanelProps) {
           return next;
         });
         scrollBottom();
+      }
+
+      // Fetch full response (with citations) from the blocking endpoint.
+      // The SSE stream emits tokens only; sources require a second call.
+      if (onCitations) {
+        try {
+          const full = await fetchChatResponse(query, workspaceId);
+          onCitations(full.sources);
+        } catch { /* citations are non-critical; silently ignore */ }
       }
     } catch (e) {
       setMessages((prev) => {
