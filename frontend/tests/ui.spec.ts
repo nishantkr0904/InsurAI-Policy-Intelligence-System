@@ -401,3 +401,88 @@ test("landing page – interactive query section loads after initial paint", asy
   // The lazy-loaded PolicyQuerySection eventually appears
   await expect(page.getByText("Ask Anything About Your Policies")).toBeVisible({ timeout: 8_000 });
 });
+
+// ─── Hover effect consistency tests ──────────────────────────────────────────
+
+async function gotoLanding(page: Page) {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_auth");
+    localStorage.removeItem("insurai_user");
+  });
+  await page.goto("/");
+}
+
+test("hover effects – Problem Statement stat cards get accent border on hover", async ({ page }) => {
+  await gotoLanding(page);
+  await expect(page.getByText("40+ hrs")).toBeVisible({ timeout: 10_000 });
+
+  const card = page.locator(".card-hover").filter({ hasText: "40+ hrs" });
+  await card.hover();
+  const borderColor = await card.evaluate((el) =>
+    getComputedStyle(el).borderColor
+  );
+  // accent is rgb(59, 130, 246)
+  expect(borderColor).toContain("59");
+});
+
+test("hover effects – How InsurAI Works step cards get accent border on hover", async ({ page }) => {
+  await gotoLanding(page);
+  await expect(page.getByText("Upload Policies")).toBeVisible({ timeout: 10_000 });
+
+  const card = page.locator(".card-hover").filter({ hasText: "Upload Policies" });
+  await card.hover();
+  const borderColor = await card.evaluate((el) =>
+    getComputedStyle(el).borderColor
+  );
+  expect(borderColor).toContain("59");
+});
+
+test("hover effects – Testimonial cards get accent border on hover", async ({ page }) => {
+  await gotoLanding(page);
+  await expect(page.getByText("Sarah Reynolds")).toBeVisible({ timeout: 10_000 });
+
+  const card = page.getByTestId("testimonial-card").first();
+  await card.hover();
+  const borderColor = await card.evaluate((el) =>
+    getComputedStyle(el).borderColor
+  );
+  expect(borderColor).toContain("59");
+});
+
+test("hover effects – AI Transparency trust cards get accent border on hover", async ({ page }) => {
+  await gotoLanding(page);
+  await expect(page.getByRole("heading", { name: "Citation-Backed" })).toBeVisible({ timeout: 10_000 });
+
+  const card = page.locator(".card-hover").filter({ hasText: "Citation-Backed" });
+  await card.hover();
+  const borderColor = await card.evaluate((el) =>
+    getComputedStyle(el).borderColor
+  );
+  expect(borderColor).toContain("59");
+});
+
+test("hover effects – Security cards get accent border on hover", async ({ page }) => {
+  await gotoLanding(page);
+  await expect(page.getByText("Enterprise-Grade Security")).toBeVisible({ timeout: 10_000 });
+
+  const card = page.getByTestId("security-card").first();
+  await card.hover();
+  const borderColor = await card.evaluate((el) =>
+    getComputedStyle(el).borderColor
+  );
+  expect(borderColor).toContain("59");
+});
+
+test("hover effects – all hoverable card sections use card-hover class", async ({ page }) => {
+  await gotoLanding(page);
+  await expect(page.locator("h1").first()).toBeVisible({ timeout: 10_000 });
+
+  // Scroll to bottom to ensure all sections are rendered
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.waitForTimeout(500);
+
+  const hoverCards = page.locator(".card-hover");
+  const count = await hoverCards.count();
+  // 4 stat + 4 how-it-works + 3 testimonials + 6 role-based + 4 trust + 6 security = 27
+  expect(count).toBeGreaterThanOrEqual(27);
+});

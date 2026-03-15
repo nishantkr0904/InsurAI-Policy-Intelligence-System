@@ -105,7 +105,7 @@ export default function LandingPage() {
               { stat: "30%", desc: "Claims delayed by manual verification" },
               { stat: "60%", desc: "Compliance errors from outdated processes" },
             ].map(({ stat, desc }) => (
-              <div key={stat} className="card" style={{ textAlign: "center", padding: "24px 16px" }}>
+              <div key={stat} className="card card-hover" style={{ textAlign: "center", padding: "24px 16px" }}>
                 <div className="gradient-text" style={{ fontSize: "2.25rem", fontWeight: 800, lineHeight: 1 }}>{stat}</div>
                 <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "8px", lineHeight: 1.5 }}>{desc}</div>
               </div>
@@ -132,7 +132,7 @@ export default function LandingPage() {
               { step: "03", icon: "💬", title: "Ask Questions", desc: "Query in plain English. Get precise, citation-backed answers from your actual policies.", color: "var(--success)" },
               { step: "04", icon: "✅", title: "Validate & Report", desc: "Validate claims, detect fraud patterns, and generate compliance reports automatically.", color: "var(--warning)" },
             ].map(({ step, icon, title, desc, color }) => (
-              <div key={step} className="card" style={{ position: "relative" }}>
+              <div key={step} className="card card-hover" style={{ position: "relative" }}>
                 <div style={{
                   position: "absolute", top: "14px", right: "14px",
                   fontSize: "10px", fontWeight: 700, color,
@@ -190,7 +190,7 @@ export default function LandingPage() {
                 quote: "Audit readiness used to keep me up at night. With InsurAI's complete activity trail and automated compliance reports, I can walk into any regulatory review without hesitation.",
               },
             ].map(({ initials, name, role, company, color, quote }) => (
-              <div key={name} data-testid="testimonial-card" className="card" style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+              <div key={name} data-testid="testimonial-card" className="card card-hover" style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
                 <p style={{ fontSize: "14px", color: "var(--text-secondary)", lineHeight: 1.75, fontStyle: "italic", flexGrow: 1 }}>
                   &ldquo;{quote}&rdquo;
                 </p>
@@ -268,7 +268,7 @@ export default function LandingPage() {
               { icon: "💡", title: "Reasoning Explained", desc: "Understand why the AI gave a particular answer." },
               { icon: "📋", title: "Audit Trail", desc: "Every AI query and decision is logged for compliance." },
             ].map(({ icon, title, desc }) => (
-              <div key={title} className="card" style={{ textAlign: "center", padding: "28px 20px" }}>
+              <div key={title} className="card card-hover" style={{ textAlign: "center", padding: "28px 20px" }}>
                 <div style={{ fontSize: "28px", marginBottom: "12px" }}>{icon}</div>
                 <h3 style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: "14px", marginBottom: "6px" }}>{title}</h3>
                 <p style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.7 }}>{desc}</p>
@@ -300,10 +300,8 @@ export default function LandingPage() {
               { label: "On-Premise Deployment", desc: "Deploy in your own environment", icon: "🖥️" },
               { label: "Data Isolation", desc: "Tenant-level data separation", icon: "🗄️" },
             ].map(({ label, desc, icon }) => (
-              <div key={label} data-testid="security-card" style={{
-                display: "flex", alignItems: "center", gap: "10px",
-                background: "var(--bg-card)", border: "1px solid var(--border)",
-                borderRadius: "10px", padding: "12px 16px",
+              <div key={label} data-testid="security-card" className="card card-hover" style={{
+                display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px",
               }}>
                 <span style={{ fontSize: "20px" }}>{icon}</span>
                 <div style={{ textAlign: "left" }}>
