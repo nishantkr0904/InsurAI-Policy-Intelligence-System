@@ -106,6 +106,27 @@ export async function fetchChatResponse(
   return res.json() as Promise<ChatResponse>;
 }
 
+/** Shape of a single document record returned by GET /api/v1/documents. */
+export interface DocumentRecord {
+  document_id: string;
+  filename: string;
+  status: "uploading" | "processing" | "indexed" | "error";
+  workspace_id: string;
+  created_at?: string;
+  error_message?: string;
+}
+
+/** Fetch the list of documents for a given workspace. */
+export async function fetchDocuments(
+  workspaceId: string,
+): Promise<DocumentRecord[]> {
+  const res = await fetch(
+    `${BASE}/documents?workspace_id=${encodeURIComponent(workspaceId)}`,
+  );
+  if (!res.ok) throw new Error(`Failed to fetch documents: ${res.status}`);
+  return res.json() as Promise<DocumentRecord[]>;
+}
+
 /** Upload a single PDF/DOCX file for ingestion. */
 export async function uploadDocument(
   file: File,
