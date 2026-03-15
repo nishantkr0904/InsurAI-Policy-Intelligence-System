@@ -20,9 +20,10 @@ Design decisions:
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
-from typing import List
+from typing import AsyncGenerator, List
 
 import litellm
 
@@ -137,3 +138,67 @@ def synthesize(
         query[:40],
     )
     return SynthesisResult(answer=answer, sources=sources, model=model, token_usage=usage)
+
+
+async def synthesize_stream(
+    query: str,
+    chunks: List[RetrievedChunk],
+    model: str | None = None,
+) -> AsyncGenerator[str, None]:
+    """
+    Stream a grounded answer token-by-token using Server-Sent Events (SSE).
+
+    Yields SSE-formatted lines:
+      - Content delta:  data: {"token": "<text>"}\\n\\n
+      - On completion:  data: [DONE]\\n\\n
+      - On error:       data: {"error": "<message>"}\\n\\n  followed by data: [DONE]
+
+    Architecture ref:
+      docs/roadmap.md Phase 6 – "streaming responses (SSE)"
+
+    Args:
+        query:   The user's original question.
+        chunks:  Retrieved and re-ranked chunks from retriever.retrieve().
+        model:   LiteLLM model string; defaults to settings.LLM_MODEL.
+
+    Yields:
+        SSE-formatted strings ready for FastAPI StreamingResponse.
+    """
+    model = model or settings.LLM_MODEL
+
+    if not chunks:
+        payload = json.dumps({"token": "I could not find relevant policy information to answer your question."})
+        yield f"data: {payload}\n\n"
+        yield "data: [DONE]\n\n"
+        return
+
+    context = _build_context(chunks)
+    user_message = (
+        f"Context from policy documents:\n\n{context}\n\n"
+        f"Question: {query}\n\n"
+        "Answer (cite the numbered sources above):"
+    )
+
+    try:
+        response = await litellm.acompletion(
+            model=model,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user",   "content": user_message},
+            ],
+            temperature=settings.LLM_TEMPERATURE,
+            api_key=settings.OPENAI_API_KEY or None,
+            stream=True,
+        )
+        async for chunk in response:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                payload = json.dumps({"token": delta})
+                yield f"data: {payload}\n\n"
+
+    except Exception as exc:
+        logger.error("Streaming LLM synthesis failed: %s", exc)
+        err_payload = json.dumps({"error": str(exc)})
+        yield f"data: {err_payload}\n\n"
+
+    yield "data: [DONE]\n\n"
