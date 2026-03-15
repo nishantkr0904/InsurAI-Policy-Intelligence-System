@@ -294,41 +294,52 @@ This file is updated after every commit cycle per the agent execution contract.
 
 ---
 
+### Commit 12c – `feat(frontend): add source citation viewer panel to chat dual-pane layout`
+
+- **Files created:** `frontend/components/SourcePanel.tsx`, `frontend/components/ChatPageClient.tsx`
+- **Files modified:** `frontend/components/ChatPanel.tsx`, `frontend/lib/api.ts`, `frontend/app/chat/page.tsx`
+- **Summary:**
+  - `SourcePanel.tsx`: new `"use client"` component rendering cited chunks per query — document ID, relevance score badge (%), and 3-line text preview; empty state shown before first query.
+  - `ChatPageClient.tsx`: new `"use client"` client wrapper; owns `citations: SourceCitation[]` state; wires `ChatPanel onCitations={setCitations}` → `SourcePanel citations={citations}`; enables `chat/page.tsx` to remain a Server Component with `<Metadata>`.
+  - `ChatPanel.tsx`: added `onCitations?: (sources: SourceCitation[]) => void` prop; after SSE stream completes, calls `fetchChatResponse()` and lifts `sources[]` to parent; failure silently caught.
+  - `lib/api.ts`: added `fetchChatResponse()` — blocking `POST /api/v1/chat` call returning full `ChatResponse` (including `sources[]`). No backend changes required.
+  - `chat/page.tsx`: reduced to thin Server Component delegating to `<ChatPageClient>`.
+- **Lines added:** 281 (net 218)
+- **Roadmap ref:** Phase 7 Task 3 – dual-pane source viewer
+
+---
+
 ## Next Tasks
 
+- [ ] **T10 (7.4)** – Document data table (workspace/document list fetched from API, displayed in dashboard)
 - [ ] **T11** – Analytics dashboard (query volume, document counts, retrieval metrics)
 - [ ] **T12** – Audit logging middleware (all prompts + user queries → PostgreSQL)
 
 ## Phase Status
 
-| Phase                     | Status                                                      |
-| ------------------------- | ----------------------------------------------------------- |
-| P1 – Infrastructure       | ✅ Complete                                                 |
-| P2 – Auth & Core Backend  | ✅ Complete                                                 |
-| P3 – Document Ingestion   | ✅ Complete                                                 |
-| P4 – Embedding & Indexing | ✅ Complete                                                 |
-| P5 – RAG Retrieval        | ✅ Complete                                                 |
-| P6 – LLM Integration      | ✅ Complete                                                 |
-| P7 – Frontend             | ✅ **Complete** (T10 chat UI, upload UI, dashboard routing) |
-| P8 – Security & Logging   | 🟡 **Next** (T12 audit logging)                             |
-| P9 – Testing              | ⬜ Pending                                                  |
-| P10 – Deployment          | ⬜ Pending                                                  |
+| Phase                     | Status                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------- |
+| P1 – Infrastructure       | ✅ Complete                                                                                 |
+| P2 – Auth & Core Backend  | ✅ Complete                                                                                 |
+| P3 – Document Ingestion   | ✅ Complete                                                                                 |
+| P4 – Embedding & Indexing | ✅ Complete                                                                                 |
+| P5 – RAG Retrieval        | ✅ Complete                                                                                 |
+| P6 – LLM Integration      | ✅ Complete                                                                                 |
+| P7 – Frontend             | 🟡 **In Progress** (T10: dashboard ✅, chat ✅, upload ✅, source viewer ✅, data table ⬜) |
+| P8 – Security & Logging   | ⬜ Pending                                                                                  |
+| P9 – Testing              | ⬜ Pending                                                                                  |
+| P10 – Deployment          | ⬜ Pending                                                                                  |
 
 ---
 
-### Verification Pass – T10 Frontend Interface (2026-03-15)
+### Verification Pass – Commit 12c (2026-03-15)
 
-- **Trigger:** Manual verification run post-implementation.
-- **Checks performed:** architecture compliance, guardrail violations, dependency violations, phase gate compliance, commit limits.
-- **Result:** ✅ PASS — all checks clear. No violations detected.
-
-| Check | Result |
-|---|---|
-| Architecture compliance | ✅ Next.js 15, Tailwind only; no new frameworks |
-| Guardrail violations | ✅ None |
-| Dependency violations | ✅ T9 completed before T10; task graph order respected |
-| Phase gate P7 | ✅ Chat works, upload works, frontend ↔ backend communication verified |
-| Commit 12a (3 files / 325 lines) | ✅ Within limits |
-| Commit 12b (5 files / 264 lines) | ✅ Within limits |
-| Protected files modified | ✅ None |
-| Backend/frontend mixing | ✅ None |
+| Check                                 | Result                                                |
+| ------------------------------------- | ----------------------------------------------------- |
+| Architecture compliance               | ✅ Next.js 15, Tailwind only; no new frameworks       |
+| Guardrail violations                  | ✅ None                                               |
+| Dependency violations                 | ✅ `/api/v1/chat` (P6) exists; T9 complete before T10 |
+| Phase gate P7                         | ✅ Source viewer implemented; data table remaining    |
+| Commit 12c (5 files / 281 insertions) | ✅ Within limits                                      |
+| Protected files modified              | ✅ None                                               |
+| Backend/frontend mixing               | ✅ None                                               |

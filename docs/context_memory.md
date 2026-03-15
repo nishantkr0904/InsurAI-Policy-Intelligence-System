@@ -34,25 +34,26 @@ SSE Streaming (COMPLETE – P6 T9)
 synthesize_stream(query, chunks, model): - Calls litellm.acompletion(stream=True) - Yields: data: {"token": "<text>"}\n\n for each delta - Yields: data: [DONE]\n\n on completion - On error: data: {"error": "..."}\n\n then data: [DONE]\n\n
 stream_router.py: - Retrieval done synchronously before stream opens (503 if fails) - Sets Cache-Control: no-cache + X-Accel-Buffering: no
 
-Frontend Modules (COMPLETE – P7 T10)
+Frontend Modules (P7 T10 – in progress, 3 of 4 tasks complete)
 Next.js 15 App Router, Tailwind CSS, no additional frameworks.
-Dashboard pages are React Server Components; ChatPanel + UploadPanel are "use client".
+Dashboard pages are React Server Components; ChatPanel, ChatPageClient, SourcePanel, UploadPanel are "use client".
 API calls proxied via next.config.ts rewrites → FastAPI:8000 (no CORS required).
-  streamChat(query, workspaceId) → POST /api/v1/chat/stream (SSE async generator)
-  uploadDocument(file, workspaceId) → POST /api/v1/documents/upload (multipart/form-data)
+streamChat(query, workspaceId) → POST /api/v1/chat/stream (SSE async generator)
+fetchChatResponse(query, workspaceId) → POST /api/v1/chat (blocking; returns sources[])
+uploadDocument(file, workspaceId) → POST /api/v1/documents/upload (multipart/form-data)
+Citation flow: ChatPanel streams tokens → on complete → fetchChatResponse() → onCitations(sources) → ChatPageClient state → SourcePanel.
 
-- frontend/app/layout.tsx                     – Root layout, header nav, footer
-- frontend/app/globals.css                    – Tailwind base, design tokens, component classes
-- frontend/app/page.tsx                       – Root redirect → /chat
-- frontend/app/chat/page.tsx                  – Dual-pane: ChatPanel (left) + UploadPanel (right)
-- frontend/app/dashboard/layout.tsx           – Shared sidebar nav (Overview, Underwriter, Compliance, Chat)
-- frontend/app/dashboard/page.tsx             – Role-selection landing with quick-action cards
+- frontend/app/chat/page.tsx – Server Component; delegates to ChatPageClient
+- frontend/app/dashboard/layout.tsx – Shared sidebar nav (Overview, Underwriter, Compliance, Chat)
+- frontend/app/dashboard/page.tsx – Role-selection landing with quick-action cards
 - frontend/app/dashboard/underwriter/page.tsx – Underwriter tools shell
-- frontend/app/dashboard/compliance/page.tsx  – Compliance officer monitoring shell
-- frontend/components/ChatPanel.tsx           – SSE token-streaming chat UI ("use client")
-- frontend/components/UploadPanel.tsx         – Drag-and-drop PDF/DOCX upload ("use client")
-- frontend/lib/api.ts                         – Typed fetch wrappers: streamChat(), uploadDocument()
-- frontend/next.config.ts                     – /api/* proxy rewrites to FastAPI backend
+- frontend/app/dashboard/compliance/page.tsx – Compliance officer monitoring shell
+- frontend/components/ChatPanel.tsx – SSE token-streaming chat UI ("use client"); lifts citations via onCitations prop
+- frontend/components/ChatPageClient.tsx – Client wrapper; owns citations state; wires ChatPanel → SourcePanel ("use client")
+- frontend/components/SourcePanel.tsx – Citation viewer: doc ID, relevance score badge, text preview ("use client")
+- frontend/components/UploadPanel.tsx – Drag-and-drop PDF/DOCX upload ("use client")
+- frontend/lib/api.ts – Typed fetch wrappers: streamChat(), fetchChatResponse(), uploadDocument()
+- frontend/next.config.ts – /api/\* proxy rewrites to FastAPI backend
 
 Backend Modules (COMPLETE – P1–P6)
 
