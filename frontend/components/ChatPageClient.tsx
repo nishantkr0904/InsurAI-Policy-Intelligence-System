@@ -32,25 +32,42 @@ export default function ChatPageClient({ workspaceId }: Props) {
         className="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r lg:overflow-hidden min-h-[65vh] lg:min-h-0"
         style={{ borderColor: "var(--border)" }}
       >
+        {/* ── Left panel header ── */}
         <div
-          className="flex items-center justify-between px-4 py-3 border-b"
-          style={{ borderColor: "var(--border)" }}
+          className="flex items-center justify-between px-5 py-3.5 border-b shrink-0"
+          style={{ borderColor: "var(--border)", background: "var(--bg-surface)" }}
         >
-          <h1
-            className="font-semibold text-sm"
-            style={{ color: "var(--text-secondary)" }}
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-7 h-7 rounded-lg flex items-center justify-center"
+              style={{ background: "var(--accent-soft)" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                style={{ color: "var(--accent)" }}>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </div>
+            <h1 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+              Policy Chat
+            </h1>
+          </div>
+          <span
+            className="badge badge-accent"
+            style={{ fontSize: "0.65rem" }}
           >
-            POLICY CHAT
-          </h1>
-          <span className="badge badge-accent">Workspace: {workspaceId}</span>
+            {workspaceId}
+          </span>
         </div>
         <ChatPanel workspaceId={workspaceId} onCitations={setCitations} />
       </section>
 
       {/* ── Right: Sources + Upload ── */}
       <aside
-        className="w-full lg:w-80 flex flex-col gap-4 p-4 overflow-y-auto lg:shrink-0"
-        style={{ background: "var(--bg-surface)" }}
+        className="w-full lg:w-80 flex flex-col gap-4 p-4 overflow-y-auto lg:shrink-0 border-t lg:border-t-0"
+        style={{
+          background: "var(--bg-base)",
+          borderColor: "var(--border)",
+        }}
       >
         <SourcePanel citations={citations} />
         <UploadPanel workspaceId={workspaceId} />
