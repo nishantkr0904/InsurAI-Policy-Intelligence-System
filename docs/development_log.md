@@ -147,7 +147,49 @@ This file is updated after every commit cycle per the agent execution contract.
 | P2 – Auth & Core Backend | ✅ Complete |
 | P3 – Document Ingestion | ✅ Complete |
 | P4 – Embedding & Indexing | ✅ **Complete** (T5 chunking+embedding, T6 Milvus insert) |
-| P5 – RAG Retrieval | 🟡 **Next** |
+| P5 – RAG Retrieval | 🟡 **In Progress** (T7 ✅ done, T8 pending) |
+| P6 – Chat Interface | ⬜ Pending |
+| P7 – Frontend | ⬜ Pending |
+| P8 – Security & Logging | ⬜ Pending |
+| P9 – Testing | ⬜ Pending |
+| P10 – Deployment | ⬜ Pending |
+
+---
+
+### Commits 9a / 9b / 9c – T7 RAG Retrieval Pipeline
+
+**9a** – `feat(rag): add hybrid retrieval service with dense ANN and BM25 re-ranking`
+- **Files created:** `backend/app/rag/__init__.py`, `backend/app/rag/retriever.py`
+- **Files modified:** `backend/pyproject.toml` – added `rank-bm25 ^0.2.2`
+- **Summary:** `retrieve(query, workspace_id, top_k)` embeds the query via `generate_embeddings()`, fetches 3× `top_k` dense candidates from Milvus via `search_vectors()`, applies `BM25Okapi` re-ranking, fuses scores at ALPHA=0.7 dense / 0.3 BM25, returns sorted `List[RetrievedChunk]`. Graceful degradation to dense-only if `rank-bm25` not installed.
+- **Lines added:** 119
+
+**9b** – `feat(rag): add LLM synthesizer with insurance-domain prompt and source citations`
+- **Files created:** `backend/app/rag/synthesizer.py`
+- **Files modified:** `backend/app/core/config.py` – added `LLM_MODEL`, `LLM_TEMPERATURE` settings
+- **Summary:** `synthesize(query, chunks)` assembles a numbered context block (capped at 6000 chars) and calls `litellm.completion()` with a domain-specific system prompt. Returns `SynthesisResult` with answer, `SourceCitation` list (document_id, chunk_index, text_preview, score), and token usage.
+- **Lines added:** 144
+
+**9c** – `feat(api): add /api/v1/chat RAG endpoint with retrieve-synthesize pipeline`
+- **Files created:** `backend/app/rag/schemas.py`, `backend/app/rag/router.py`
+- **Files modified:** `backend/app/main.py` – registered `rag_router`
+- **Summary:** `POST /api/v1/chat` accepts `ChatRequest` (query, workspace_id, top_k, model override), calls retrieve → synthesize, returns `ChatResponse`. Returns HTTP 503 on retrieval or synthesis failure with separate log lines per step.
+- **Lines added:** 142
+
+---
+
+## Next Tasks
+- [ ] **T8** – Streaming LLM responses (SSE via FastAPI `StreamingResponse`)
+- [ ] **T8** – User feedback endpoint (`POST /api/v1/chat/{id}/feedback`)
+
+## Phase Status
+| Phase | Status |
+|-------|--------|
+| P1 – Infrastructure | ✅ Complete |
+| P2 – Auth & Core Backend | ✅ Complete |
+| P3 – Document Ingestion | ✅ Complete |
+| P4 – Embedding & Indexing | ✅ Complete |
+| P5 – RAG Retrieval | 🟡 **In Progress** (T7 ✅ done, T8 pending) |
 | P6 – Chat Interface | ⬜ Pending |
 | P7 – Frontend | ⬜ Pending |
 | P8 – Security & Logging | ⬜ Pending |
