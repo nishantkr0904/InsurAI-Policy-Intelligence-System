@@ -151,7 +151,7 @@ export default function Navbar() {
               <Link
                 key={href}
                 href={href}
-                className="relative px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150"
+                className="relative px-3 py-2 rounded-lg text-sm font-medium transition-[background-color,color] duration-150"
                 style={{
                   color: active ? "var(--text-primary)" : "var(--text-secondary)",
                   background: active ? "rgba(59,130,246,0.1)" : "transparent",
@@ -205,7 +205,7 @@ export default function Navbar() {
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => { setNotifOpen((o) => !o); setProfileOpen(false); }}
-            className="relative w-9 h-9 rounded-lg flex items-center justify-center transition-all"
+            className="relative w-9 h-9 rounded-lg flex items-center justify-center transition-[background-color,color]"
             style={{
               background: notifOpen ? "rgba(59,130,246,0.12)" : "transparent",
               color: "var(--text-secondary)",
@@ -261,7 +261,7 @@ export default function Navbar() {
         <div className="relative" ref={profileRef}>
           <button
             onClick={() => { setProfileOpen((o) => !o); setNotifOpen(false); }}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all"
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-[background-color,border-color]"
             style={{
               background: profileOpen ? "rgba(59,130,246,0.12)" : "var(--bg-card)",
               border: "1px solid var(--border)",
