@@ -311,7 +311,7 @@ This file is updated after every commit cycle per the agent execution contract.
 
 ## Next Tasks
 
-- [ ] **T10 (7.4)** – Document data table (workspace/document list fetched from API, displayed in dashboard)
+- [x] **T10 (7.4)** – Document data table ✅ (Commit 13a)
 - [ ] **T11** – Analytics dashboard (query volume, document counts, retrieval metrics)
 - [ ] **T12** – Audit logging middleware (all prompts + user queries → PostgreSQL)
 
@@ -325,7 +325,7 @@ This file is updated after every commit cycle per the agent execution contract.
 | P4 – Embedding & Indexing | ✅ Complete                                                                                 |
 | P5 – RAG Retrieval        | ✅ Complete                                                                                 |
 | P6 – LLM Integration      | ✅ Complete                                                                                 |
-| P7 – Frontend             | 🟡 **In Progress** (T10: dashboard ✅, chat ✅, upload ✅, source viewer ✅, data table ⬜) |
+| P7 – Frontend             | ✅ **Complete** (T10: dashboard ✅, chat ✅, upload ✅, source viewer ✅, data table ✅)   |
 | P8 – Security & Logging   | ⬜ Pending                                                                                  |
 | P9 – Testing              | ⬜ Pending                                                                                  |
 | P10 – Deployment          | ⬜ Pending                                                                                  |
@@ -343,3 +343,32 @@ This file is updated after every commit cycle per the agent execution contract.
 | Commit 12c (5 files / 281 insertions) | ✅ Within limits                                      |
 | Protected files modified              | ✅ None                                               |
 | Backend/frontend mixing               | ✅ None                                               |
+
+---
+
+### Commit 13a – T10 Document Data Table
+
+`feat(frontend): add documents page with ingestion status table`
+
+- **Files created:** `frontend/app/documents/page.tsx`, `frontend/components/DocumentTable.tsx`
+- **Files modified:** `frontend/lib/api.ts`
+- **Summary:**
+  - `app/documents/page.tsx`: Server Component. Renders page header and `<DocumentTable>`. Workspace sourced from `NEXT_PUBLIC_WORKSPACE_ID` env var (defaults to `"default"`). Resolves the broken `/documents` nav link in `layout.tsx`.
+  - `components/DocumentTable.tsx`: `"use client"`. Calls `fetchDocuments(workspaceId)` on mount. Renders a styled table with columns: File, Document ID, Uploaded, Status. Status badge uses design-token colours (warning for uploading/processing, success for indexed, danger for error). Inline spinner on transient states. Auto-polls every 8 s while any document remains in `uploading` or `processing` state. Graceful loading spinner, error message, and empty state.
+  - `lib/api.ts`: Added `DocumentRecord` interface (document_id, filename, status, workspace_id, created_at, error_message) and `fetchDocuments(workspaceId)` typed `GET /api/v1/documents` wrapper.
+- **Lines added:** 255
+- **TypeScript:** `tsc --noEmit` passes with zero errors.
+
+---
+
+### Verification Pass – Commit 13a (2026-03-15)
+
+| Check | Result |
+|---|---|
+| Architecture compliance | ✅ Next.js 15, Tailwind only; no new frameworks |
+| Guardrail violations | ✅ None |
+| Backend modified | ✅ None |
+| Lines added (255 / 350 limit) | ✅ Within limits |
+| Files changed (3 / 5 limit) | ✅ Within limits |
+| Phase gate P7 | ✅ All 4 sub-tasks complete — P7 closed |
+| Protected files modified | ✅ None |
