@@ -235,6 +235,24 @@ test("landing page – query input is keyboard accessible", async ({ page }) => 
   expect(tagName).toBe("button");
 });
 
+// ─── Test 12: Enterprise-Grade Security cards ─────────────────────────────────
+test("landing page – Enterprise-Grade Security section renders 6 security cards", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_auth");
+    localStorage.removeItem("insurai_user");
+  });
+
+  await page.goto("/");
+  await expect(page.getByText("Enterprise-Grade Security")).toBeVisible({ timeout: 10_000 });
+
+  const cards = page.getByTestId("security-card");
+  await expect(cards).toHaveCount(6);
+
+  // Verify the two new cards are present
+  await expect(page.getByText("On-Premise Deployment")).toBeVisible();
+  await expect(page.getByText("Data Isolation")).toBeVisible();
+});
+
 // ─── Trust cards ─────────────────────────────────────────────────────────────
 test("AI You Can Trust section renders 4 trust cards", async ({ page }) => {
   await page.context().addInitScript(() => {

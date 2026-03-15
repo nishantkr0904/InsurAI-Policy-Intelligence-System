@@ -480,19 +480,19 @@ export default function LandingPage() {
           <p style={{ marginTop: "10px", color: "var(--text-secondary)", marginBottom: "44px" }}>
             Your policy data is protected at every layer
           </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", justifyContent: "center" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
             {[
               { label: "SOC2 Type II", desc: "Certified security controls", icon: "🏆" },
-              { label: "PII Protected", desc: "Personal data safeguards", icon: "🔒" },
               { label: "AES-256 Encrypted", desc: "End-to-end encryption", icon: "🔐" },
               { label: "RBAC", desc: "Role-based access control", icon: "👥" },
-              { label: "Audit Logging", desc: "Complete activity trail", icon: "📝" },
-              { label: "Multi-tenant", desc: "Isolated per organization", icon: "🏢" },
+              { label: "Audit Logging", desc: "Complete activity trail", icon: "📋" },
+              { label: "On-Premise Deployment", desc: "Deploy in your own environment", icon: "🖥️" },
+              { label: "Data Isolation", desc: "Tenant-level data separation", icon: "🗄️" },
             ].map(({ label, desc, icon }) => (
-              <div key={label} style={{
+              <div key={label} data-testid="security-card" style={{
                 display: "flex", alignItems: "center", gap: "10px",
                 background: "var(--bg-card)", border: "1px solid var(--border)",
-                borderRadius: "10px", padding: "12px 16px", minWidth: "190px",
+                borderRadius: "10px", padding: "12px 16px",
               }}>
                 <span style={{ fontSize: "20px" }}>{icon}</span>
                 <div style={{ textAlign: "left" }}>
