@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "@/app/globals.css";
 import Navbar from "@/components/Navbar";
@@ -24,6 +24,12 @@ export const metadata: Metadata = {
   keywords: ["insurance", "AI", "RAG", "policy analysis", "compliance"],
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0d1117",
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -31,6 +37,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable}>
+      <head>
+        {/* Preconnect to Google Fonts to reduce font load latency */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
       <body className="min-h-screen flex flex-col">
         {/* ── Top Navigation ── */}
         <Navbar />
