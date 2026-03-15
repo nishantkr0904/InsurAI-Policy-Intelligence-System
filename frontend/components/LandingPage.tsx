@@ -612,6 +612,119 @@ export default function LandingPage() {
           </p>
         </div>
       </section>
+
+      {/* ── Footer ──────────────────────────────────────────────── */}
+      <footer data-testid="site-footer" style={{
+        background: "var(--bg-surface)",
+        borderTop: "1px solid var(--border)",
+        padding: "64px 24px 32px",
+      }}>
+        <div style={{ maxWidth: "960px", margin: "0 auto" }}>
+          {/* Top row: brand + nav columns */}
+          <div style={{ display: "grid", gridTemplateColumns: "1.6fr repeat(5, 1fr)", gap: "32px", marginBottom: "48px" }}>
+            {/* Brand */}
+            <div>
+              <div style={{ fontWeight: 800, fontSize: "17px", color: "var(--text-primary)", marginBottom: "10px", letterSpacing: "-0.02em" }}>
+                🛡️ InsurAI
+              </div>
+              <p style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: "200px" }}>
+                AI-powered policy intelligence for modern insurance teams.
+              </p>
+            </div>
+
+            {/* Nav columns */}
+            {[
+              {
+                heading: "Product",
+                testId: "footer-product",
+                links: [
+                  { label: "Features", href: "/#features" },
+                  { label: "How It Works", href: "/#how-it-works" },
+                  { label: "Pricing", href: "/pricing" },
+                  { label: "Changelog", href: "/changelog" },
+                ],
+              },
+              {
+                heading: "Security",
+                testId: "footer-security",
+                links: [
+                  { label: "SOC2 Type II", href: "/security" },
+                  { label: "Data Isolation", href: "/security#isolation" },
+                  { label: "On-Premise", href: "/security#on-premise" },
+                  { label: "Audit Logging", href: "/security#audit" },
+                ],
+              },
+              {
+                heading: "Documentation",
+                testId: "footer-documentation",
+                links: [
+                  { label: "Getting Started", href: "/docs" },
+                  { label: "API Reference", href: "/docs/api" },
+                  { label: "Integrations", href: "/docs/integrations" },
+                  { label: "Guides", href: "/docs/guides" },
+                ],
+              },
+              {
+                heading: "Company",
+                testId: "footer-company",
+                links: [
+                  { label: "About", href: "/about" },
+                  { label: "Contact", href: "/contact" },
+                  { label: "Blog", href: "/blog" },
+                  { label: "Careers", href: "/careers" },
+                ],
+              },
+              {
+                heading: "Legal",
+                testId: "footer-legal",
+                links: [
+                  { label: "Privacy Policy", href: "/privacy" },
+                  { label: "Terms", href: "/terms" },
+                  { label: "Cookie Policy", href: "/cookies" },
+                  { label: "GDPR", href: "/gdpr" },
+                ],
+              },
+            ].map(({ heading, testId, links }) => (
+              <div key={heading} data-testid={testId}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "14px" }}>
+                  {heading}
+                </div>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "9px" }}>
+                  {links.map(({ label, href }) => (
+                    <li key={label}>
+                      <Link href={href} style={{ fontSize: "13px", color: "var(--text-secondary)", textDecoration: "none" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}>
+                        {label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom row: copyright */}
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: "24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+            <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+              © {new Date().getFullYear()} InsurAI. All rights reserved.
+            </p>
+            <div style={{ display: "flex", gap: "20px" }}>
+              {[
+                { label: "Privacy Policy", href: "/privacy" },
+                { label: "Terms", href: "/terms" },
+                { label: "Contact", href: "/contact" },
+              ].map(({ label, href }) => (
+                <Link key={label} href={href} style={{ fontSize: "12px", color: "var(--text-muted)", textDecoration: "none" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}>
+                  {label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

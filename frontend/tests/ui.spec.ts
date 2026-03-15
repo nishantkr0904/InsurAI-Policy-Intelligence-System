@@ -311,3 +311,29 @@ test("AI You Can Trust section renders 4 trust cards", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Audit Trail" })).toBeVisible();
   await expect(page.getByText("Every AI query and decision is logged for compliance.")).toBeVisible();
 });
+
+// ─── Test: Footer ─────────────────────────────────────────────────────────────
+test("landing page – footer renders with all 5 sections and key links", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_auth");
+    localStorage.removeItem("insurai_user");
+  });
+
+  await page.goto("/");
+
+  const footer = page.getByTestId("site-footer");
+  await expect(footer).toBeVisible({ timeout: 10_000 });
+
+  // All 5 nav sections
+  await expect(page.getByTestId("footer-product")).toBeVisible();
+  await expect(page.getByTestId("footer-security")).toBeVisible();
+  await expect(page.getByTestId("footer-documentation")).toBeVisible();
+  await expect(page.getByTestId("footer-company")).toBeVisible();
+  await expect(page.getByTestId("footer-legal")).toBeVisible();
+
+  // Required links
+  await expect(footer.getByRole("link", { name: "About" })).toBeVisible();
+  await expect(footer.getByRole("link", { name: "Privacy Policy" }).first()).toBeVisible();
+  await expect(footer.getByRole("link", { name: "Terms" }).first()).toBeVisible();
+  await expect(footer.getByRole("link", { name: "Contact" }).first()).toBeVisible();
+});
