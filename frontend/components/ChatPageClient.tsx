@@ -26,10 +26,7 @@ export default function ChatPageClient({ workspaceId }: Props) {
   const [citations, setCitations] = useState<SourceCitation[]>([]);
 
   return (
-    <div
-      className="flex flex-1 overflow-hidden"
-      style={{ height: "calc(100vh - 112px)" }}
-    >
+    <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* ── Left: Chat ── */}
       <section
         className="flex-1 flex flex-col border-r overflow-hidden"
