@@ -231,3 +231,39 @@ This file is updated after every commit cycle per the agent execution contract.
 | P8 – Agentic Workflows | ⬜ Pending |
 | P9 – Security & Logging | ⬜ Pending |
 | P10 – Testing | ⬜ Pending |
+
+---
+
+### Commits 11a / 11b – T9 Streaming SSE Chat Endpoint
+
+**11a** – `feat(rag): add synthesize_stream() async SSE generator to synthesizer`
+- **Files modified:** `backend/app/rag/synthesizer.py`
+- **Summary:** `synthesize_stream(query, chunks, model)` async generator calls `litellm.acompletion(stream=True)`. Yields `data: {"token": "<text>"}\n\n` for each content delta. Yields `data: [DONE]\n\n` to close the stream. On LLM error: emits `data: {"error": "..."}\n\n` then `data: [DONE]\n\n` — client always detects termination. Shares `_build_context()` and `_SYSTEM_PROMPT` with blocking `synthesize()` — no logic duplication. Added `json` and `AsyncGenerator` imports.
+- **Lines added:** 66  |  **Lines removed:** 1
+
+**11b** – `feat(api): add /api/v1/chat/stream SSE streaming endpoint with token-by-token delivery`
+- **Files created:** `backend/app/rag/stream_router.py`
+- **Files modified:** `backend/app/rag/schemas.py`, `backend/app/main.py`
+- **Summary:** `POST /api/v1/chat/stream` — retrieval done synchronously before stream opens (HTTP 503 on retrieval failure); then returns `StreamingResponse` wrapping `synthesize_stream()`. Media type: `text/event-stream`. Sets `Cache-Control: no-cache` and `X-Accel-Buffering: no` to prevent Nginx proxy buffering. `ChatStreamRequest` Pydantic schema added to `schemas.py`. `stream_router` registered on FastAPI app in `main.py`.
+- **Lines added:** 122
+
+---
+
+## Next Tasks
+- [ ] **T10** – Next.js App Router dashboard layout (role-based routing)
+- [ ] **T10** – Chat interface with SSE stream consumer
+- [ ] **T10** – File upload UI + workspace document management
+
+## Phase Status
+| Phase | Status |
+|-------|--------|
+| P1 – Infrastructure | ✅ Complete |
+| P2 – Auth & Core Backend | ✅ Complete |
+| P3 – Document Ingestion | ✅ Complete |
+| P4 – Embedding & Indexing | ✅ Complete |
+| P5 – RAG Retrieval | ✅ Complete (T7 hybrid+synthesis, T8 reranker+retrieve endpoint) |
+| P6 – LLM Integration | ✅ **Complete** (T9 SSE streaming + /chat/stream endpoint) |
+| P7 – Frontend | 🟡 **Next** |
+| P8 – Agentic Workflows | ⬜ Pending |
+| P9 – Security & Logging | ⬜ Pending |
+| P10 – Testing | ⬜ Pending |
