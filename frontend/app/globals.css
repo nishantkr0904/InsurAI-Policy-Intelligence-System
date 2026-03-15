@@ -94,7 +94,11 @@ body {
     border-radius: var(--radius-lg);
     padding: 1.25rem 1.5rem;
     box-shadow: var(--shadow-sm);
-    transition: all 0.2s ease;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease,
+      transform 0.2s ease;
+    will-change: transform;
   }
   .stat-card:hover {
     border-color: var(--accent);
@@ -115,12 +119,10 @@ body {
     font-weight: 600;
     font-size: 0.875rem;
     letter-spacing: 0.01em;
-    transition:
-      opacity 0.15s ease,
-      box-shadow 0.15s ease,
-      transform 0.1s ease;
+    transition: opacity 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
     white-space: nowrap;
+    will-change: transform;
   }
   .btn-primary:hover:not(:disabled) {
     opacity: 0.9;
@@ -150,7 +152,7 @@ body {
     padding: 0.55rem 1.25rem;
     font-weight: 500;
     font-size: 0.875rem;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     white-space: nowrap;
   }
   .btn-secondary:hover:not(:disabled) {
@@ -174,7 +176,7 @@ body {
     padding: 0.5rem 0.875rem;
     font-weight: 500;
     font-size: 0.875rem;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
     white-space: nowrap;
   }
   .btn-ghost:hover {
@@ -191,9 +193,7 @@ body {
     padding: 0.6rem 1rem;
     font-size: 0.875rem;
     width: 100%;
-    transition:
-      border-color 0.15s ease,
-      box-shadow 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
   .input::placeholder {
     color: var(--text-muted);
@@ -313,7 +313,7 @@ body {
 
   /* Smooth transition */
   .smooth-transition {
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
   }
 
   /* Table styles */
@@ -384,7 +384,7 @@ body {
     border: 1px solid var(--border);
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
   }
   .chip:hover {
     border-color: var(--accent);
@@ -400,5 +400,27 @@ body {
     color: var(--text-secondary);
     margin-bottom: 0.35rem;
     letter-spacing: 0.01em;
+  }
+
+  /* Footer links */
+  .footer-link {
+    color: var(--text-secondary);
+    transition: color 0.15s ease;
+  }
+  .footer-link:hover {
+    color: var(--text-primary);
+  }
+  .footer-link-muted {
+    color: var(--text-muted);
+    transition: color 0.15s ease;
+  }
+  .footer-link-muted:hover {
+    color: var(--text-secondary);
+  }
+
+  /* Skip rendering off-screen landing page sections until they near the viewport */
+  .below-fold {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 400px;
   }
 }

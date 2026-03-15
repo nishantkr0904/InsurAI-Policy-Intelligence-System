@@ -337,3 +337,67 @@ test("landing page – footer renders with all 5 sections and key links", async 
   await expect(footer.getByRole("link", { name: "Terms" }).first()).toBeVisible();
   await expect(footer.getByRole("link", { name: "Contact" }).first()).toBeVisible();
 });
+
+// ─── Performance tests ────────────────────────────────────────────────────────
+
+test("landing page – hero renders before 3 s (LCP proxy)", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_auth");
+    localStorage.removeItem("insurai_user");
+  });
+
+  const start = Date.now();
+  await page.goto("/");
+  // h1 is the Largest Contentful Paint candidate
+  await expect(page.locator("h1").first()).toBeVisible({ timeout: 3_000 });
+  const elapsed = Date.now() - start;
+  expect(elapsed).toBeLessThan(3_000);
+});
+
+test("landing page – no significant layout shift on load (CLS proxy)", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_auth");
+    localStorage.removeItem("insurai_user");
+  });
+
+  await page.goto("/");
+  await expect(page.locator("h1").first()).toBeVisible({ timeout: 5_000 });
+
+  // Collect CLS via PerformanceObserver
+  const cls = await page.evaluate(() =>
+    new Promise<number>((resolve) => {
+      let score = 0;
+      const obs = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          const e = entry as PerformanceEntry & { hadRecentInput?: boolean; value?: number };
+          if (!e.hadRecentInput) score += e.value ?? 0;
+        }
+      });
+      try {
+        obs.observe({ type: "layout-shift", buffered: true });
+      } catch {
+        // Not supported in all browsers
+      }
+      // Settle after 1 s of observations
+      setTimeout(() => { obs.disconnect(); resolve(score); }, 1_000);
+    })
+  );
+
+  // Good CLS is < 0.1 (Google threshold)
+  expect(cls).toBeLessThan(0.1);
+});
+
+test("landing page – interactive query section loads after initial paint", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_auth");
+    localStorage.removeItem("insurai_user");
+  });
+
+  await page.goto("/");
+
+  // Hero h1 should appear well before the lazy-loaded interactive section
+  await expect(page.locator("h1").first()).toBeVisible({ timeout: 3_000 });
+
+  // The lazy-loaded PolicyQuerySection eventually appears
+  await expect(page.getByText("Ask Anything About Your Policies")).toBeVisible({ timeout: 8_000 });
+});
