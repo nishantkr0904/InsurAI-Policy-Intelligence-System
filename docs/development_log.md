@@ -195,3 +195,39 @@ This file is updated after every commit cycle per the agent execution contract.
 | P8 – Security & Logging | ⬜ Pending |
 | P9 – Testing | ⬜ Pending |
 | P10 – Deployment | ⬜ Pending |
+
+---
+
+### Commits 10a / 10b – T8 Cross-Encoder Re-Ranker + Retrieve Endpoint
+
+**10a** – `feat(rag): add cross-encoder re-ranker and wire into hybrid retrieval pipeline`
+- **Files created:** `backend/app/rag/reranker.py`
+- **Files modified:** `backend/app/rag/retriever.py`, `backend/app/core/config.py`
+- **Summary:** `rerank(query, chunks, top_k)` calls `litellm.rerank()` with the model set by `RERANKER_MODEL`. Overwrites `final_score` on each `RetrievedChunk` with the cross-encoder relevance score. Falls back gracefully to BM25-fused order on API failure. Retriever upgraded to 5-step pipeline: dense ANN → BM25 fusion → sort → cross-encoder. `RERANKER_MODEL: str = ""` added to config (empty = skip).
+- **Lines added:** 116  |  **Lines removed:** 11
+
+**10b** – `feat(api): add /api/v1/retrieve standalone retrieval endpoint with full score fields`
+- **Files created:** `backend/app/rag/retrieve_router.py`
+- **Files modified:** `backend/app/rag/schemas.py`, `backend/app/main.py`
+- **Summary:** `POST /api/v1/retrieve` runs the full 5-step pipeline and returns the ranked chunks without calling the LLM. `RankedChunk` exposes `dense_score`, `bm25_score`, and `final_score` for evaluation. `retrieve_router` registered alongside `ingestion_router` and `rag_router` in `main.py`.
+- **Lines added:** 130
+
+---
+
+## Next Tasks
+- [ ] **T9** – Streaming SSE responses (`StreamingResponse` on `/api/v1/chat/stream`)
+- [ ] **T9** – Conversational history context window
+
+## Phase Status
+| Phase | Status |
+|-------|--------|
+| P1 – Infrastructure | ✅ Complete |
+| P2 – Auth & Core Backend | ✅ Complete |
+| P3 – Document Ingestion | ✅ Complete |
+| P4 – Embedding & Indexing | ✅ Complete |
+| P5 – RAG Retrieval | ✅ **Complete** (T7 hybrid+synthesis, T8 reranker+retrieve endpoint) |
+| P6 – LLM Integration | 🟡 **Next** |
+| P7 – Frontend | ⬜ Pending |
+| P8 – Agentic Workflows | ⬜ Pending |
+| P9 – Security & Logging | ⬜ Pending |
+| P10 – Testing | ⬜ Pending |
