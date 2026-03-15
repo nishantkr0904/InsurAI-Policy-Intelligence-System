@@ -434,9 +434,12 @@ body {
     color: var(--text-secondary);
   }
 
-  /* Skip rendering off-screen landing page sections until they near the viewport */
+  /* Skip rendering off-screen landing page sections until they near the viewport.
+     contain-intrinsic-size gives the browser a placeholder height so scroll
+     position stays stable while the section is off-screen. 600px is a safe
+     estimate for all landing page sections. */
   .below-fold {
     content-visibility: auto;
-    contain-intrinsic-size: 0 400px;
+    contain-intrinsic-size: 0 600px;
   }
 }

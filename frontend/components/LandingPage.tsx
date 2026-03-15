@@ -115,7 +115,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── How It Works ────────────────────────────────────────── */}
-      <section style={{ padding: "80px 24px" }}>
+      <section className="below-fold" style={{ padding: "80px 24px" }}>
         <div style={{ maxWidth: "960px", margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: "52px" }}>
             <h2 style={{ fontSize: "1.875rem", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
@@ -318,7 +318,7 @@ export default function LandingPage() {
       <PolicyQuerySection />
 
       {/* ── Final CTA ───────────────────────────────────────────── */}
-      <section style={{
+      <section className="below-fold" style={{
         background: "var(--bg-surface)",
         borderTop: "1px solid var(--border)",
         padding: "80px 24px", textAlign: "center",
