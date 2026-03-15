@@ -1,11 +1,8 @@
-import { redirect } from "next/navigation";
+import OnboardingGate from "@/components/OnboardingGate";
 
 /**
- * Root page – immediately redirects to the Chat interface.
- *
- * Architecture ref:
- *   docs/roadmap.md Phase 7 – "Build role-based routing"
+ * Root page – shows onboarding flow if first visit, redirects to /chat otherwise.
  */
 export default function Home() {
-  redirect("/chat");
+  return <OnboardingGate />;
 }
