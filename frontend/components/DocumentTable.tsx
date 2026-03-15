@@ -62,7 +62,7 @@ export default function DocumentTable({ workspaceId }: DocumentTableProps) {
     return (
       <div className="card flex items-center justify-center py-10 gap-3">
         <span
-          className="inline-block w-4 h-4 rounded-full border-2 border-t-transparent animate-spin"
+          className="inline-block w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
           style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
         />
         <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -75,48 +75,48 @@ export default function DocumentTable({ workspaceId }: DocumentTableProps) {
   if (error) {
     return (
       <div
-        className="card text-sm px-4 py-3"
-        style={{ color: "var(--danger)", background: "rgba(239,68,68,0.08)" }}
+        className="card text-sm px-4 py-3 flex items-center gap-2"
+        style={{ color: "var(--danger)", background: "var(--danger-soft)", borderColor: "rgba(248,81,73,0.25)" }}
       >
-        ✗ {error}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        {error}
       </div>
     );
   }
 
   if (docs.length === 0) {
     return (
-      <div className="card flex flex-col items-center justify-center gap-2 py-10 opacity-50">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="1.2"
-          style={{ color: "var(--text-secondary)" }}>
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-        </svg>
-        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          No documents uploaded yet.
-        </p>
+      <div className="card">
+        <div className="empty-state">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="1.2"
+            style={{ color: "var(--text-secondary)" }}>
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+          <p>No documents uploaded yet.</p>
+          <a href="/chat" className="btn-primary text-xs mt-2" style={{ padding: "0.4rem 1rem" }}>
+            Upload your first policy →
+          </a>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="card overflow-hidden p-0">
-      <table className="w-full text-sm border-collapse">
+      <table className="data-table">
         <thead>
-          <tr style={{ background: "var(--bg-surface)", borderBottom: "1px solid var(--border)" }}>
+          <tr>
             {["File", "Document ID", "Uploaded", "Status"].map((h) => (
-              <th
-                key={h}
-                className="text-left px-4 py-3 text-xs font-semibold"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {h}
-              </th>
+              <th key={h}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {docs.map((doc, i) => {
+          {docs.map((doc) => {
             const meta = STATUS_META[doc.status] ?? STATUS_META.error;
             const dateStr = doc.created_at
               ? new Date(doc.created_at).toLocaleDateString(undefined, {
@@ -125,17 +125,11 @@ export default function DocumentTable({ workspaceId }: DocumentTableProps) {
               : "—";
 
             return (
-              <tr
-                key={doc.document_id}
-                style={{
-                  borderBottom: i < docs.length - 1 ? "1px solid var(--border)" : undefined,
-                  background: "transparent",
-                }}
-              >
+              <tr key={doc.document_id}>
                 {/* Filename */}
-                <td className="px-4 py-3 font-medium max-w-[220px]">
+                <td className="max-w-[220px]">
                   <span
-                    className="block truncate"
+                    className="block truncate font-medium text-sm"
                     title={doc.filename}
                     style={{ color: "var(--text-primary)" }}
                   >
@@ -149,24 +143,22 @@ export default function DocumentTable({ workspaceId }: DocumentTableProps) {
                 </td>
 
                 {/* Document ID */}
-                <td className="px-4 py-3">
-                  <span
-                    className="font-mono text-xs"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
+                <td>
+                  <span className="font-mono text-xs px-2 py-0.5 rounded"
+                    style={{ background: "var(--bg-surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
                     {doc.document_id.slice(0, 8)}…
                   </span>
                 </td>
 
                 {/* Upload date */}
-                <td className="px-4 py-3 text-xs" style={{ color: "var(--text-secondary)" }}>
+                <td className="text-xs" style={{ color: "var(--text-secondary)" }}>
                   {dateStr}
                 </td>
 
                 {/* Status badge */}
-                <td className="px-4 py-3">
+                <td>
                   <span
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
                     style={{ color: meta.color, background: meta.bg }}
                   >
                     {(doc.status === "uploading" || doc.status === "processing") && (
