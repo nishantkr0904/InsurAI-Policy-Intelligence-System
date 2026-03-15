@@ -1,23 +1,134 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { isAuthenticated, getUser, logout, type InsurAIUser } from "@/lib/auth";
 
-const NAV_LINKS = [
-  { href: "/chat",       label: "Chat" },
-  { href: "/documents",  label: "Documents" },
+const APP_NAV = [
+  { href: "/dashboard",  label: "Dashboard" },
+  { href: "/documents",  label: "Policies" },
+  { href: "/chat",       label: "AI Assistant" },
   { href: "/claims",     label: "Claims" },
   { href: "/fraud",      label: "Fraud" },
   { href: "/compliance", label: "Compliance" },
-  { href: "/dashboard",  label: "Dashboard" },
 ];
 
+const ROLE_LABELS: Record<string, string> = {
+  underwriter:       "Underwriter",
+  compliance_officer: "Compliance",
+  claims_adjuster:   "Claims",
+  fraud_analyst:     "Fraud",
+  broker:            "Broker",
+  auditor:           "Auditor",
+  customer:          "Customer",
+  admin:             "Admin",
+};
+
 export default function Navbar() {
-  const pathname = usePathname();
+  const pathname  = usePathname();
+  const router    = useRouter();
+
+  const [authed, setAuthed]           = useState(false);
+  const [user,   setUser]             = useState<InsurAIUser | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [notifOpen,   setNotifOpen]   = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+  const notifRef   = useRef<HTMLDivElement>(null);
+
+  // Read auth state on every pathname change
+  useEffect(() => {
+    const auth = isAuthenticated();
+    setAuthed(auth);
+    setUser(auth ? getUser() : null);
+  }, [pathname]);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
+      if (notifRef.current   && !notifRef.current.contains(e.target as Node))   setNotifOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  function handleLogout() {
+    logout();
+    setAuthed(false);
+    setUser(null);
+    setProfileOpen(false);
+    router.push("/");
+  }
 
   function isActive(href: string) {
-    if (href === "/dashboard") return pathname.startsWith("/dashboard");
+    if (href === "/dashboard") return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
     return pathname === href || pathname.startsWith(href + "/");
   }
+
+  const isLandingPage  = pathname === "/";
+  const isAuthPage     = pathname === "/login" || pathname === "/signup";
+
+  /* ── Logo (shared) ──────────────────────────────────────── */
+  const Logo = (
+    <Link
+      href={authed ? "/dashboard" : "/"}
+      className="flex items-center gap-2.5 shrink-0"
+      style={{ textDecoration: "none" }}
+    >
+      <div
+        className="w-8 h-8 rounded-lg flex items-center justify-center"
+        style={{ background: "var(--accent-gradient)", boxShadow: "var(--shadow-accent)" }}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L4 6v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6L12 2z"
+            fill="rgba(255,255,255,0.25)" stroke="#fff" strokeWidth="1.6" strokeLinejoin="round" />
+          <path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      <span className="font-bold text-sm tracking-tight gradient-text" style={{ letterSpacing: "-0.01em" }}>
+        InsurAI
+      </span>
+      <span className="badge badge-accent">Beta</span>
+    </Link>
+  );
+
+  /* ── Auth / Login pages: minimal navbar ─────────────────── */
+  if (isAuthPage) {
+    return (
+      <header
+        className="shrink-0 flex items-center justify-between px-6 border-b"
+        style={{ borderColor: "var(--border)", background: "var(--bg-surface)", height: "60px" }}
+      >
+        {Logo}
+        <Link href="/" className="btn-ghost text-sm" style={{ textDecoration: "none" }}>
+          ← Back to home
+        </Link>
+      </header>
+    );
+  }
+
+  /* ── Landing page: marketing navbar ─────────────────────── */
+  if (isLandingPage && !authed) {
+    return (
+      <header
+        className="shrink-0 flex items-center justify-between px-6 border-b"
+        style={{ borderColor: "var(--border)", background: "var(--bg-surface)", height: "60px" }}
+      >
+        {Logo}
+        <div className="flex items-center gap-3">
+          <Link href="/login"  className="btn-ghost  text-sm" style={{ textDecoration: "none" }}>Sign In</Link>
+          <Link href="/signup" className="btn-primary text-sm" style={{ textDecoration: "none" }}>
+            Start Free Trial
+          </Link>
+        </div>
+      </header>
+    );
+  }
+
+  /* ── Authenticated app navbar ────────────────────────────── */
+  const workspace = user?.workspace ?? "default";
+  const roleLabel = ROLE_LABELS[user?.role ?? ""] ?? user?.role ?? "User";
 
   return (
     <header
@@ -29,67 +140,198 @@ export default function Navbar() {
         height: "60px",
       }}
     >
-      {/* Brand */}
-      <a href="/" className="flex items-center gap-2.5 shrink-0" style={{ textDecoration: "none" }}>
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center"
-          style={{
-            background: "var(--accent-gradient)",
-            boxShadow: "var(--shadow-accent)",
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M12 2L4 6v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6L12 2z"
-              fill="rgba(255,255,255,0.25)"
-              stroke="#fff"
-              strokeWidth="1.6"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M9 12l2 2 4-4"
-              stroke="#fff"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
-        <span
-          className="font-bold text-sm tracking-tight gradient-text"
-          style={{ letterSpacing: "-0.01em" }}
-        >
-          InsurAI
-        </span>
-        <span className="badge badge-accent">Beta</span>
-      </a>
+      {/* Left: Logo + Nav */}
+      <div className="flex items-center gap-4">
+        {Logo}
 
-      {/* Navigation */}
-      <nav className="flex items-center gap-0.5">
-        {NAV_LINKS.map(({ href, label }) => {
-          const active = isActive(href);
-          return (
-            <a
-              key={href}
-              href={href}
-              className="relative px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-150"
+        <nav className="flex items-center gap-0.5">
+          {APP_NAV.map(({ href, label }) => {
+            const active = isActive(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className="relative px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150"
+                style={{
+                  color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                  background: active ? "rgba(59,130,246,0.1)" : "transparent",
+                  textDecoration: "none",
+                }}
+              >
+                {label}
+                {active && (
+                  <span
+                    className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full"
+                    style={{ background: "var(--accent-gradient)" }}
+                  />
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Right: Workspace + Notifications + Profile */}
+      <div className="flex items-center gap-2">
+
+        {/* Workspace pill */}
+        <div
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+          style={{
+            background: "var(--bg-card)", border: "1px solid var(--border)",
+            color: "var(--text-secondary)", cursor: "default",
+          }}
+          title="Current workspace"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+          <span style={{ maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {workspace}
+          </span>
+        </div>
+
+        {/* Role badge */}
+        <span
+          className="badge badge-accent"
+          style={{ cursor: "default" }}
+          title={`Your role: ${roleLabel}`}
+        >
+          {roleLabel}
+        </span>
+
+        {/* Notifications */}
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => { setNotifOpen((o) => !o); setProfileOpen(false); }}
+            className="relative w-9 h-9 rounded-lg flex items-center justify-center transition-all"
+            style={{
+              background: notifOpen ? "rgba(59,130,246,0.12)" : "transparent",
+              color: "var(--text-secondary)",
+              border: "none", cursor: "pointer",
+            }}
+            title="Notifications"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            {/* Unread dot */}
+            <span
+              className="absolute rounded-full"
+              style={{ width: "7px", height: "7px", background: "var(--danger)", top: "8px", right: "8px", border: "2px solid var(--bg-surface)" }}
+            />
+          </button>
+
+          {notifOpen && (
+            <div
+              className="absolute right-0 mt-2 rounded-xl py-1 overflow-hidden"
               style={{
-                color: active ? "var(--text-primary)" : "var(--text-secondary)",
-                background: active ? "rgba(59,130,246,0.1)" : "transparent",
-                textDecoration: "none",
+                background: "var(--bg-surface)", border: "1px solid var(--border)",
+                boxShadow: "var(--shadow-lg)", width: "320px", zIndex: 50, top: "100%",
               }}
             >
-              {label}
-              {active && (
-                <span
-                  className="absolute bottom-0 left-3.5 right-3.5 h-0.5 rounded-full"
-                  style={{ background: "var(--accent-gradient)" }}
-                />
-              )}
-            </a>
-          );
-        })}
-      </nav>
+              <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
+                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Notifications</span>
+                <span className="badge badge-danger" style={{ fontSize: "10px" }}>2 new</span>
+              </div>
+              {[
+                { icon: "⚠️", text: "Fraud alert on Claim CLM-8821", time: "15m ago", dot: "var(--danger)" },
+                { icon: "✅", text: "Policy AUTO-2024-001 indexed", time: "1h ago", dot: "var(--success)" },
+                { icon: "📋", text: "Compliance report generated", time: "2h ago", dot: "var(--accent)" },
+              ].map(({ icon, text, time, dot }) => (
+                <div key={text} className="flex items-start gap-3 px-4 py-3" style={{ borderBottom: "1px solid var(--border-subtle)", cursor: "pointer" }}>
+                  <span style={{ fontSize: "16px", flexShrink: 0, marginTop: "1px" }}>{icon}</span>
+                  <div className="flex-1">
+                    <p className="text-sm" style={{ color: "var(--text-primary)" }}>{text}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{time}</p>
+                  </div>
+                  <span className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ background: dot }} />
+                </div>
+              ))}
+              <div className="px-4 py-2.5 text-center">
+                <span className="text-xs" style={{ color: "var(--accent)", cursor: "pointer" }}>View all notifications →</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Profile */}
+        <div className="relative" ref={profileRef}>
+          <button
+            onClick={() => { setProfileOpen((o) => !o); setNotifOpen(false); }}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all"
+            style={{
+              background: profileOpen ? "rgba(59,130,246,0.12)" : "var(--bg-card)",
+              border: "1px solid var(--border)",
+              cursor: "pointer",
+            }}
+          >
+            <div
+              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+              style={{ background: "var(--accent-gradient)", color: "#fff", flexShrink: 0 }}
+            >
+              {user?.initials ?? "?"}
+            </div>
+            <span className="text-sm font-medium max-w-[100px] truncate" style={{ color: "var(--text-primary)" }}>
+              {user?.name ?? "User"}
+            </span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+              style={{ color: "var(--text-secondary)", flexShrink: 0 }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+
+          {profileOpen && (
+            <div
+              className="absolute right-0 mt-2 rounded-xl overflow-hidden"
+              style={{
+                background: "var(--bg-surface)", border: "1px solid var(--border)",
+                boxShadow: "var(--shadow-lg)", width: "220px", zIndex: 50, top: "100%",
+              }}
+            >
+              {/* User info */}
+              <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{user?.name}</p>
+                <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-secondary)" }}>{user?.email}</p>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <span className="badge badge-accent" style={{ fontSize: "10px" }}>{roleLabel}</span>
+                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>·</span>
+                  <span className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{workspace}</span>
+                </div>
+              </div>
+              {/* Menu items */}
+              {[
+                { icon: "⚙️", label: "Settings", href: "/settings" },
+                { icon: "📊", label: "Analytics", href: "/dashboard" },
+                { icon: "🛡️", label: "Compliance", href: "/dashboard/compliance" },
+              ].map(({ icon, label, href }) => (
+                <Link
+                  key={label}
+                  href={href}
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-white/5"
+                  style={{ color: "var(--text-secondary)", textDecoration: "none" }}
+                >
+                  <span>{icon}</span>
+                  <span>{label}</span>
+                </Link>
+              ))}
+              <div style={{ borderTop: "1px solid var(--border)" }}>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm w-full transition-colors hover:bg-white/5"
+                  style={{ color: "var(--danger)", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+                >
+                  <span>🚪</span>
+                  <span>Sign out</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </header>
   );
 }
