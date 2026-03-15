@@ -208,15 +208,6 @@ __marimo__/
 
 .DS_Store
 
-agent_execution_contract.json
-agent_guardrails.json
-agent_execution_supervisor.json
-
 docs/system-architecture.md
 docs/roadmap.md
-docs/agent_task_graph.json
-docs/phase_gates.json
 docs/context_memory.md
-docs/agent_runtime_state.json
-frontend/functionality_requirements.md
-frontend/custom_instructions.md
