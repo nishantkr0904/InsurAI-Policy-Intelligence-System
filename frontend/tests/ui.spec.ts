@@ -253,6 +253,25 @@ test("landing page – Enterprise-Grade Security section renders 6 security card
   await expect(page.getByText("Data Isolation")).toBeVisible();
 });
 
+// ─── Test 13: Testimonials section ───────────────────────────────────────────
+test("landing page – Why Insurance Teams Choose InsurAI renders 3 testimonial cards", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_auth");
+    localStorage.removeItem("insurai_user");
+  });
+
+  await page.goto("/");
+  await expect(page.getByText("Why Insurance Teams Choose InsurAI")).toBeVisible({ timeout: 10_000 });
+
+  const cards = page.getByTestId("testimonial-card");
+  await expect(cards).toHaveCount(3);
+
+  // Verify each professional is present
+  await expect(page.getByText("Sarah Reynolds")).toBeVisible();
+  await expect(page.getByText("David Kim")).toBeVisible();
+  await expect(page.getByText("Maria Lopez")).toBeVisible();
+});
+
 // ─── Trust cards ─────────────────────────────────────────────────────────────
 test("AI You Can Trust section renders 4 trust cards", async ({ page }) => {
   await page.context().addInitScript(() => {

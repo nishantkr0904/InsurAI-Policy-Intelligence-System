@@ -401,6 +401,70 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Testimonials ────────────────────────────────────────── */}
+      <section style={{
+        background: "var(--bg-surface)",
+        borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)",
+        padding: "80px 24px",
+      }}>
+        <div style={{ maxWidth: "960px", margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: "52px" }}>
+            <h2 style={{ fontSize: "1.875rem", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
+              Why Insurance Teams Choose InsurAI
+            </h2>
+            <p style={{ marginTop: "10px", color: "var(--text-secondary)" }}>
+              Trusted by underwriters, claims teams, and compliance officers
+            </p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px" }}>
+            {[
+              {
+                initials: "SR",
+                name: "Sarah Reynolds",
+                role: "Senior Underwriter",
+                company: "Meridian Insurance Group",
+                color: "var(--accent)",
+                quote: "InsurAI cut our policy review time in half. I can now query coverage terms across hundreds of documents in seconds — what used to take days is done before lunch.",
+              },
+              {
+                initials: "DK",
+                name: "David Kim",
+                role: "Claims Director",
+                company: "PacificShield Mutual",
+                color: "var(--success)",
+                quote: "The citation-backed answers are a game-changer. My team validates claims with full confidence knowing every AI response is grounded in the actual policy language.",
+              },
+              {
+                initials: "ML",
+                name: "Maria Lopez",
+                role: "Chief Compliance Officer",
+                company: "Vantage Re",
+                color: "var(--purple)",
+                quote: "Audit readiness used to keep me up at night. With InsurAI's complete activity trail and automated compliance reports, I can walk into any regulatory review without hesitation.",
+              },
+            ].map(({ initials, name, role, company, color, quote }) => (
+              <div key={name} data-testid="testimonial-card" className="card" style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+                <p style={{ fontSize: "14px", color: "var(--text-secondary)", lineHeight: 1.75, fontStyle: "italic", flexGrow: 1 }}>
+                  &ldquo;{quote}&rdquo;
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
+                  <div style={{
+                    width: "40px", height: "40px", borderRadius: "50%", flexShrink: 0,
+                    background: `${color}22`, border: `2px solid ${color}44`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "13px", fontWeight: 700, color,
+                  }}>{initials}</div>
+                  <div>
+                    <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>{name}</div>
+                    <div style={{ fontSize: "11px", color: "var(--text-secondary)" }}>{role} · {company}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Role-Based Features ─────────────────────────────────── */}
       <section style={{
         background: "var(--bg-surface)",
