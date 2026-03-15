@@ -47,9 +47,21 @@ export default function UploadPanel({ workspaceId, onUploaded }: UploadPanelProp
 
   return (
     <div className="card flex flex-col gap-4">
-      <h2 className="font-semibold text-sm" style={{ color: "var(--text-secondary)" }}>
-        UPLOAD POLICY
-      </h2>
+      <div className="flex items-center gap-2">
+        <div
+          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: "var(--purple-soft)" }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" style={{ color: "var(--purple)" }}>
+            <path d="M12 16V4m0 0-4 4m4-4 4 4" />
+            <path d="M4 20h16" />
+          </svg>
+        </div>
+        <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+          Upload Policy
+        </h2>
+      </div>
 
       {/* Drop zone */}
       <div
@@ -57,20 +69,36 @@ export default function UploadPanel({ workspaceId, onUploaded }: UploadPanelProp
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed cursor-pointer py-8 transition-colors"
+        className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed cursor-pointer py-7 transition-all duration-200"
         style={{
           borderColor: dragging ? "var(--accent)" : "var(--border)",
-          background: dragging ? "rgba(99,102,241,0.07)" : "transparent",
+          background: dragging ? "var(--accent-soft)" : "rgba(255,255,255,0.02)",
         }}
       >
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="1.5" strokeLinecap="round" style={{ color: "var(--text-secondary)" }}>
-          <path d="M12 16V4m0 0-4 4m4-4 4 4" />
-          <path d="M4 20h16" />
-        </svg>
-        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          {uploading ? `Uploading… ${progress}%` : "Drop PDF / DOCX or click to browse"}
-        </p>
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{
+            background: dragging ? "var(--accent-soft)" : "var(--bg-surface)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.8" strokeLinecap="round"
+            style={{ color: dragging ? "var(--accent)" : "var(--text-secondary)" }}>
+            <path d="M12 16V4m0 0-4 4m4-4 4 4" />
+            <path d="M4 20h16" />
+          </svg>
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-medium" style={{ color: dragging ? "var(--accent)" : "var(--text-secondary)" }}>
+            {uploading ? `Uploading… ${progress}%` : "Drop PDF / DOCX here"}
+          </p>
+          {!uploading && (
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+              or click to browse files
+            </p>
+          )}
+        </div>
       </div>
 
       <input
@@ -88,10 +116,10 @@ export default function UploadPanel({ workspaceId, onUploaded }: UploadPanelProp
           style={{ background: "var(--border)" }}
         >
           <div
-            className="h-full rounded-full transition-all duration-200"
+            className="h-full rounded-full transition-all duration-300"
             style={{
               width: `${progress}%`,
-              background: "var(--accent)",
+              background: "var(--accent-gradient)",
             }}
           />
         </div>
