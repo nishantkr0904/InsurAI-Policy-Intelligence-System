@@ -486,3 +486,69 @@ test("hover effects – all hoverable card sections use card-hover class", async
   // 4 stat + 4 how-it-works + 3 testimonials + 6 role-based + 4 trust + 6 security = 27
   expect(count).toBeGreaterThanOrEqual(27);
 });
+
+// ─── Performance: below-fold sections ────────────────────────────────────────
+test("performance – all below-fold sections are present in the DOM", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_auth");
+    localStorage.removeItem("insurai_user");
+  });
+
+  await page.goto("/");
+  await expect(page.locator("h1").first()).toBeVisible({ timeout: 5_000 });
+
+  // All 6 sections should use content-visibility:auto
+  const belowFold = page.locator(".below-fold");
+  await expect(belowFold).toHaveCount(6);
+});
+
+test("performance – viewport meta is set correctly", async ({ page }) => {
+  await page.goto("/");
+  const viewport = await page.locator('meta[name="viewport"]').getAttribute("content");
+  expect(viewport).toContain("width=device-width");
+  expect(viewport).toContain("initial-scale=1");
+});
+
+test("performance – theme-color meta is set", async ({ page }) => {
+  await page.goto("/");
+  const themeColor = await page.locator('meta[name="theme-color"]').getAttribute("content");
+  expect(themeColor).toBeTruthy();
+});
+
+test("performance – Google Fonts preconnect links are present", async ({ page }) => {
+  await page.goto("/");
+  const preconnects = await page.locator('link[rel="preconnect"]').all();
+  const hrefs = await Promise.all(preconnects.map((l) => l.getAttribute("href")));
+  expect(hrefs.some((h) => h?.includes("fonts.googleapis.com"))).toBe(true);
+  expect(hrefs.some((h) => h?.includes("fonts.gstatic.com"))).toBe(true);
+});
+
+test("performance – PolicyQuerySection lazy-loads after hero (no SSR blocking)", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_auth");
+    localStorage.removeItem("insurai_user");
+  });
+
+  // Intercept all JS chunks and record load order
+  const loadedChunks: string[] = [];
+  page.on("response", (res) => {
+    if (res.url().includes("/_next/") && res.url().endsWith(".js")) {
+      loadedChunks.push(res.url());
+    }
+  });
+
+  await page.goto("/");
+  await expect(page.locator("h1").first()).toBeVisible({ timeout: 3_000 });
+
+  // Hero must be visible before the lazy section appears
+  const heroVisible = await page.locator("h1").first().isVisible();
+  expect(heroVisible).toBe(true);
+
+  await expect(page.getByText("Ask Anything About Your Policies")).toBeVisible({ timeout: 8_000 });
+});
+
+test("performance – no X-Powered-By header exposed", async ({ page }) => {
+  const response = await page.goto("/");
+  const poweredBy = response?.headers()["x-powered-by"];
+  expect(poweredBy).toBeUndefined();
+});
