@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login, isAuthenticated, getInitials } from "@/lib/auth";
 
+const DEMO_EMAIL = "demo@insurai.ai";
+const DEMO_PASSWORD = "demo123";
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -28,10 +31,19 @@ export default function LoginPage() {
     // Simulate network latency
     await new Promise((r) => setTimeout(r, 800));
 
-    const name = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    if (
+      email.trim().toLowerCase() !== DEMO_EMAIL ||
+      password !== DEMO_PASSWORD
+    ) {
+      setError("Invalid email or password. Please try again.");
+      setLoading(false);
+      return;
+    }
+
+    const name = "Demo User";
     login({
       name,
-      email: email.trim().toLowerCase(),
+      email: DEMO_EMAIL,
       role: "admin",
       workspace: localStorage.getItem("insurai_workspace") ?? "default",
       initials: getInitials(name),
@@ -163,13 +175,13 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo hint */}
+          {/* Demo credentials hint */}
           <div
             className="mt-5 rounded-lg px-4 py-3"
             style={{ background: "var(--accent-soft)", border: "1px solid rgba(59,130,246,0.2)" }}
           >
             <p className="text-xs" style={{ color: "var(--accent)" }}>
-              <strong>Demo:</strong> Enter any email and password to sign in.
+              <strong>Demo credentials:</strong> demo@insurai.ai / demo123
             </p>
           </div>
         </div>

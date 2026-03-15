@@ -587,3 +587,31 @@ test("route – onboarding page loads at '/onboarding'", async ({ page }) => {
   await expect(page).toHaveURL("/onboarding");
   await expect(page.getByText("Welcome to InsurAI")).toBeVisible({ timeout: 10_000 });
 });
+
+// ─── Login validation tests ───────────────────────────────────────────────────
+
+test("login – valid demo credentials log in successfully", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_auth");
+    localStorage.removeItem("insurai_user");
+    localStorage.removeItem("insurai_onboarded");
+  });
+
+  await page.goto("/login");
+  await page.fill('input[type="email"]', "demo@insurai.ai");
+  await page.fill('input[type="password"]', "demo123");
+  await page.click('button[type="submit"]');
+
+  // Should redirect away from /login after successful sign-in
+  await expect(page).not.toHaveURL("/login", { timeout: 10_000 });
+});
+
+test("login – invalid credentials show an error message", async ({ page }) => {
+  await page.goto("/login");
+  await page.fill('input[type="email"]', "wrong@example.com");
+  await page.fill('input[type="password"]', "badpassword");
+  await page.click('button[type="submit"]');
+
+  await expect(page.getByText("Invalid email or password. Please try again.")).toBeVisible({ timeout: 10_000 });
+  await expect(page).toHaveURL("/login");
+});
