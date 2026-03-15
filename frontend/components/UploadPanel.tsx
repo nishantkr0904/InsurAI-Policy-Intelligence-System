@@ -9,7 +9,7 @@
  */
 
 import { useRef, useState } from "react";
-import { uploadDocument } from "@/lib/api";
+import { uploadDocumentWithProgress } from "@/lib/api";
 
 interface UploadPanelProps {
   workspaceId: string;
@@ -19,20 +19,22 @@ interface UploadPanelProps {
 export default function UploadPanel({ workspaceId, onUploaded }: UploadPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  const uploading = progress !== null;
+
   async function handleFile(file: File) {
-    setUploading(true);
+    setProgress(0);
     setStatus(null);
     try {
-      const res = await uploadDocument(file, workspaceId);
+      const res = await uploadDocumentWithProgress(file, workspaceId, setProgress);
       setStatus({ ok: true, msg: `✓ ${file.name} queued (${res.document_id.slice(0, 8)}…)` });
       onUploaded?.(res.document_id);
     } catch (e) {
       setStatus({ ok: false, msg: `✗ Upload failed: ${(e as Error).message}` });
     } finally {
-      setUploading(false);
+      setProgress(null);
     }
   }
 
@@ -67,7 +69,7 @@ export default function UploadPanel({ workspaceId, onUploaded }: UploadPanelProp
           <path d="M4 20h16" />
         </svg>
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          {uploading ? "Uploading…" : "Drop PDF / DOCX or click to browse"}
+          {uploading ? `Uploading… ${progress}%` : "Drop PDF / DOCX or click to browse"}
         </p>
       </div>
 
@@ -78,6 +80,22 @@ export default function UploadPanel({ workspaceId, onUploaded }: UploadPanelProp
         className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
       />
+
+      {/* Upload progress bar */}
+      {uploading && (
+        <div
+          className="w-full rounded-full overflow-hidden h-1.5"
+          style={{ background: "var(--border)" }}
+        >
+          <div
+            className="h-full rounded-full transition-all duration-200"
+            style={{
+              width: `${progress}%`,
+              background: "var(--accent)",
+            }}
+          />
+        </div>
+      )}
 
       {status && (
         <p className="text-xs rounded px-3 py-2"

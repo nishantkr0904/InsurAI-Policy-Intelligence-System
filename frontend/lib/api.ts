@@ -14,6 +14,10 @@ export interface SourceCitation {
   chunk_index: number;
   text_preview: string;
   score: number;
+  /** Human-readable filename when the backend provides it. */
+  filename?: string;
+  /** 1-based page number when the backend provides it. */
+  page_number?: number;
 }
 
 /** Shape of POST /api/v1/chat response. */
@@ -117,4 +121,48 @@ export async function uploadDocument(
   });
   if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
   return res.json() as Promise<UploadResponse>;
+}
+
+/**
+ * Upload a single PDF/DOCX file with real XHR upload-progress callbacks.
+ * @param onProgress - called with 0-100 integer as bytes transfer progresses.
+ */
+export function uploadDocumentWithProgress(
+  file: File,
+  workspaceId: string,
+  onProgress?: (percent: number) => void,
+): Promise<UploadResponse> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const form = new FormData();
+    form.append("file", file);
+    form.append("workspace_id", workspaceId);
+
+    if (onProgress) {
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+          onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      });
+    }
+
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as UploadResponse);
+        } catch {
+          reject(new Error("Invalid response from server"));
+        }
+      } else {
+        reject(new Error(`Upload failed: ${xhr.status}`));
+      }
+    });
+
+    xhr.addEventListener("error", () =>
+      reject(new Error("Network error during upload")),
+    );
+
+    xhr.open("POST", `${BASE}/documents/upload`);
+    xhr.send(form);
+  });
 }

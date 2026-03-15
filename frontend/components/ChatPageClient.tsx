@@ -26,10 +26,10 @@ export default function ChatPageClient({ workspaceId }: Props) {
   const [citations, setCitations] = useState<SourceCitation[]>([]);
 
   return (
-    <div className="flex flex-1 min-h-0 overflow-hidden">
+    <div className="flex flex-col lg:flex-row flex-1 lg:min-h-0 lg:overflow-hidden">
       {/* ── Left: Chat ── */}
       <section
-        className="flex-1 flex flex-col border-r overflow-hidden"
+        className="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r lg:overflow-hidden min-h-[65vh] lg:min-h-0"
         style={{ borderColor: "var(--border)" }}
       >
         <div
@@ -49,7 +49,7 @@ export default function ChatPageClient({ workspaceId }: Props) {
 
       {/* ── Right: Sources + Upload ── */}
       <aside
-        className="w-80 flex flex-col gap-4 p-4 overflow-y-auto shrink-0"
+        className="w-full lg:w-80 flex flex-col gap-4 p-4 overflow-y-auto lg:shrink-0"
         style={{ background: "var(--bg-surface)" }}
       >
         <SourcePanel citations={citations} />

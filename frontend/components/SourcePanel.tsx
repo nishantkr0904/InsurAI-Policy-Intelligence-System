@@ -55,44 +55,75 @@ export default function SourcePanel({ citations }: SourcePanelProps) {
       </h2>
 
       <ol className="flex flex-col gap-2">
-        {citations.map((c, i) => (
-          <li
-            key={i}
-            className="flex flex-col gap-1.5 p-3 rounded-lg"
-            style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border)",
-            }}
-          >
-            {/* Document ID + score */}
-            <div className="flex items-center justify-between gap-2">
-              <span
-                className="text-xs font-mono truncate"
-                style={{ color: "var(--text-secondary)" }}
-                title={c.document_id}
-              >
-                {c.document_id}
-              </span>
-              <span className="badge badge-accent shrink-0">
-                {(c.score * 100).toFixed(0)}%
-              </span>
-            </div>
+        {citations.map((c, i) => {
+          const docLabel = c.filename ?? `${c.document_id.slice(0, 12)}…`;
+          const pageLabel =
+            c.page_number != null
+              ? `p. ${c.page_number}`
+              : `chunk ${c.chunk_index}`;
+          const sourceUrl = `/api/v1/documents/${c.document_id}`;
 
-            {/* Text preview */}
-            <p
-              className="text-xs leading-relaxed"
+          return (
+            <li
+              key={i}
+              className="flex flex-col gap-1.5 p-3 rounded-lg"
               style={{
-                color: "var(--text-primary)",
-                display: "-webkit-box",
-                WebkitLineClamp: 3,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border)",
               }}
             >
-              {c.text_preview}
-            </p>
-          </li>
-        ))}
+              {/* Document name + score */}
+              <div className="flex items-center justify-between gap-2">
+                <a
+                  href={sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium truncate hover:underline"
+                  style={{ color: "var(--accent)" }}
+                  title={c.filename ?? c.document_id}
+                >
+                  {docLabel}
+                </a>
+                <span className="badge badge-accent shrink-0">
+                  {(c.score * 100).toFixed(0)}%
+                </span>
+              </div>
+
+              {/* Page / chunk reference */}
+              <span
+                className="text-xs"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {pageLabel}
+              </span>
+
+              {/* Text preview */}
+              <p
+                className="text-xs leading-relaxed"
+                style={{
+                  color: "var(--text-primary)",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {c.text_preview}
+              </p>
+
+              {/* Clickable link to source document */}
+              <a
+                href={sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs self-start hover:underline"
+                style={{ color: "var(--accent)" }}
+              >
+                View source →
+              </a>
+            </li>
+          );
+        })}
       </ol>
     </div>
   );
