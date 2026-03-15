@@ -28,7 +28,7 @@ test("onboarding flow – step through all 3 steps and land on /dashboard", asyn
     localStorage.removeItem("insurai_workspace");
   });
 
-  await page.goto("/");
+  await page.goto("/onboarding");
 
   // Step 1 – Welcome (workflow cards, NOT fake metrics)
   await expect(page.getByText("Welcome to InsurAI")).toBeVisible({ timeout: 10_000 });
@@ -89,7 +89,7 @@ test("onboarding skip – already onboarded redirects to /dashboard", async ({ p
     localStorage.setItem("insurai_workspace", "default");
   });
 
-  await page.goto("/");
+  await page.goto("/onboarding");
 
   // Should redirect to /dashboard without showing onboarding
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
@@ -551,4 +551,39 @@ test("performance – no X-Powered-By header exposed", async ({ page }) => {
   const response = await page.goto("/");
   const poweredBy = response?.headers()["x-powered-by"];
   expect(poweredBy).toBeUndefined();
+});
+
+// ─── Route tests ──────────────────────────────────────────────────────────────
+
+test("route – landing page loads at '/'", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_auth");
+    localStorage.removeItem("insurai_user");
+  });
+
+  await page.goto("/");
+  await expect(page).toHaveURL("/");
+  // Landing page has the hero heading
+  await expect(page.locator("h1").first()).toBeVisible({ timeout: 10_000 });
+});
+
+test("route – login page loads at '/login'", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page).toHaveURL("/login");
+  await expect(page.getByText("Sign in to your account")).toBeVisible({ timeout: 10_000 });
+});
+
+test("route – onboarding page loads at '/onboarding'", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page).toHaveURL("/onboarding");
+  await expect(page.getByText("Welcome to InsurAI")).toBeVisible({ timeout: 10_000 });
 });

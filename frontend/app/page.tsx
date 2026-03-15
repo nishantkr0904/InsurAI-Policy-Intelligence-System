@@ -1,9 +1,8 @@
-import LandingOrOnboarding from "@/components/LandingOrOnboarding";
+import LandingPage from "@/components/LandingPage";
 
 /**
- * Root page – shows landing page for unauthenticated users,
- * or the onboarding wizard for newly-signed-up users.
+ * Root page – public landing page, always accessible at "/".
  */
 export default function Home() {
-  return <LandingOrOnboarding />;
+  return <LandingPage />;
 }

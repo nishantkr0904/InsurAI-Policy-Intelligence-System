@@ -39,7 +39,7 @@ export default function LoginPage() {
 
     // If never onboarded, go through workspace setup
     const onboarded = localStorage.getItem("insurai_onboarded") === "true";
-    router.push(onboarded ? "/dashboard" : "/");
+    router.push(onboarded ? "/dashboard" : "/onboarding");
   }
 
   return (
