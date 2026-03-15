@@ -450,11 +450,12 @@ export default function LandingPage() {
           <p style={{ marginTop: "10px", color: "var(--text-secondary)", marginBottom: "44px" }}>
             Every answer is grounded in your policies — not hallucinations
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
             {[
               { icon: "🔗", title: "Citation-Backed", desc: "Every answer links to the exact policy clause. Zero guesswork." },
               { icon: "📍", title: "Source Transparency", desc: "See which document and page each answer came from." },
               { icon: "💡", title: "Reasoning Explained", desc: "Understand why the AI gave a particular answer." },
+              { icon: "📋", title: "Audit Trail", desc: "Every AI query and decision is logged for compliance." },
             ].map(({ icon, title, desc }) => (
               <div key={title} className="card" style={{ textAlign: "center", padding: "28px 20px" }}>
                 <div style={{ fontSize: "28px", marginBottom: "12px" }}>{icon}</div>

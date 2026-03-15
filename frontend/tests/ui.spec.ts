@@ -234,3 +234,20 @@ test("landing page – query input is keyboard accessible", async ({ page }) => 
   const tagName = await chip.evaluate((el) => el.tagName.toLowerCase());
   expect(tagName).toBe("button");
 });
+
+// ─── Trust cards ─────────────────────────────────────────────────────────────
+test("AI You Can Trust section renders 4 trust cards", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_workspace");
+  });
+  await page.goto("/");
+
+  await expect(page.getByText("AI You Can Trust")).toBeVisible({ timeout: 10_000 });
+  // Use role heading to avoid strict-mode collision with body text that contains the same words
+  await expect(page.getByRole("heading", { name: "Citation-Backed" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Source Transparency" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Reasoning Explained" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Audit Trail" })).toBeVisible();
+  await expect(page.getByText("Every AI query and decision is logged for compliance.")).toBeVisible();
+});
