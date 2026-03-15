@@ -272,7 +272,30 @@ test("landing page – Why Insurance Teams Choose InsurAI renders 3 testimonial 
   await expect(page.getByText("Maria Lopez")).toBeVisible();
 });
 
-// ─── Trust cards ─────────────────────────────────────────────────────────────
+// ─── Test 14: Final CTA section ───────────────────────────────────────────────
+test("landing page – final CTA has Start Free Trial button and benefits list", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_auth");
+    localStorage.removeItem("insurai_user");
+  });
+
+  await page.goto("/");
+  await expect(page.getByText("Ready to transform your")).toBeVisible({ timeout: 10_000 });
+
+  // CTA button exists
+  const ctaBtn = page.getByTestId("cta-start-trial");
+  await expect(ctaBtn).toBeVisible();
+
+  // Benefits list renders with all 3 items
+  const benefits = page.getByTestId("cta-benefits");
+  await expect(benefits).toBeVisible();
+  await expect(page.getByText("Process policies 10x faster")).toBeVisible();
+  await expect(page.getByText("Reduce fraud detection time")).toBeVisible();
+  await expect(page.getByText("Ensure regulatory compliance")).toBeVisible();
+
+  // Trust message
+  await expect(page.getByText("No credit card required")).toBeVisible();
+});
 test("AI You Can Trust section renders 4 trust cards", async ({ page }) => {
   await page.context().addInitScript(() => {
     localStorage.removeItem("insurai_onboarded");

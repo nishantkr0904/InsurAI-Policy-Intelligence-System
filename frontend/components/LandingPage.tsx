@@ -587,16 +587,28 @@ export default function LandingPage() {
             Join insurance teams using InsurAI to process policies faster,
             validate claims accurately, and stay audit-ready.
           </p>
-          <div style={{ display: "flex", gap: "12px", marginTop: "36px", justifyContent: "center", flexWrap: "wrap" }}>
-            <Link href="/signup" className="btn-primary" style={{ padding: "14px 34px", fontSize: "15px", borderRadius: "10px" }}>
+          <ul data-testid="cta-benefits" style={{ listStyle: "none", padding: 0, margin: "28px 0 0", display: "flex", flexDirection: "column", gap: "10px", alignItems: "center" }}>
+            {[
+              "Process policies 10x faster",
+              "Reduce fraud detection time",
+              "Ensure regulatory compliance",
+            ].map((benefit) => (
+              <li key={benefit} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "var(--text-secondary)" }}>
+                <span style={{ color: "var(--success)", fontSize: "16px", lineHeight: 1 }}>✓</span>
+                {benefit}
+              </li>
+            ))}
+          </ul>
+          <div style={{ display: "flex", gap: "12px", marginTop: "32px", justifyContent: "center", flexWrap: "wrap" }}>
+            <Link href="/signup" data-testid="cta-start-trial" className="btn-primary" style={{ padding: "14px 34px", fontSize: "15px", borderRadius: "10px" }}>
               Start Free Trial →
             </Link>
             <Link href="/login" className="btn-secondary" style={{ padding: "14px 34px", fontSize: "15px", borderRadius: "10px" }}>
               Sign In
             </Link>
           </div>
-          <p style={{ marginTop: "18px", fontSize: "12px", color: "var(--text-muted)" }}>
-            No credit card required · SOC2 compliant · Cancel anytime
+          <p style={{ marginTop: "14px", fontSize: "12px", color: "var(--text-muted)" }}>
+            No credit card required
           </p>
         </div>
       </section>
