@@ -25,23 +25,29 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-1 overflow-hidden" style={{ height: "calc(100vh - 112px)" }}>
+    <div className="flex flex-1 overflow-hidden" style={{ height: "calc(100vh - 84px)" }}>
       {/* ── Sidebar ── */}
       <nav
-        className="w-52 shrink-0 flex flex-col gap-1 p-3 border-r overflow-y-auto"
+        className="w-52 shrink-0 flex flex-col gap-0.5 p-3 border-r overflow-y-auto"
         style={{ background: "var(--bg-surface)", borderColor: "var(--border)" }}
       >
-        <p className="text-xs font-semibold px-2 pt-1 pb-2" style={{ color: "var(--text-secondary)" }}>
-          DASHBOARDS
+        <p
+          className="section-title px-2 pt-2 pb-3"
+          style={{ margin: 0 }}
+        >
+          Dashboards
         </p>
         {NAV_LINKS.map(({ href, label, icon }) => (
           <a
             key={href}
             href={href}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors hover:bg-white/5"
-            style={{ color: "var(--text-primary)" }}
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 hover:bg-white/5 hover:text-white"
+            style={{
+              color: "var(--text-secondary)",
+              textDecoration: "none",
+            }}
           >
-            <span>{icon}</span>
+            <span className="text-base leading-none">{icon}</span>
             <span>{label}</span>
           </a>
         ))}
