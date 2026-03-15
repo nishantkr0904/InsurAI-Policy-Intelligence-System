@@ -53,6 +53,30 @@ class ChatResponse(BaseModel):
     retrieved_chunks: int
 
 
+class ChatStreamRequest(BaseModel):
+    """Request body for POST /api/v1/chat/stream (SSE streaming)."""
+    query: str = Field(
+        ...,
+        min_length=3,
+        max_length=2000,
+        description="Natural language question about the policy documents.",
+    )
+    workspace_id: str = Field(
+        ...,
+        description="Workspace namespace to scope the document search.",
+    )
+    top_k: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Number of document chunks to retrieve before streaming.",
+    )
+    model: Optional[str] = Field(
+        default=None,
+        description="Override LLM model. Defaults to settings.LLM_MODEL.",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Retrieve endpoint schemas (Phase P5 – T8)
 # ---------------------------------------------------------------------------
