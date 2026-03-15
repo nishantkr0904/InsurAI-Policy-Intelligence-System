@@ -608,7 +608,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <p style={{ marginTop: "14px", fontSize: "12px", color: "var(--text-muted)" }}>
-            No credit card required
+            No credit card required · SOC2 compliant · Cancel anytime
           </p>
         </div>
       </section>
