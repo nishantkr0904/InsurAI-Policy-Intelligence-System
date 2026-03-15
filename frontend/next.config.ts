@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  compress: true,
+  poweredByHeader: false,
   /*
    * Proxy /api/* to the FastAPI backend so the frontend never hard-codes
    * the backend URL. In Docker Compose the backend service is named "backend"
