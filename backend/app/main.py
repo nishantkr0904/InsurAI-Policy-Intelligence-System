@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.ingestion.router import router as ingestion_router
 from app.rag.router import router as rag_router
+from app.rag.retrieve_router import router as retrieve_router
 from app.storage.minio_client import ensure_bucket_exists
 from app.processing.vector_store import ensure_collection_exists
 
@@ -88,6 +89,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 app.include_router(ingestion_router)
 app.include_router(rag_router)
+app.include_router(retrieve_router)
 
 
 @app.get("/health", tags=["Health"])
