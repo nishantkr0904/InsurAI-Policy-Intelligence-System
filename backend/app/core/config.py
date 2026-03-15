@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "gpt-4o-mini"
     LLM_TEMPERATURE: float = 0.1
 
+    # Cross-encoder re-ranker (Phase P5 – T8)
+    # LiteLLM rerank model, e.g. "cohere/rerank-english-v3.0"
+    # or "huggingface/BAAI/bge-reranker-v2-m3". Leave empty to skip re-ranking.
+    RERANKER_MODEL: str = ""
+
     class Config:
         env_file = ".env"
         case_sensitive = True

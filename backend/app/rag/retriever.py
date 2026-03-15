@@ -1,20 +1,21 @@
 """
-RAG retrieval service – hybrid dense + BM25 retrieval.
+RAG retrieval service – hybrid dense + BM25 + cross-encoder pipeline.
 
 Pipeline:
   1. Embed the user query using generate_embeddings()
   2. ANN search against Milvus (dense retrieval via search_vectors())
   3. BM25 re-rank the dense hits using the query tokens (lexical signal)
-  4. Return the top-k re-ranked chunks with scores and metadata
+  4. Cross-encoder re-rank via reranker.rerank() for final precision scoring
+  5. Return the top-k re-ranked chunks with scores and metadata
 
 Architecture ref:
   docs/system-architecture.md §8 – RAG Retrieval System
-  docs/roadmap.md Phase 5 – "Hybrid retrieval (dense + BM25 re-rank)"
+  docs/roadmap.md Phase 5 – "Hybrid retrieval + cross-encoder re-ranker"
 
 Design decisions:
   - BM25 is implemented with rank-bm25 (pure Python, no ML framework).
   - Dense retrieval uses the existing search_vectors() stub (Milvus COSINE ANN).
-  - The re-ranker fuses scores via linear interpolation controlled by ALPHA.
+  - Cross-encoder re-ranks the BM25 candidates for final precision scoring.
   - No LlamaIndex introduced here; it is reserved for agentic workflows (Phase P8).
 """
 
@@ -98,21 +99,23 @@ def retrieve(
         logger.warning("rank-bm25 not installed – using dense-only retrieval.")
         bm25_scores = [0.0] * len(hits)
 
-    # ---- Step 4: Fuse scores and sort ----
-    results: List[RetrievedChunk] = []
+    # ---- Step 4: Fuse BM25 + dense scores ----
+    candidates: List[RetrievedChunk] = []
     for hit, bm25_score in zip(hits, bm25_scores):
         dense_score = float(hit.get("score", 0.0))
-        final_score = _ALPHA * dense_score + (1.0 - _ALPHA) * bm25_score
-        results.append(
+        fused_score = _ALPHA * dense_score + (1.0 - _ALPHA) * bm25_score
+        candidates.append(
             RetrievedChunk(
                 document_id=hit["document_id"],
                 chunk_index=hit["chunk_index"],
                 text=hit["text"],
                 dense_score=dense_score,
                 bm25_score=bm25_score,
-                final_score=final_score,
+                final_score=fused_score,
             )
         )
+    candidates.sort(key=lambda c: c.final_score, reverse=True)
 
-    results.sort(key=lambda c: c.final_score, reverse=True)
-    return results[:top_k]
+    # ---- Step 5: Cross-encoder re-rank (upgrades final_score) ----
+    from app.rag.reranker import rerank
+    return rerank(query=query, chunks=candidates, top_k=top_k)
