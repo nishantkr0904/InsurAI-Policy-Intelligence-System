@@ -1005,3 +1005,70 @@ test("onboarding skip – onboarding_step key is removed on completion", async (
   const stepKey = await page.evaluate(() => localStorage.getItem("insurai_onboarding_step"));
   expect(stepKey).toBeNull();
 });
+
+// ─── Protected route redirect tests ──────────────────────────────────────────
+
+const PROTECTED_ROUTES = ["/dashboard", "/claims", "/documents", "/chat", "/fraud", "/compliance"];
+
+for (const route of PROTECTED_ROUTES) {
+  test(`protected route – unauthenticated user visiting ${route} is redirected to /login`, async ({ page }) => {
+    await page.context().addInitScript(() => {
+      localStorage.removeItem("insurai_auth");
+      localStorage.removeItem("insurai_user");
+    });
+
+    await page.goto(route);
+
+    await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
+  });
+}
+
+test("protected route – authenticated user can access /dashboard", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.setItem("insurai_onboarded", "true");
+    localStorage.setItem("insurai_workspace", "default");
+    localStorage.setItem("insurai_has_documents", "true");
+  });
+
+  await page.goto("/dashboard");
+
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+  await expect(page).not.toHaveURL(/\/login/);
+});
+
+test("protected route – authenticated user can access /claims", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+  });
+
+  await page.goto("/claims");
+
+  await expect(page).toHaveURL(/\/claims/, { timeout: 10_000 });
+  await expect(page).not.toHaveURL(/\/login/);
+  await expect(page.getByText("Claims Validation")).toBeVisible({ timeout: 10_000 });
+});
+
+test("protected route – authenticated user can access /documents", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+  });
+
+  await page.goto("/documents");
+
+  await expect(page).toHaveURL(/\/documents/, { timeout: 10_000 });
+  await expect(page).not.toHaveURL(/\/login/);
+  await expect(page.getByText("Documents")).toBeVisible({ timeout: 10_000 });
+});
