@@ -894,6 +894,48 @@ test("role selection – dashboard shows role-based tips after role is set", asy
   await expect(page.getByText("Tips for Underwriters")).toBeVisible();
 });
 
+test("role badge – hidden on /onboarding before a role is selected", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_user_role");
+    localStorage.removeItem("insurai_onboarded");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("role-badge")).not.toBeVisible();
+});
+
+test("role badge – selecting a role updates user state and persists role", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_user_role");
+    localStorage.removeItem("insurai_onboarded");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+
+  await page.getByTestId("role-option-claims_adjuster").click();
+
+  // Role is persisted in insurai_user_role
+  const savedRole = await page.evaluate(() => localStorage.getItem("insurai_user_role"));
+  expect(savedRole).toBe("claims_adjuster");
+
+  // User object's role is updated so the Navbar can reflect it
+  const userJson = await page.evaluate(() => localStorage.getItem("insurai_user"));
+  const user = JSON.parse(userJson!);
+  expect(user.role).toBe("claims_adjuster");
+});
+
 // ─── Onboarding completion & skip tests ──────────────────────────────────────
 
 test("onboarding completion – step 1 action saves completion and redirects to /dashboard", async ({ page }) => {

@@ -58,7 +58,7 @@ export default function OnboardingFlow() {
     return 0;
   });
 
-  const [selectedRole, setSelectedRole] = useState<string>(() => getSelectedRole() ?? "");
+  const [selectedRole, setSelectedRole] = useState<string | null>(() => getSelectedRole());
 
   function chooseRole(role: string) {
     setSelectedRole(role);

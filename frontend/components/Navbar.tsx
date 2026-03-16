@@ -192,14 +192,17 @@ export default function Navbar() {
           </span>
         </div>
 
-        {/* Role badge */}
-        <span
-          className="badge badge-accent"
-          style={{ cursor: "default" }}
-          title={`Your role: ${roleLabel}`}
-        >
-          {roleLabel}
-        </span>
+        {/* Role badge – only shown after a role has been selected */}
+        {user?.role && (
+          <span
+            data-testid="role-badge"
+            className="badge badge-accent"
+            style={{ cursor: "default" }}
+            title={`Your role: ${roleLabel}`}
+          >
+            {roleLabel}
+          </span>
+        )}
 
         {/* Notifications */}
         <div className="relative" ref={notifRef}>
@@ -296,7 +299,9 @@ export default function Navbar() {
                 <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{user?.name}</p>
                 <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-secondary)" }}>{user?.email}</p>
                 <div className="flex items-center gap-1.5 mt-2">
-                  <span className="badge badge-accent" style={{ fontSize: "10px" }}>{roleLabel}</span>
+                  {user?.role && (
+                    <span className="badge badge-accent" style={{ fontSize: "10px" }}>{roleLabel}</span>
+                  )}
                   <span className="text-xs" style={{ color: "var(--text-muted)" }}>·</span>
                   <span className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{workspace}</span>
                 </div>

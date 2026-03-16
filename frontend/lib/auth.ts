@@ -98,6 +98,12 @@ export type OnboardingRole = (typeof ONBOARDING_ROLES)[number]["value"];
 export function saveSelectedRole(role: string): void {
   if (typeof window === "undefined") return;
   localStorage.setItem("insurai_user_role", role);
+  // Keep the user object's role in sync so the Navbar reflects the selection.
+  const user = getUser();
+  if (user) {
+    user.role = role;
+    localStorage.setItem("insurai_user", JSON.stringify(user));
+  }
 }
 
 export function getSelectedRole(): string | null {

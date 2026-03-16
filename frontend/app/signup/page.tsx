@@ -114,7 +114,7 @@ export default function SignupPage() {
     login({
       name: "",
       email: form.email.trim().toLowerCase(),
-      role: "underwriter",
+      role: "",
       workspace,
       initials: "",
     });
