@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import DocumentTable from "@/components/DocumentTable";
+import AuthGuard from "@/components/AuthGuard";
 
 /**
  * Documents page – lists all uploaded policy documents and their
@@ -19,6 +20,7 @@ const WORKSPACE_ID =
 
 export default function DocumentsPage() {
   return (
+    <AuthGuard>
     <div className="max-w-4xl mx-auto w-full space-y-6 px-6 py-6">
       {/* ── Page header ── */}
       <div className="flex items-center justify-between">
@@ -42,5 +44,6 @@ export default function DocumentsPage() {
       {/* ── Document table ── */}
       <DocumentTable workspaceId={WORKSPACE_ID} />
     </div>
+    </AuthGuard>
   );
 }
