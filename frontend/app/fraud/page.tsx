@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import AuthGuard from "@/components/AuthGuard";
 
 /**
  * Fraud Detection page – FR016-FR018
@@ -110,6 +111,7 @@ export default function FraudPage() {
   const resolved = MOCK_ALERTS.filter((a) => a.status === "resolved").length;
 
   return (
+    <AuthGuard>
     <div className="px-6 py-6 max-w-5xl mx-auto w-full space-y-6">
       {/* Header */}
       <div>
@@ -278,5 +280,6 @@ export default function FraudPage() {
         </div>
       )}
     </div>
+    </AuthGuard>
   );
 }

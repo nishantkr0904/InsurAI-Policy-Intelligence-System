@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import AuthGuard from "@/components/AuthGuard";
 
 /**
  * Compliance Audit page – FR019-FR021
@@ -104,6 +105,7 @@ export default function CompliancePage() {
     score >= 80 ? "var(--success)" : score >= 60 ? "var(--warning)" : "var(--danger)";
 
   return (
+    <AuthGuard>
     <div className="px-6 py-6 max-w-5xl mx-auto w-full space-y-6">
       {/* Header */}
       <div>
@@ -271,5 +273,6 @@ export default function CompliancePage() {
         </div>
       )}
     </div>
+    </AuthGuard>
   );
 }

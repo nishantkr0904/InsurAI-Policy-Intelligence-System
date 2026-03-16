@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import AuthGuard from "@/components/AuthGuard";
 
 /**
  * Claims Validation page – FR012-FR015
@@ -95,6 +96,7 @@ export default function ClaimsPage() {
   const style = result ? STATUS_STYLES[result.status] : null;
 
   return (
+    <AuthGuard>
     <div className="px-6 py-6 max-w-5xl mx-auto w-full space-y-6">
       {/* Header */}
       <div>
@@ -246,5 +248,6 @@ export default function ClaimsPage() {
         </div>
       )}
     </div>
+    </AuthGuard>
   );
 }
