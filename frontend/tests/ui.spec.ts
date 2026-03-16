@@ -1265,3 +1265,21 @@ test("signup – trust badges contain expected labels", async ({ page }) => {
   await expect(page.getByTestId("trust-badge-AES-256 Encryption")).toHaveText("🔐 AES-256 Encryption");
   await expect(page.getByTestId("trust-badge-Role-Based Access Control")).toHaveText("✅ Role-Based Access Control");
 });
+
+// ─── Signup SSO buttons tests ─────────────────────────────────────────────────
+test("signup – SSO buttons render", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.getByTestId("sso-google")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("sso-microsoft")).toBeVisible();
+});
+
+test("signup – SSO buttons have correct labels", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.getByTestId("sso-google")).toHaveText(/Continue with Google/);
+  await expect(page.getByTestId("sso-microsoft")).toHaveText(/Continue with Microsoft/);
+});
+
+test("signup – 'or sign up with email' divider renders", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.getByText("or sign up with email")).toBeVisible({ timeout: 10_000 });
+});
