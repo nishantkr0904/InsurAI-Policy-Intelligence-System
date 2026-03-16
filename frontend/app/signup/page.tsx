@@ -15,6 +15,21 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  function getStrength(pw: string): { score: number; label: string; color: string } {
+    if (!pw) return { score: 0, label: "", color: "" };
+    const hasLen  = pw.length >= 8;
+    const hasNum  = /[0-9]/.test(pw);
+    const hasLetter = /[a-zA-Z]/.test(pw);
+    const hasSpecial = /[^a-zA-Z0-9]/.test(pw);
+    const score = [hasLen, hasNum, hasLetter, hasSpecial].filter(Boolean).length;
+    if (score <= 1) return { score: 1, label: "Weak",   color: "var(--danger)" };
+    if (score === 2) return { score: 2, label: "Fair",   color: "var(--warning)" };
+    if (score === 3) return { score: 3, label: "Good",   color: "#4ade80" };
+    return              { score: 4, label: "Strong", color: "var(--success)" };
+  }
+
+  const strength = getStrength(form.password);
+
   useEffect(() => {
     if (isAuthenticated()) router.replace("/dashboard");
   }, [router]);
@@ -29,8 +44,16 @@ export default function SignupPage() {
     setError("");
 
     if (!form.email.trim()) { setError("Email address is required."); return; }
-    if (!form.password || form.password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (!form.password || form.password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (!/[a-zA-Z]/.test(form.password)) {
+      setError("Password must contain at least 1 letter.");
+      return;
+    }
+    if (!/[0-9]/.test(form.password)) {
+      setError("Password must contain at least 1 number.");
       return;
     }
     if (form.password !== form.confirmPassword) {
@@ -108,8 +131,22 @@ export default function SignupPage() {
 
             <div>
               <label className="form-label">Password</label>
-              <input type="password" className="input" placeholder="Min. 6 characters"
+              <input type="password" className="input" placeholder="Min. 8 characters"
                 value={form.password} onChange={(e) => update("password", e.target.value)} />
+              {form.password && (
+                <div data-testid="password-strength" className="mt-2">
+                  <div className="flex gap-1 mb-1">
+                    {[1, 2, 3, 4].map((s) => (
+                      <div
+                        key={s}
+                        className="h-1 flex-1 rounded-full transition-all duration-300"
+                        style={{ background: s <= strength.score ? strength.color : "var(--border)" }}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs" style={{ color: strength.color }}>{strength.label}</p>
+                </div>
+              )}
             </div>
 
             <div>
