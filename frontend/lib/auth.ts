@@ -37,6 +37,7 @@ export function logout(): void {
   localStorage.removeItem("insurai_user");
   localStorage.removeItem("insurai_onboarded");
   localStorage.removeItem("insurai_workspace");
+  localStorage.removeItem("insurai_user_role");
 }
 
 export function isOnboarded(): boolean {
@@ -63,3 +64,23 @@ export const ROLES = [
   { value: "customer", label: "Customer" },
   { value: "admin", label: "Administrator" },
 ];
+
+/** The four roles surfaced during onboarding role-selection. */
+export const ONBOARDING_ROLES = [
+  { value: "underwriter",         label: "Underwriter",         icon: "📋", desc: "Risk assessment & policy underwriting" },
+  { value: "claims_team",         label: "Claims Team",          icon: "✅", desc: "Validate and process insurance claims" },
+  { value: "compliance_officer",  label: "Compliance Officer",   icon: "🛡️", desc: "Regulatory monitoring & audit reports" },
+  { value: "fraud_analyst",       label: "Fraud Analyst",        icon: "🔍", desc: "Detect and investigate fraud patterns" },
+] as const;
+
+export type OnboardingRole = (typeof ONBOARDING_ROLES)[number]["value"];
+
+export function saveSelectedRole(role: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("insurai_user_role", role);
+}
+
+export function getSelectedRole(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("insurai_user_role");
+}
