@@ -19,10 +19,10 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
-from app.ingestion.schemas import DocumentStatus, DocumentUploadResponse
-from app.storage.minio_client import upload_file
+from app.ingestion.schemas import DocumentMetadata, DocumentStatus, DocumentUploadResponse
+from app.storage.minio_client import list_documents, upload_file
 from app.workers.ingestion_tasks import ingest_document
 
 router = APIRouter(prefix="/api/v1/documents", tags=["Document Ingestion"])
@@ -38,6 +38,38 @@ ALLOWED_CONTENT_TYPES = {
 }
 
 MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
+
+
+@router.get(
+    "",
+    response_model=list[DocumentMetadata],
+    summary="List documents in a workspace",
+)
+async def list_workspace_documents(
+    workspace_id: str = Query(default="default", description="Workspace to list documents for."),
+) -> list[DocumentMetadata]:
+    """Return all documents stored under the given workspace, sourced from MinIO."""
+    try:
+        stored = list_documents(workspace_id=workspace_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Object storage unavailable: {exc}",
+        ) from exc
+
+    return [
+        DocumentMetadata(
+            document_id=obj.object_name.rsplit("/", 1)[-1].rsplit(".", 1)[0],
+            filename=obj.object_name.rsplit("/", 1)[-1],
+            size_bytes=obj.size_bytes,
+            content_type=obj.content_type,
+            workspace_id=workspace_id,
+            status=DocumentStatus.INDEXED,
+            object_key=obj.object_name,
+            uploaded_at=datetime.utcnow(),
+        )
+        for obj in stored
+    ]
 
 
 @router.post(
