@@ -44,12 +44,32 @@ const STEPS = [
 
 export default function OnboardingFlow() {
   const router = useRouter();
-  const [step, setStep] = useState(1); // 1–4
+  const [step, setStep] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("insurai_onboarding_step");
+      return saved ? parseInt(saved, 10) : 1;
+    }
+    return 1;
+  });
 
-  function complete(href: string) {
+  function goToStep(n: number) {
+    localStorage.setItem("insurai_onboarding_step", String(n));
+    setStep(n);
+  }
+
+  /** Navigate to a feature page, preserving onboarding state so Back works. */
+  function goToFeature(href: string) {
+    localStorage.setItem("insurai_workspace", "default");
+    localStorage.setItem("insurai_onboarding_step", String(step));
+    router.push(href);
+  }
+
+  /** Mark onboarding complete and go to dashboard. */
+  function launch() {
     localStorage.setItem("insurai_workspace", "default");
     localStorage.setItem("insurai_onboarded", "true");
-    router.push(href);
+    localStorage.removeItem("insurai_onboarding_step");
+    router.push("/dashboard");
   }
 
   const current = STEPS[step - 1];
@@ -111,7 +131,7 @@ export default function OnboardingFlow() {
             data-testid={current.testId}
             className="btn-primary w-full py-3 text-base rounded-xl"
             style={{ background: "var(--accent-gradient)" }}
-            onClick={() => complete(current.href)}
+            onClick={() => goToFeature(current.href)}
           >
             {current.action} →
           </button>
@@ -124,7 +144,7 @@ export default function OnboardingFlow() {
               data-testid="back-step"
               className="btn-primary py-2.5 px-5"
               style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
-              onClick={() => setStep((s) => s - 1)}
+              onClick={() => goToStep(step - 1)}
             >
               ← Back
             </button>
@@ -134,7 +154,7 @@ export default function OnboardingFlow() {
               data-testid="next-step"
               className="btn-primary flex-1 py-2.5"
               style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
-              onClick={() => setStep((s) => s + 1)}
+              onClick={() => goToStep(step + 1)}
             >
               Skip →
             </button>
@@ -143,7 +163,7 @@ export default function OnboardingFlow() {
               data-testid="launch-btn"
               className="btn-primary flex-1 py-3 text-base rounded-xl"
               style={{ background: "var(--accent-gradient)" }}
-              onClick={() => complete("/dashboard")}
+              onClick={launch}
             >
               Launch InsurAI →
             </button>
