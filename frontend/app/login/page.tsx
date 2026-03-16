@@ -6,7 +6,7 @@ import Link from "next/link";
 import { login, isAuthenticated, getInitials } from "@/lib/auth";
 
 const DEMO_EMAIL = "demo@insurai.ai";
-const DEMO_PASSWORD = "demo123";
+const DEMO_PASSWORD = "demo1234";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated()) router.replace("/dashboard");
@@ -170,14 +171,30 @@ export default function LoginPage() {
 
             <div>
               <label className="form-label">Password</label>
-              <input
-                type="password"
-                className="input"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  className="input"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  style={{ paddingRight: "40px" }}
+                />
+                <button
+                  type="button"
+                  data-testid="toggle-password"
+                  onClick={() => setShowPassword((v) => !v)}
+                  style={{
+                    position: "absolute", right: "10px", top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "var(--text-muted)", fontSize: "12px", padding: "2px 4px",
+                  }}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
               <div className="mt-1.5 text-right">
                 <span data-testid="forgot-password" style={{ fontSize: "12px", color: "var(--accent)", cursor: "pointer" }}>
                   Forgot password?
@@ -225,7 +242,7 @@ export default function LoginPage() {
             style={{ background: "var(--accent-soft)", border: "1px solid rgba(59,130,246,0.2)" }}
           >
             <p className="text-xs" style={{ color: "var(--accent)" }}>
-              <strong>Demo credentials:</strong> demo@insurai.ai / demo123
+              <strong>Demo credentials:</strong> demo@insurai.ai / demo1234
             </p>
           </div>
         </div>
