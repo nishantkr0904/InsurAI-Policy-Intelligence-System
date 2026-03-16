@@ -768,3 +768,128 @@ test("navbar – authenticated user pressing back to / redirects to /dashboard",
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
   await expect(page.getByRole("link", { name: /start free trial/i })).not.toBeVisible();
 });
+
+// ─── Role Selection Tests ─────────────────────────────────────────────────────
+
+test("role selection – shows role selection screen before onboarding steps", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_workspace");
+    localStorage.removeItem("insurai_user_role");
+  });
+
+  await page.goto("/onboarding");
+
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("What's your role?")).toBeVisible();
+
+  // All 4 role options are present
+  await expect(page.getByTestId("role-option-underwriter")).toBeVisible();
+  await expect(page.getByTestId("role-option-claims_team")).toBeVisible();
+  await expect(page.getByTestId("role-option-compliance_officer")).toBeVisible();
+  await expect(page.getByTestId("role-option-fraud_analyst")).toBeVisible();
+});
+
+test("role selection – selecting a role saves it and advances to onboarding step 1", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_workspace");
+    localStorage.removeItem("insurai_user_role");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+
+  // Select "Underwriter"
+  await page.getByTestId("role-option-underwriter").click();
+
+  // Should now be on step 1 of 4
+  await expect(page.getByTestId("progress-indicator")).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByText("Step 1 of 4")).toBeVisible();
+
+  // Role must be persisted in localStorage
+  const savedRole = await page.evaluate(() => localStorage.getItem("insurai_user_role"));
+  expect(savedRole).toBe("underwriter");
+});
+
+test("role selection – each role option saves the correct value", async ({ page }) => {
+  const roles = [
+    { testId: "role-option-underwriter",        value: "underwriter" },
+    { testId: "role-option-claims_team",         value: "claims_team" },
+    { testId: "role-option-compliance_officer",  value: "compliance_officer" },
+    { testId: "role-option-fraud_analyst",       value: "fraud_analyst" },
+  ];
+
+  for (const { testId, value } of roles) {
+    await page.context().addInitScript(() => {
+      localStorage.setItem("insurai_auth", "true");
+      localStorage.setItem("insurai_user", JSON.stringify({
+        name: "Test User", email: "test@test.com", role: "admin",
+        workspace: "default", initials: "TU",
+      }));
+      localStorage.removeItem("insurai_onboarded");
+      localStorage.removeItem("insurai_user_role");
+    });
+
+    await page.goto("/onboarding");
+    await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId(testId).click();
+
+    const savedRole = await page.evaluate(() => localStorage.getItem("insurai_user_role"));
+    expect(savedRole).toBe(value);
+
+    // Reset context for next iteration
+    await page.evaluate(() => {
+      localStorage.removeItem("insurai_user_role");
+      localStorage.removeItem("insurai_onboarding_step");
+    });
+  }
+});
+
+test("role selection – if role already saved, onboarding starts at step 1 directly", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.setItem("insurai_user_role", "fraud_analyst");
+  });
+
+  await page.goto("/onboarding");
+
+  // Should skip role selection and go straight to step 1
+  await expect(page.getByTestId("progress-indicator")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Step 1 of 4")).toBeVisible();
+  await expect(page.getByTestId("role-selection")).not.toBeVisible();
+});
+
+test("role selection – dashboard shows role-based tips after role is set", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.setItem("insurai_onboarded", "true");
+    localStorage.setItem("insurai_workspace", "default");
+    localStorage.setItem("insurai_user_role", "underwriter");
+    localStorage.setItem("insurai_has_documents", "true");
+  });
+
+  await page.goto("/dashboard");
+
+  await expect(page.getByTestId("role-tips")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Tips for Underwriters")).toBeVisible();
+});
