@@ -17,7 +17,7 @@ async function setOnboarded(page: Page, workspace = "default") {
 }
 
 // ─── Test 1: Full onboarding flow ────────────────────────────────────────────
-test("onboarding flow – step through all 3 steps and land on /dashboard", async ({ page }) => {
+test("onboarding flow – step through all 4 steps and land on /dashboard", async ({ page }) => {
   await page.context().addInitScript(() => {
     localStorage.setItem("insurai_auth", "true");
     localStorage.setItem("insurai_user", JSON.stringify({
@@ -30,24 +30,92 @@ test("onboarding flow – step through all 3 steps and land on /dashboard", asyn
 
   await page.goto("/onboarding");
 
-  // Step 1 – Welcome (workflow cards, NOT fake metrics)
-  await expect(page.getByText("Welcome to InsurAI")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText("Step 1")).toBeVisible();
-  await expect(page.getByText("Upload Policies")).toBeVisible();
-
-  await page.getByTestId("get-started").click();
-
-  // Step 2 – How It Works
-  await expect(page.getByText("How It Works")).toBeVisible();
+  // Step 1 – Upload your first policy
+  await expect(page.getByText("Let's get your first policy analyzed")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Step 1 of 4")).toBeVisible();
+  await expect(page.getByText("Upload your first policy")).toBeVisible();
   await page.getByTestId("next-step").click();
 
-  // Step 3 – Ready to Go
-  await expect(page.getByText("You're all set!")).toBeVisible();
-  await page.getByTestId("workspace-input").fill("my-workspace");
+  // Step 2 – Index policies
+  await expect(page.getByText("Step 2 of 4")).toBeVisible();
+  await expect(page.getByText("Index policies")).toBeVisible();
+  await page.getByTestId("next-step").click();
+
+  // Step 3 – Ask a policy question
+  await expect(page.getByText("Step 3 of 4")).toBeVisible();
+  await expect(page.getByText("Ask a policy question")).toBeVisible();
+  await page.getByTestId("next-step").click();
+
+  // Step 4 – Validate a claim
+  await expect(page.getByText("Step 4 of 4")).toBeVisible();
+  await expect(page.getByText("Validate a claim")).toBeVisible();
   await page.getByTestId("launch-btn").click();
 
   // Should land on /dashboard
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+});
+
+// ─── Test 1b: Onboarding steps render ────────────────────────────────────────
+test("onboarding steps render – all 4 step titles and action buttons present", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_workspace");
+  });
+
+  await page.goto("/onboarding");
+
+  // Step 1
+  await expect(page.getByTestId("onboarding-step")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Upload your first policy")).toBeVisible();
+  await expect(page.getByTestId("step-action-upload")).toBeVisible();
+  await page.getByTestId("next-step").click();
+
+  // Step 2
+  await expect(page.getByText("Index policies")).toBeVisible();
+  await expect(page.getByTestId("step-action-index")).toBeVisible();
+  await page.getByTestId("next-step").click();
+
+  // Step 3
+  await expect(page.getByText("Ask a policy question")).toBeVisible();
+  await expect(page.getByTestId("step-action-ask")).toBeVisible();
+  await page.getByTestId("next-step").click();
+
+  // Step 4
+  await expect(page.getByText("Validate a claim")).toBeVisible();
+  await expect(page.getByTestId("step-action-validate")).toBeVisible();
+});
+
+// ─── Test 1c: Progress indicator exists ──────────────────────────────────────
+test("progress indicator – shows Step X of 4 and advances on navigation", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_workspace");
+  });
+
+  await page.goto("/onboarding");
+
+  const indicator = page.getByTestId("progress-indicator");
+  await expect(indicator).toBeVisible({ timeout: 10_000 });
+  await expect(indicator).toContainText("Step 1 of 4");
+
+  await page.getByTestId("next-step").click();
+  await expect(indicator).toContainText("Step 2 of 4");
+
+  await page.getByTestId("next-step").click();
+  await expect(indicator).toContainText("Step 3 of 4");
+
+  await page.getByTestId("next-step").click();
+  await expect(indicator).toContainText("Step 4 of 4");
 });
 
 // ─── Test 2: Chat page direct access ─────────────────────────────────────────
