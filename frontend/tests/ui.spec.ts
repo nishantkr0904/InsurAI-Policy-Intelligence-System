@@ -1092,3 +1092,50 @@ test("signup form – removed fields (Full Name, Your Role, Organization) do not
   await expect(page.getByLabel("Organization / Workspace")).not.toBeVisible();
 });
 
+// ─── Role selection onboarding tests ─────────────────────────────────────────
+test("onboarding role cards – all four required role cards render", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "underwriter",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_user_role");
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_onboarding_step");
+  });
+
+  await page.goto("/onboarding");
+
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("role-option-underwriter")).toBeVisible();
+  await expect(page.getByTestId("role-option-claims_adjuster")).toBeVisible();
+  await expect(page.getByTestId("role-option-fraud_analyst")).toBeVisible();
+  await expect(page.getByTestId("role-option-compliance_officer")).toBeVisible();
+});
+
+test("onboarding role cards – display correct labels", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "underwriter",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_user_role");
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_onboarding_step");
+  });
+
+  await page.goto("/onboarding");
+
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Underwriter")).toBeVisible();
+  await expect(page.getByText("Claims Adjuster")).toBeVisible();
+  await expect(page.getByText("Fraud Analyst")).toBeVisible();
+  await expect(page.getByText("Compliance Officer")).toBeVisible();
+});
+
+test("onboarding role cards – signup page does not show role dropdown", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.getByLabel("Your Role")).not.toBeVisible();
+});
