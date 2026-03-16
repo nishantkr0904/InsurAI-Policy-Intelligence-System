@@ -188,8 +188,18 @@ export default function SignupPage() {
 
         {/* Security footer */}
         <div className="flex items-center justify-center gap-4 mt-3" style={{ flexWrap: "wrap" }}>
-          {["🔒 SOC2 Compliant", "🛡️ PII Protected", "🔐 Encrypted", "✅ RBAC"].map((badge) => (
-            <span key={badge} style={{ fontSize: "11px", color: "var(--text-muted)" }}>{badge}</span>
+          {[
+            { icon: "🔒", label: "SOC2 Type II" },
+            { icon: "🔐", label: "AES-256 Encryption" },
+            { icon: "✅", label: "Role-Based Access Control" },
+          ].map(({ icon, label }) => (
+            <span
+              key={label}
+              data-testid={`trust-badge-${label}`}
+              style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: 500 }}
+            >
+              {icon} {label}
+            </span>
           ))}
         </div>
       </div>

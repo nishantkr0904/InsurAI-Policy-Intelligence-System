@@ -1250,3 +1250,18 @@ test("signup – button is disabled while spinner is showing", async ({ page }) 
   await expect(page.getByTestId("submit-spinner")).toBeVisible({ timeout: 2_000 });
   await expect(page.getByRole("button", { name: /creating account/i })).toBeDisabled();
 });
+
+// ─── Signup trust badges tests ────────────────────────────────────────────────
+test("signup – trust badges render with correct text", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.getByTestId("trust-badge-SOC2 Type II")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("trust-badge-AES-256 Encryption")).toBeVisible();
+  await expect(page.getByTestId("trust-badge-Role-Based Access Control")).toBeVisible();
+});
+
+test("signup – trust badges contain expected labels", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.getByTestId("trust-badge-SOC2 Type II")).toHaveText("🔒 SOC2 Type II");
+  await expect(page.getByTestId("trust-badge-AES-256 Encryption")).toHaveText("🔐 AES-256 Encryption");
+  await expect(page.getByTestId("trust-badge-Role-Based Access Control")).toHaveText("✅ Role-Based Access Control");
+});
