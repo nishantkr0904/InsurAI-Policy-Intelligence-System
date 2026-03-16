@@ -169,14 +169,14 @@ export default function SignupPage() {
             >
               {loading ? (
                 <span className="flex items-center gap-2">
-                  <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <svg data-testid="submit-spinner" className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3" />
                     <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
                   </svg>
                   Creating account…
                 </span>
               ) : (
-                "Create account →"
+                "Create Account → Continue Setup"
               )}
             </button>
           </form>

@@ -1217,3 +1217,36 @@ test("login – old demo password (demo123) shows invalid credentials error", as
   await page.getByRole("button", { name: /sign in/i }).click();
   await expect(page.getByText("Invalid email or password")).toBeVisible({ timeout: 10_000 });
 });
+
+// ─── Signup CTA – button text and spinner tests ───────────────────────────────
+test("signup – button shows 'Create Account → Continue Setup' when idle", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.getByRole("button", { name: "Create Account → Continue Setup" })).toBeVisible({ timeout: 10_000 });
+});
+
+test("signup – spinner appears immediately after valid form submission", async ({ page }) => {
+  await page.goto("/signup");
+
+  await page.getByPlaceholder("jane@company.com").fill("test@example.com");
+  await page.getByPlaceholder("Min. 8 characters").fill("SecurePass1!");
+  await page.getByPlaceholder("Re-enter password").fill("SecurePass1!");
+
+  await page.getByRole("button", { name: "Create Account → Continue Setup" }).click();
+
+  // Spinner should be visible during the 900 ms async delay
+  await expect(page.getByTestId("submit-spinner")).toBeVisible({ timeout: 2_000 });
+});
+
+test("signup – button is disabled while spinner is showing", async ({ page }) => {
+  await page.goto("/signup");
+
+  await page.getByPlaceholder("jane@company.com").fill("test@example.com");
+  await page.getByPlaceholder("Min. 8 characters").fill("SecurePass1!");
+  await page.getByPlaceholder("Re-enter password").fill("SecurePass1!");
+
+  await page.getByRole("button", { name: "Create Account → Continue Setup" }).click();
+
+  // While spinner is visible the button must be disabled
+  await expect(page.getByTestId("submit-spinner")).toBeVisible({ timeout: 2_000 });
+  await expect(page.getByRole("button", { name: /creating account/i })).toBeDisabled();
+});
