@@ -101,8 +101,8 @@ export default function Navbar() {
         style={{ borderColor: "var(--border)", background: "var(--bg-surface)", height: "60px" }}
       >
         {Logo}
-        <Link href="/" className="btn-ghost text-sm" style={{ textDecoration: "none" }}>
-          ← Back to home
+        <Link href="/" data-testid="back-to-landing" className="btn-ghost text-sm" style={{ textDecoration: "none" }}>
+          ← Back to landing page
         </Link>
       </header>
     );

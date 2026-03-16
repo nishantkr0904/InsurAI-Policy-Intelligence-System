@@ -1283,3 +1283,28 @@ test("signup – 'or sign up with email' divider renders", async ({ page }) => {
   await page.goto("/signup");
   await expect(page.getByText("or sign up with email")).toBeVisible({ timeout: 10_000 });
 });
+
+// ─── Back navigation link tests ───────────────────────────────────────────────
+test("signup – back link shows 'Back to landing page'", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.getByTestId("back-to-landing")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("back-to-landing")).toHaveText(/Back to landing page/);
+});
+
+test("signup – back link navigates to /", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByTestId("back-to-landing").click();
+  await expect(page).toHaveURL(/\/$|\/\?/, { timeout: 10_000 });
+});
+
+test("login – back link shows 'Back to landing page'", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.getByTestId("back-to-landing")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("back-to-landing")).toHaveText(/Back to landing page/);
+});
+
+test("login – back link navigates to /", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("back-to-landing").click();
+  await expect(page).toHaveURL(/\/$|\/\?/, { timeout: 10_000 });
+});
