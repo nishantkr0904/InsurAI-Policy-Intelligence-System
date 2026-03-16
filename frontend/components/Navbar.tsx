@@ -66,8 +66,9 @@ export default function Navbar() {
     return pathname === href || pathname.startsWith(href + "/");
   }
 
-  const isLandingPage  = pathname === "/";
-  const isAuthPage     = pathname === "/login" || pathname === "/signup";
+  const isLandingPage    = pathname === "/";
+  const isAuthPage       = pathname === "/login" || pathname === "/signup";
+  const isOnboardingPage = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
 
   /* ── Logo (shared) ──────────────────────────────────────── */
   const Logo = (
@@ -92,6 +93,9 @@ export default function Navbar() {
       <span className="badge badge-accent">Beta</span>
     </Link>
   );
+
+  /* ── Onboarding pages: no global navbar (layout provides its own header) ── */
+  if (isOnboardingPage) return null;
 
   /* ── Auth / Login pages: minimal navbar ─────────────────── */
   if (isAuthPage) {

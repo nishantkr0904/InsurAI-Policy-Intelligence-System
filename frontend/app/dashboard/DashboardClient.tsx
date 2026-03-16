@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { isAuthenticated, getUser, type InsurAIUser } from "@/lib/auth";
+import { isAuthenticated, getUser, isOnboarded, type InsurAIUser } from "@/lib/auth";
 import { getSelectedRole } from "@/lib/auth";
 
 const STATS = [
@@ -128,6 +128,10 @@ export default function DashboardClient() {
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace("/login");
+      return;
+    }
+    if (!isOnboarded()) {
+      router.replace("/onboarding");
       return;
     }
     const u = getUser();

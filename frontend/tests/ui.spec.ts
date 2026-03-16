@@ -769,6 +769,64 @@ test("navbar – authenticated user pressing back to / redirects to /dashboard",
   await expect(page.getByRole("link", { name: /start free trial/i })).not.toBeVisible();
 });
 
+// ─── Onboarding layout tests ──────────────────────────────────────────────────
+
+test("onboarding layout – minimal header renders without main app navbar", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_user_role");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+
+  // Minimal onboarding header is present
+  await expect(page.getByTestId("onboarding-header")).toBeVisible();
+
+  // App nav links must NOT be visible
+  await expect(page.getByRole("link", { name: "Dashboard" })).not.toBeVisible();
+  await expect(page.getByRole("link", { name: "Policies" })).not.toBeVisible();
+  await expect(page.getByRole("link", { name: "AI Assistant" })).not.toBeVisible();
+  await expect(page.getByRole("link", { name: "Claims" })).not.toBeVisible();
+});
+
+test("onboarding layout – InsurAI logo visible in minimal header", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_user_role");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("onboarding-header")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("onboarding-header").getByText("InsurAI")).toBeVisible();
+});
+
+test("onboarding layout – workspace setup page also uses minimal header", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "underwriter",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.setItem("insurai_user_role", "underwriter");
+  });
+
+  await page.goto("/onboarding/workspace");
+  await expect(page.getByTestId("onboarding-header")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("link", { name: "Dashboard" })).not.toBeVisible();
+});
+
 // ─── Role Selection Tests ─────────────────────────────────────────────────────
 
 test("role selection – shows role selection screen before onboarding steps", async ({ page }) => {
