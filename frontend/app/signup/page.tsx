@@ -77,8 +77,8 @@ export default function SignupPage() {
     localStorage.setItem("insurai_workspace", workspace);
     localStorage.removeItem("insurai_onboarded");
 
-    // Redirect to onboarding flow (root '/' triggers OnboardingGate → OnboardingFlow)
-    router.push("/");
+    // Redirect to onboarding flow
+    router.push("/onboarding");
   }
 
   return (

@@ -1385,3 +1385,28 @@ test("workspace setup – role selection routes to /onboarding/workspace", async
   await page.getByTestId("role-option-underwriter").click();
   await expect(page).toHaveURL(/\/onboarding\/workspace/, { timeout: 10_000 });
 });
+
+// ─── Signup redirect tests ────────────────────────────────────────────────────
+test("signup – successful submission redirects to /onboarding", async ({ page }) => {
+  await page.goto("/signup");
+
+  await page.getByPlaceholder("jane@company.com").fill("newuser@example.com");
+  await page.getByPlaceholder("Min. 8 characters").fill("SecurePass1!");
+  await page.getByPlaceholder("Re-enter password").fill("SecurePass1!");
+  await page.getByRole("button", { name: "Create Account → Continue Setup" }).click();
+
+  await expect(page).toHaveURL(/\/onboarding/, { timeout: 10_000 });
+});
+
+test("signup – successful submission does not redirect to /dashboard", async ({ page }) => {
+  await page.goto("/signup");
+
+  await page.getByPlaceholder("jane@company.com").fill("newuser2@example.com");
+  await page.getByPlaceholder("Min. 8 characters").fill("SecurePass1!");
+  await page.getByPlaceholder("Re-enter password").fill("SecurePass1!");
+  await page.getByRole("button", { name: "Create Account → Continue Setup" }).click();
+
+  // Wait for navigation then assert we are NOT on /dashboard
+  await page.waitForURL(/\/onboarding/, { timeout: 10_000 });
+  await expect(page).not.toHaveURL(/\/dashboard/);
+});
