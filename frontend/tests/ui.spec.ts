@@ -1156,3 +1156,33 @@ test("settings – organization field shows updated label", async ({ page }) => 
   await expect(page.getByLabel("Company or Organization")).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText("Your policies and team members will belong to this workspace.")).toBeVisible();
 });
+
+// ─── Password strength indicator tests ───────────────────────────────────────
+test("signup – password strength indicator renders when typing", async ({ page }) => {
+  await page.goto("/signup");
+
+  const pw = page.getByLabel("Password");
+  await pw.fill("abc");
+  await expect(page.getByTestId("password-strength")).toBeVisible();
+});
+
+test("signup – password strength shows Weak for short password", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByLabel("Password").fill("abc1");
+  await expect(page.getByText("Weak")).toBeVisible();
+});
+
+test("signup – password strength shows Strong for complex password", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByLabel("Password").fill("SecurePass1!");
+  await expect(page.getByText("Strong")).toBeVisible();
+});
+
+test("signup – rejects password shorter than 8 characters", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByLabel("Work Email").fill("test@example.com");
+  await page.getByLabel("Password").fill("abc1");
+  await page.getByLabel("Confirm Password").fill("abc1");
+  await page.getByRole("button", { name: /create account/i }).click();
+  await expect(page.getByText("Password must be at least 8 characters.")).toBeVisible();
+});
