@@ -45,6 +45,14 @@ export function isOnboarded(): boolean {
   return localStorage.getItem("insurai_onboarded") === "true";
 }
 
+/** Mark onboarding as complete and clean up step state. */
+export function completeOnboarding(workspace = "default"): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("insurai_onboarded", "true");
+  localStorage.setItem("insurai_workspace", workspace);
+  localStorage.removeItem("insurai_onboarding_step");
+}
+
 export function getInitials(name: string): string {
   return name
     .split(" ")
