@@ -128,7 +128,7 @@ export default function SignupPage() {
               type="button"
               data-testid="sso-google"
               className="btn-ghost w-full justify-center gap-3 rounded-xl py-2.5 text-sm"
-              style={{ background: "var(--bg-elevated, var(--bg-base))", borderColor: "var(--border)" }}
+              style={{ background: "var(--bg-elevated, var(--bg-base))", borderColor: "rgba(59,130,246,0.4)" }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -142,7 +142,7 @@ export default function SignupPage() {
               type="button"
               data-testid="sso-microsoft"
               className="btn-ghost w-full justify-center gap-3 rounded-xl py-2.5 text-sm"
-              style={{ background: "var(--bg-elevated, var(--bg-base))", borderColor: "var(--border)" }}
+              style={{ background: "var(--bg-elevated, var(--bg-base))", borderColor: "rgba(59,130,246,0.4)" }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M11.4 2H2v9.4h9.4V2z" fill="#F25022"/>
