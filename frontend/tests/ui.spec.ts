@@ -1186,3 +1186,34 @@ test("signup – rejects password shorter than 8 characters", async ({ page }) =
   await page.getByRole("button", { name: /create account/i }).click();
   await expect(page.getByText("Password must be at least 8 characters.")).toBeVisible();
 });
+
+// ─── Login – password usability tests ────────────────────────────────────────
+test("login – show/hide password toggle renders", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.getByTestId("toggle-password")).toBeVisible({ timeout: 10_000 });
+});
+
+test("login – show/hide toggle reveals password text", async ({ page }) => {
+  await page.goto("/login");
+  const input = page.getByLabel("Password");
+  await input.fill("demo1234");
+  await expect(input).toHaveAttribute("type", "password");
+  await page.getByTestId("toggle-password").click();
+  await expect(input).toHaveAttribute("type", "text");
+});
+
+test("login – updated demo credentials (demo1234) log in successfully", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill("demo@insurai.ai");
+  await page.getByLabel("Password").fill("demo1234");
+  await page.getByRole("button", { name: /sign in/i }).click();
+  await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 });
+});
+
+test("login – old demo password (demo123) shows invalid credentials error", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill("demo@insurai.ai");
+  await page.getByLabel("Password").fill("demo123");
+  await page.getByRole("button", { name: /sign in/i }).click();
+  await expect(page.getByText("Invalid email or password")).toBeVisible({ timeout: 10_000 });
+});
