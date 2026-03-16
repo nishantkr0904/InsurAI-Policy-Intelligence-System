@@ -97,7 +97,7 @@ export default function DocumentTable({ workspaceId }: DocumentTableProps) {
             <polyline points="14 2 14 8 20 8" />
           </svg>
           <p>No documents uploaded yet.</p>
-          <a href="/chat" className="btn-primary text-xs mt-2" style={{ padding: "0.4rem 1rem" }}>
+          <a href="/documents" className="btn-primary text-xs mt-2" style={{ padding: "0.4rem 1rem" }}>
             Upload your first policy →
           </a>
         </div>
