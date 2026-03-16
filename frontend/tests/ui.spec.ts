@@ -932,7 +932,7 @@ test("role selection – shows role selection screen before onboarding steps", a
   await expect(page.getByTestId("role-option-fraud_analyst")).toBeVisible();
 });
 
-test("role selection – selecting a role saves it and advances to onboarding step 1", async ({ page }) => {
+test("role selection – selecting a role highlights the card and enables Continue", async ({ page }) => {
   await page.context().addInitScript(() => {
     localStorage.setItem("insurai_auth", "true");
     localStorage.setItem("insurai_user", JSON.stringify({
@@ -947,16 +947,25 @@ test("role selection – selecting a role saves it and advances to onboarding st
   await page.goto("/onboarding");
   await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
 
+  // Continue must be disabled before selection
+  await expect(page.getByTestId("role-continue")).toBeDisabled();
+
   // Select "Underwriter"
   await page.getByTestId("role-option-underwriter").click();
 
-  // Should now be on step 1 of 4
-  await expect(page.getByTestId("progress-indicator")).toBeVisible({ timeout: 5_000 });
-  await expect(page.getByText("Step 1 of 4")).toBeVisible();
+  // Check icon appears on selected card
+  await expect(page.getByTestId("role-check-underwriter")).toBeVisible();
+
+  // Continue must now be enabled
+  await expect(page.getByTestId("role-continue")).not.toBeDisabled();
 
   // Role must be persisted in localStorage
   const savedRole = await page.evaluate(() => localStorage.getItem("insurai_user_role"));
   expect(savedRole).toBe("underwriter");
+
+  // Clicking Continue routes to workspace setup
+  await page.getByTestId("role-continue").click();
+  await expect(page).toHaveURL(/\/onboarding\/workspace/, { timeout: 10_000 });
 });
 
 test("role selection – each role option saves the correct value", async ({ page }) => {
@@ -1071,6 +1080,90 @@ test("role badge – selecting a role updates user state and persists role", asy
   const userJson = await page.evaluate(() => localStorage.getItem("insurai_user"));
   const user = JSON.parse(userJson!);
   expect(user.role).toBe("claims_adjuster");
+});
+
+// ─── Role card UI improvement tests ──────────────────────────────────────────
+
+test("role cards – Continue button is disabled before any role is selected", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_user_role");
+    localStorage.removeItem("insurai_onboarded");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("role-continue")).toBeDisabled();
+});
+
+test("role cards – selecting a role shows check icon on that card", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_user_role");
+    localStorage.removeItem("insurai_onboarded");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+
+  // No check icons before selection
+  await expect(page.getByTestId("role-check-fraud_analyst")).not.toBeVisible();
+
+  await page.getByTestId("role-option-fraud_analyst").click();
+
+  // Check icon visible on selected card only
+  await expect(page.getByTestId("role-check-fraud_analyst")).toBeVisible();
+  await expect(page.getByTestId("role-check-underwriter")).not.toBeVisible();
+});
+
+test("role cards – selecting a different role moves the check icon", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_user_role");
+    localStorage.removeItem("insurai_onboarded");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+
+  await page.getByTestId("role-option-underwriter").click();
+  await expect(page.getByTestId("role-check-underwriter")).toBeVisible();
+
+  // Switch selection
+  await page.getByTestId("role-option-compliance_officer").click();
+  await expect(page.getByTestId("role-check-compliance_officer")).toBeVisible();
+  await expect(page.getByTestId("role-check-underwriter")).not.toBeVisible();
+});
+
+test("role cards – Continue button activates after role selection", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_user_role");
+    localStorage.removeItem("insurai_onboarded");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+
+  await expect(page.getByTestId("role-continue")).toBeDisabled();
+  await page.getByTestId("role-option-claims_adjuster").click();
+  await expect(page.getByTestId("role-continue")).not.toBeDisabled();
 });
 
 // ─── Onboarding completion & skip tests ──────────────────────────────────────
@@ -1562,6 +1655,7 @@ test("workspace setup – role selection routes to /onboarding/workspace", async
   await page.goto("/onboarding");
   await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
   await page.getByTestId("role-option-underwriter").click();
+  await page.getByTestId("role-continue").click();
   await expect(page).toHaveURL(/\/onboarding\/workspace/, { timeout: 10_000 });
 });
 
