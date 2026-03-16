@@ -1470,3 +1470,74 @@ test("signup validation – all errors appear on submit with empty form", async 
   await expect(page.getByTestId("error-password")).toBeVisible();
   await expect(page.getByTestId("error-confirm")).toBeVisible();
 });
+
+// ─── Signup accessibility tests ───────────────────────────────────────────────
+test("signup a11y – inputs have associated labels via htmlFor/id", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.locator('label[for="signup-email"]')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('label[for="signup-password"]')).toBeVisible();
+  await expect(page.locator('label[for="signup-confirm"]')).toBeVisible();
+  await expect(page.locator('#signup-email')).toBeVisible();
+  await expect(page.locator('#signup-password')).toBeVisible();
+  await expect(page.locator('#signup-confirm')).toBeVisible();
+});
+
+test("signup a11y – inputs have aria-required", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.locator('#signup-email')).toHaveAttribute("aria-required", "true");
+  await expect(page.locator('#signup-password')).toHaveAttribute("aria-required", "true");
+  await expect(page.locator('#signup-confirm')).toHaveAttribute("aria-required", "true");
+});
+
+test("signup a11y – invalid input gets aria-invalid on blur", async ({ page }) => {
+  await page.goto("/signup");
+
+  await page.locator('#signup-email').fill("bad-email");
+  await page.locator('#signup-email').blur();
+  await expect(page.locator('#signup-email')).toHaveAttribute("aria-invalid", "true");
+
+  await page.locator('#signup-password').fill("weak");
+  await page.locator('#signup-password').blur();
+  await expect(page.locator('#signup-password')).toHaveAttribute("aria-invalid", "true");
+});
+
+test("signup a11y – error messages have role=alert", async ({ page }) => {
+  await page.goto("/signup");
+  await page.locator('#signup-email').fill("bad");
+  await page.locator('#signup-email').blur();
+  await expect(page.getByTestId("error-email")).toHaveAttribute("role", "alert");
+});
+
+test("signup a11y – error element is referenced by aria-describedby", async ({ page }) => {
+  await page.goto("/signup");
+  await page.locator('#signup-email').fill("bad");
+  await page.locator('#signup-email').blur();
+  await expect(page.locator('#signup-email')).toHaveAttribute("aria-describedby", "error-email-msg");
+});
+
+test("signup a11y – tab order moves through email → password → confirm → submit", async ({ page }) => {
+  await page.goto("/signup");
+
+  // Email should be auto-focused
+  await expect(page.locator('#signup-email')).toBeFocused({ timeout: 5_000 });
+
+  await page.keyboard.press("Tab");
+  await expect(page.locator('#signup-password')).toBeFocused();
+
+  await page.keyboard.press("Tab");
+  await expect(page.locator('#signup-confirm')).toBeFocused();
+
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: /Create Account/i })).toBeFocused();
+});
+
+test("signup a11y – submit button has aria-busy when loading", async ({ page }) => {
+  await page.goto("/signup");
+  await page.locator('#signup-email').fill("test@example.com");
+  await page.locator('#signup-password').fill("SecurePass1!");
+  await page.locator('#signup-confirm').fill("SecurePass1!");
+  await page.getByRole("button", { name: /Create Account/i }).click();
+
+  await expect(page.getByTestId("submit-spinner")).toBeVisible({ timeout: 2_000 });
+  await expect(page.getByRole("button", { name: /Creating account/i })).toHaveAttribute("aria-busy", "true");
+});

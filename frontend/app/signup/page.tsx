@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login, isAuthenticated } from "@/lib/auth";
 
-function FieldError({ msg, testId }: { msg: string; testId: string }) {
+function FieldError({ msg, testId, id }: { msg: string; testId: string; id: string }) {
   if (!msg) return null;
   return (
-    <p data-testid={testId} className="text-xs mt-1.5" style={{ color: "var(--danger)" }}>
+    <p id={id} data-testid={testId} role="alert" aria-live="polite" className="text-xs mt-1.5" style={{ color: "var(--danger)" }}>
       {msg}
     </p>
   );
@@ -208,34 +208,49 @@ export default function SignupPage() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
 
             <div>
-              <label className="form-label">Work Email</label>
+              <label htmlFor="signup-email" className="form-label">Work Email</label>
               <input
+                id="signup-email"
                 type="email"
                 className="input"
                 placeholder="jane@company.com"
                 value={form.email}
                 onChange={(e) => update("email", e.target.value)}
                 onBlur={() => handleBlur("email")}
+                aria-required="true"
+                aria-invalid={touched.email && !!fieldErrors.email}
+                aria-describedby={fieldErrors.email ? "error-email-msg" : undefined}
                 style={touched.email && fieldErrors.email ? { borderColor: "var(--danger)" } : {}}
                 autoFocus
               />
-              <FieldError msg={fieldErrors.email} testId="error-email" />
+              <FieldError msg={fieldErrors.email} testId="error-email" id="error-email-msg" />
             </div>
 
             <div>
-              <label className="form-label">Password</label>
+              <label htmlFor="signup-password" className="form-label">Password</label>
               <input
+                id="signup-password"
                 type="password"
                 className="input"
                 placeholder="Min. 8 characters"
                 value={form.password}
                 onChange={(e) => update("password", e.target.value)}
                 onBlur={() => handleBlur("password")}
+                aria-required="true"
+                aria-invalid={touched.password && !!fieldErrors.password}
+                aria-describedby={
+                  [
+                    form.password ? "password-strength-desc" : "",
+                    touched.password && fieldErrors.password ? "error-password-msg" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || undefined
+                }
                 style={touched.password && fieldErrors.password ? { borderColor: "var(--danger)" } : {}}
               />
               {form.password && (
                 <div data-testid="password-strength" className="mt-2">
-                  <div className="flex gap-1 mb-1">
+                  <div className="flex gap-1 mb-1" aria-hidden="true">
                     {[1, 2, 3, 4].map((s) => (
                       <div
                         key={s}
@@ -244,24 +259,30 @@ export default function SignupPage() {
                       />
                     ))}
                   </div>
-                  <p className="text-xs" style={{ color: strength.color }}>{strength.label}</p>
+                  <p id="password-strength-desc" className="text-xs" style={{ color: strength.color }}>
+                    Password strength: {strength.label}
+                  </p>
                 </div>
               )}
-              <FieldError msg={touched.password ? fieldErrors.password : ""} testId="error-password" />
+              <FieldError msg={touched.password ? fieldErrors.password : ""} testId="error-password" id="error-password-msg" />
             </div>
 
             <div>
-              <label className="form-label">Confirm Password</label>
+              <label htmlFor="signup-confirm" className="form-label">Confirm Password</label>
               <input
+                id="signup-confirm"
                 type="password"
                 className="input"
                 placeholder="Re-enter password"
                 value={form.confirmPassword}
                 onChange={(e) => update("confirmPassword", e.target.value)}
                 onBlur={() => handleBlur("confirmPassword")}
+                aria-required="true"
+                aria-invalid={touched.confirmPassword && !!fieldErrors.confirmPassword}
+                aria-describedby={touched.confirmPassword && fieldErrors.confirmPassword ? "error-confirm-msg" : undefined}
                 style={touched.confirmPassword && fieldErrors.confirmPassword ? { borderColor: "var(--danger)" } : {}}
               />
-              <FieldError msg={touched.confirmPassword ? fieldErrors.confirmPassword : ""} testId="error-confirm" />
+              <FieldError msg={touched.confirmPassword ? fieldErrors.confirmPassword : ""} testId="error-confirm" id="error-confirm-msg" />
             </div>
 
             <button
@@ -269,6 +290,8 @@ export default function SignupPage() {
               className="btn-primary py-3 text-base rounded-xl"
               style={{ background: "var(--accent-gradient)", marginTop: "4px" }}
               disabled={loading}
+              aria-busy={loading}
+              aria-label={loading ? "Creating account, please wait" : "Create Account and Continue Setup"}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
