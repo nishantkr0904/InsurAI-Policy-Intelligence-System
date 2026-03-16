@@ -1072,3 +1072,23 @@ test("protected route – authenticated user can access /documents", async ({ pa
   await expect(page).not.toHaveURL(/\/login/);
   await expect(page.getByText("Documents")).toBeVisible({ timeout: 10_000 });
 });
+
+// ─── Signup form tests ────────────────────────────────────────────────────────
+test("signup form – work email field exists", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.getByLabel("Work Email")).toBeVisible({ timeout: 10_000 });
+});
+
+test("signup form – password fields exist", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.getByLabel("Password")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByLabel("Confirm Password")).toBeVisible({ timeout: 10_000 });
+});
+
+test("signup form – removed fields (Full Name, Your Role, Organization) do not render", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.getByLabel("Full Name")).not.toBeVisible();
+  await expect(page.getByLabel("Your Role")).not.toBeVisible();
+  await expect(page.getByLabel("Organization / Workspace")).not.toBeVisible();
+});
+
