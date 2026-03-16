@@ -699,3 +699,72 @@ test("login UX – forgot password link exists below password field", async ({ p
   await expect(page.getByTestId("forgot-password")).toBeVisible({ timeout: 10_000 });
   await expect(page.getByTestId("forgot-password")).toContainText("Forgot password?");
 });
+
+// ─── Navbar visibility tests ──────────────────────────────────────────────────
+
+test("navbar unauthenticated – shows only logo, Sign In, and Start Free Trial", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.removeItem("insurai_auth");
+    localStorage.removeItem("insurai_user");
+    localStorage.removeItem("insurai_onboarded");
+  });
+
+  await page.goto("/");
+
+  // Should show Sign In and Start Free Trial
+  await expect(page.getByRole("link", { name: /sign in/i })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("link", { name: /start free trial/i })).toBeVisible();
+
+  // Should NOT show app nav links
+  await expect(page.getByRole("link", { name: /^dashboard$/i })).not.toBeVisible();
+  await expect(page.getByRole("link", { name: /^policies$/i })).not.toBeVisible();
+  await expect(page.getByRole("link", { name: /^ai assistant$/i })).not.toBeVisible();
+});
+
+test("navbar authenticated – shows product navigation links", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.setItem("insurai_onboarded", "true");
+    localStorage.setItem("insurai_workspace", "default");
+  });
+
+  await page.goto("/dashboard");
+
+  // Should show all product nav links
+  await expect(page.getByRole("link", { name: /^dashboard$/i })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("link", { name: /^policies$/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^ai assistant$/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^claims$/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^fraud$/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^compliance$/i })).toBeVisible();
+
+  // Should NOT show Sign In or Start Free Trial
+  await expect(page.getByRole("link", { name: /sign in/i })).not.toBeVisible();
+  await expect(page.getByRole("link", { name: /start free trial/i })).not.toBeVisible();
+});
+
+test("navbar – authenticated user pressing back to / redirects to /dashboard", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.setItem("insurai_onboarded", "true");
+    localStorage.setItem("insurai_workspace", "default");
+  });
+
+  // Navigate to dashboard then go back to /
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+
+  await page.goto("/");
+
+  // Should redirect to dashboard, NOT show landing page
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+  await expect(page.getByRole("link", { name: /start free trial/i })).not.toBeVisible();
+});
