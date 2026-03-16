@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ONBOARDING_ROLES, saveSelectedRole, getSelectedRole, completeOnboarding } from "@/lib/auth";
+import OnboardingProgress from "@/components/OnboardingProgress";
 
 const STEPS = [
   {
@@ -100,6 +101,7 @@ export default function OnboardingFlow() {
           }}
         >
           <div className="text-center mb-8">
+            <OnboardingProgress currentStep={1} />
             <h1 className="text-3xl font-bold tracking-tight gradient-text mb-2">
               What&apos;s your role?
             </h1>
@@ -150,6 +152,7 @@ export default function OnboardingFlow() {
       >
         {/* Progress indicator */}
         <div data-testid="progress-indicator" className="text-center mb-8">
+          <OnboardingProgress currentStep={3} />
           <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
             Step {step} of 4
           </span>

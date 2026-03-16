@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { isAuthenticated, saveWorkspace, getSelectedRole } from "@/lib/auth";
+import OnboardingProgress from "@/components/OnboardingProgress";
 
 export default function WorkspaceSetupPage() {
   const router = useRouter();
@@ -59,6 +60,7 @@ export default function WorkspaceSetupPage() {
       <div className="w-full max-w-md relative" style={{ zIndex: 1 }}>
         {/* Header */}
         <div className="text-center mb-6">
+          <OnboardingProgress currentStep={2} />
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
             style={{ background: "var(--accent-gradient)", boxShadow: "var(--shadow-accent)" }}

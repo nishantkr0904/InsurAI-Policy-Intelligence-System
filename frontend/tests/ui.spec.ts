@@ -827,6 +827,85 @@ test("onboarding layout – workspace setup page also uses minimal header", asyn
   await expect(page.getByRole("link", { name: "Dashboard" })).not.toBeVisible();
 });
 
+// ─── OnboardingProgress step-highlight tests ─────────────────────────────────
+
+test("onboarding progress – step 1 (Role) is active on role selection screen", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_user_role");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("onboarding-progress-bar")).toBeVisible();
+
+  await expect(page.getByTestId("progress-step-1")).toHaveAttribute("data-status", "active");
+  await expect(page.getByTestId("progress-step-2")).toHaveAttribute("data-status", "pending");
+  await expect(page.getByTestId("progress-step-3")).toHaveAttribute("data-status", "pending");
+});
+
+test("onboarding progress – step 2 (Workspace) is active on workspace setup page", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "underwriter",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.setItem("insurai_user_role", "underwriter");
+  });
+
+  await page.goto("/onboarding/workspace");
+  await expect(page.getByTestId("onboarding-progress-bar")).toBeVisible({ timeout: 10_000 });
+
+  await expect(page.getByTestId("progress-step-1")).toHaveAttribute("data-status", "done");
+  await expect(page.getByTestId("progress-step-2")).toHaveAttribute("data-status", "active");
+  await expect(page.getByTestId("progress-step-3")).toHaveAttribute("data-status", "pending");
+});
+
+test("onboarding progress – step 3 (Upload Policy) is active on feature onboarding steps", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "underwriter",
+      workspace: "acme", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.setItem("insurai_user_role", "underwriter");
+    localStorage.setItem("insurai_onboarding_step", "1");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("onboarding-progress-bar")).toBeVisible({ timeout: 10_000 });
+
+  await expect(page.getByTestId("progress-step-1")).toHaveAttribute("data-status", "done");
+  await expect(page.getByTestId("progress-step-2")).toHaveAttribute("data-status", "done");
+  await expect(page.getByTestId("progress-step-3")).toHaveAttribute("data-status", "active");
+});
+
+test("onboarding progress – all three step labels are visible", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_user_role");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("onboarding-progress-bar")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("onboarding-progress-bar").getByText("Role")).toBeVisible();
+  await expect(page.getByTestId("onboarding-progress-bar").getByText("Workspace")).toBeVisible();
+  await expect(page.getByTestId("onboarding-progress-bar").getByText("Upload Policy")).toBeVisible();
+});
+
 // ─── Role Selection Tests ─────────────────────────────────────────────────────
 
 test("role selection – shows role selection screen before onboarding steps", async ({ page }) => {
