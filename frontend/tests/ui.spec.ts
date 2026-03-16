@@ -1139,3 +1139,20 @@ test("onboarding role cards – signup page does not show role dropdown", async 
   await page.goto("/signup");
   await expect(page.getByLabel("Your Role")).not.toBeVisible();
 });
+
+// ─── Settings – organization field label tests ────────────────────────────────
+test("settings – organization field shows updated label", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "underwriter",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.setItem("insurai_onboarded", "true");
+  });
+
+  await page.goto("/settings");
+
+  await expect(page.getByLabel("Company or Organization")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Your policies and team members will belong to this workspace.")).toBeVisible();
+});
