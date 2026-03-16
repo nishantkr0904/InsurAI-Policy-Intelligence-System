@@ -5,21 +5,27 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login, isAuthenticated } from "@/lib/auth";
 
+function FieldError({ msg, testId }: { msg: string; testId: string }) {
+  if (!msg) return null;
+  return (
+    <p data-testid={testId} className="text-xs mt-1.5" style={{ color: "var(--danger)" }}>
+      {msg}
+    </p>
+  );
+}
+
 export default function SignupPage() {
   const router = useRouter();
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
-  const [error, setError] = useState("");
+  const [form, setForm] = useState({ email: "", password: "", confirmPassword: "" });
+  const [touched, setTouched] = useState({ email: false, password: false, confirmPassword: false });
+  const [fieldErrors, setFieldErrors] = useState({ email: "", password: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
 
   function getStrength(pw: string): { score: number; label: string; color: string } {
     if (!pw) return { score: 0, label: "", color: "" };
-    const hasLen  = pw.length >= 8;
-    const hasNum  = /[0-9]/.test(pw);
-    const hasLetter = /[a-zA-Z]/.test(pw);
+    const hasLen     = pw.length >= 8;
+    const hasNum     = /[0-9]/.test(pw);
+    const hasLetter  = /[a-zA-Z]/.test(pw);
     const hasSpecial = /[^a-zA-Z0-9]/.test(pw);
     const score = [hasLen, hasNum, hasLetter, hasSpecial].filter(Boolean).length;
     if (score <= 1) return { score: 1, label: "Weak",   color: "var(--danger)" };
@@ -34,32 +40,72 @@ export default function SignupPage() {
     if (isAuthenticated()) router.replace("/dashboard");
   }, [router]);
 
-  function update(field: string, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-    setError("");
+  function validateEmail(value: string): string {
+    if (!value.trim()) return "Email address is required.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return "Please enter a valid email address.";
+    return "";
+  }
+
+  function validatePassword(value: string): string {
+    if (!value) return "Password is required.";
+    if (value.length < 8) return "Password must be at least 8 characters.";
+    if (!/[a-zA-Z]/.test(value)) return "Password must contain at least 1 letter.";
+    if (!/[0-9]/.test(value)) return "Password must contain at least 1 number.";
+    return "";
+  }
+
+  function validateConfirm(value: string, password: string): string {
+    if (!value) return "Please confirm your password.";
+    if (value !== password) return "Passwords do not match.";
+    return "";
+  }
+
+  function touch(field: keyof typeof touched) {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  }
+
+  function update(field: keyof typeof form, value: string) {
+    const next = { ...form, [field]: value };
+    setForm(next);
+
+    // Live re-validation once a field has been touched
+    if (touched[field]) {
+      if (field === "email") {
+        setFieldErrors((e) => ({ ...e, email: validateEmail(value) }));
+      } else if (field === "password") {
+        const pwErr = validatePassword(value);
+        const cfErr = touched.confirmPassword ? validateConfirm(next.confirmPassword, value) : fieldErrors.confirmPassword;
+        setFieldErrors((e) => ({ ...e, password: pwErr, confirmPassword: cfErr }));
+      } else if (field === "confirmPassword") {
+        setFieldErrors((e) => ({ ...e, confirmPassword: validateConfirm(value, next.password) }));
+      }
+    }
+    // Always re-check confirm live if already touched
+    if (field === "confirmPassword" && touched.confirmPassword) {
+      setFieldErrors((e) => ({ ...e, confirmPassword: validateConfirm(value, next.password) }));
+    }
+  }
+
+  function handleBlur(field: keyof typeof form) {
+    touch(field);
+    const v = form[field];
+    if (field === "email")           setFieldErrors((e) => ({ ...e, email: validateEmail(v) }));
+    else if (field === "password")   setFieldErrors((e) => ({ ...e, password: validatePassword(v) }));
+    else if (field === "confirmPassword") setFieldErrors((e) => ({ ...e, confirmPassword: validateConfirm(v, form.password) }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
 
-    if (!form.email.trim()) { setError("Email address is required."); return; }
-    if (!form.password || form.password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-    if (!/[a-zA-Z]/.test(form.password)) {
-      setError("Password must contain at least 1 letter.");
-      return;
-    }
-    if (!/[0-9]/.test(form.password)) {
-      setError("Password must contain at least 1 number.");
-      return;
-    }
-    if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
+    // Force-validate all fields
+    const errors = {
+      email:           validateEmail(form.email),
+      password:        validatePassword(form.password),
+      confirmPassword: validateConfirm(form.confirmPassword, form.password),
+    };
+    setFieldErrors(errors);
+    setTouched({ email: true, password: true, confirmPassword: true });
+    if (errors.email || errors.password || errors.confirmPassword) return;
 
     setLoading(true);
     await new Promise((r) => setTimeout(r, 900));
@@ -73,11 +119,9 @@ export default function SignupPage() {
       initials: "",
     });
 
-    // Store workspace and mark as NOT yet onboarded so they go through setup
     localStorage.setItem("insurai_workspace", workspace);
     localStorage.removeItem("insurai_onboarded");
 
-    // Redirect to onboarding flow
     router.push("/onboarding");
   }
 
@@ -165,14 +209,30 @@ export default function SignupPage() {
 
             <div>
               <label className="form-label">Work Email</label>
-              <input type="email" className="input" placeholder="jane@company.com"
-                value={form.email} onChange={(e) => update("email", e.target.value)} autoFocus />
+              <input
+                type="email"
+                className="input"
+                placeholder="jane@company.com"
+                value={form.email}
+                onChange={(e) => update("email", e.target.value)}
+                onBlur={() => handleBlur("email")}
+                style={touched.email && fieldErrors.email ? { borderColor: "var(--danger)" } : {}}
+                autoFocus
+              />
+              <FieldError msg={fieldErrors.email} testId="error-email" />
             </div>
 
             <div>
               <label className="form-label">Password</label>
-              <input type="password" className="input" placeholder="Min. 8 characters"
-                value={form.password} onChange={(e) => update("password", e.target.value)} />
+              <input
+                type="password"
+                className="input"
+                placeholder="Min. 8 characters"
+                value={form.password}
+                onChange={(e) => update("password", e.target.value)}
+                onBlur={() => handleBlur("password")}
+                style={touched.password && fieldErrors.password ? { borderColor: "var(--danger)" } : {}}
+              />
               {form.password && (
                 <div data-testid="password-strength" className="mt-2">
                   <div className="flex gap-1 mb-1">
@@ -187,19 +247,22 @@ export default function SignupPage() {
                   <p className="text-xs" style={{ color: strength.color }}>{strength.label}</p>
                 </div>
               )}
+              <FieldError msg={touched.password ? fieldErrors.password : ""} testId="error-password" />
             </div>
 
             <div>
               <label className="form-label">Confirm Password</label>
-              <input type="password" className="input" placeholder="Re-enter password"
-                value={form.confirmPassword} onChange={(e) => update("confirmPassword", e.target.value)} />
+              <input
+                type="password"
+                className="input"
+                placeholder="Re-enter password"
+                value={form.confirmPassword}
+                onChange={(e) => update("confirmPassword", e.target.value)}
+                onBlur={() => handleBlur("confirmPassword")}
+                style={touched.confirmPassword && fieldErrors.confirmPassword ? { borderColor: "var(--danger)" } : {}}
+              />
+              <FieldError msg={touched.confirmPassword ? fieldErrors.confirmPassword : ""} testId="error-confirm" />
             </div>
-
-            {error && (
-              <div className="rounded-lg px-4 py-3 text-sm" style={{ background: "var(--danger-soft)", border: "1px solid rgba(248,81,73,0.3)", color: "var(--danger)" }}>
-                {error}
-              </div>
-            )}
 
             <button
               type="submit"
@@ -246,3 +309,5 @@ export default function SignupPage() {
     </div>
   );
 }
+
+

@@ -1410,3 +1410,63 @@ test("signup – successful submission does not redirect to /dashboard", async (
   await page.waitForURL(/\/onboarding/, { timeout: 10_000 });
   await expect(page).not.toHaveURL(/\/dashboard/);
 });
+
+// ─── Signup inline validation tests ──────────────────────────────────────────
+test("signup validation – invalid email shows error below email field on blur", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByPlaceholder("jane@company.com").fill("not-an-email");
+  await page.getByPlaceholder("jane@company.com").blur();
+  await expect(page.getByTestId("error-email")).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId("error-email")).toHaveText("Please enter a valid email address.");
+});
+
+test("signup validation – empty email shows required error on submit", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByRole("button", { name: "Create Account → Continue Setup" }).click();
+  await expect(page.getByTestId("error-email")).toBeVisible();
+  await expect(page.getByTestId("error-email")).toHaveText("Email address is required.");
+});
+
+test("signup validation – weak password shows error below password field on blur", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByPlaceholder("Min. 8 characters").fill("abc");
+  await page.getByPlaceholder("Min. 8 characters").blur();
+  await expect(page.getByTestId("error-password")).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId("error-password")).toHaveText("Password must be at least 8 characters.");
+});
+
+test("signup validation – password missing number shows inline error", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByPlaceholder("Min. 8 characters").fill("abcdefgh");
+  await page.getByPlaceholder("Min. 8 characters").blur();
+  await expect(page.getByTestId("error-password")).toHaveText("Password must contain at least 1 number.");
+});
+
+test("signup validation – mismatched passwords shows error below confirm field on blur", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByPlaceholder("Min. 8 characters").fill("SecurePass1!");
+  await page.getByPlaceholder("Re-enter password").fill("Different1!");
+  await page.getByPlaceholder("Re-enter password").blur();
+  await expect(page.getByTestId("error-confirm")).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId("error-confirm")).toHaveText("Passwords do not match.");
+});
+
+test("signup validation – matching passwords clears confirm error", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByPlaceholder("Min. 8 characters").fill("SecurePass1!");
+  await page.getByPlaceholder("Re-enter password").fill("Different1!");
+  await page.getByPlaceholder("Re-enter password").blur();
+  await expect(page.getByTestId("error-confirm")).toBeVisible();
+
+  // Fix the confirm password — error should clear
+  await page.getByPlaceholder("Re-enter password").fill("SecurePass1!");
+  await expect(page.getByTestId("error-confirm")).not.toBeVisible();
+});
+
+test("signup validation – all errors appear on submit with empty form", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByRole("button", { name: "Create Account → Continue Setup" }).click();
+  await expect(page.getByTestId("error-email")).toBeVisible();
+  await expect(page.getByTestId("error-password")).toBeVisible();
+  await expect(page.getByTestId("error-confirm")).toBeVisible();
+});
