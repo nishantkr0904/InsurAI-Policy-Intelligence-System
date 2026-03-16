@@ -53,6 +53,18 @@ export function completeOnboarding(workspace = "default"): void {
   localStorage.removeItem("insurai_onboarding_step");
 }
 
+/** Save workspace details, link them to the current user, and mark onboarding complete. */
+export function saveWorkspace(company: string, workspaceName: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("insurai_company", company);
+  const user = getUser();
+  if (user) {
+    user.workspace = workspaceName;
+    localStorage.setItem("insurai_user", JSON.stringify(user));
+  }
+  completeOnboarding(workspaceName);
+}
+
 export function getInitials(name: string): string {
   return name
     .split(" ")

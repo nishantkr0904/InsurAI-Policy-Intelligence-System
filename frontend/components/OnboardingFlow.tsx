@@ -63,7 +63,7 @@ export default function OnboardingFlow() {
   function chooseRole(role: string) {
     setSelectedRole(role);
     saveSelectedRole(role);
-    goToStep(1);
+    router.push("/onboarding/workspace");
   }
 
   function goToStep(n: number) {

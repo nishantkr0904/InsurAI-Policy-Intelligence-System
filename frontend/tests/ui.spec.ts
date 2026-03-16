@@ -1308,3 +1308,80 @@ test("login – back link navigates to /", async ({ page }) => {
   await page.getByTestId("back-to-landing").click();
   await expect(page).toHaveURL(/\/$|\/\?/, { timeout: 10_000 });
 });
+
+// ─── Workspace setup onboarding tests ─────────────────────────────────────────
+test("workspace setup – form renders with all fields and helper text", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@example.com", role: "underwriter",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.setItem("insurai_user_role", "underwriter");
+  });
+
+  await page.goto("/onboarding/workspace");
+
+  await expect(page.getByTestId("workspace-form")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("input-company")).toBeVisible();
+  await expect(page.getByTestId("input-workspace")).toBeVisible();
+  await expect(page.getByText("Policies and team members will belong to this workspace.")).toBeVisible();
+  await expect(page.getByTestId("workspace-submit")).toBeVisible();
+});
+
+test("workspace setup – saves workspace and redirects to /policies/upload", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@example.com", role: "underwriter",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.setItem("insurai_user_role", "underwriter");
+  });
+
+  await page.goto("/onboarding/workspace");
+
+  await page.getByTestId("input-company").fill("Acme Insurance Co.");
+  await page.getByTestId("input-workspace").fill("acme-insurance");
+  await page.getByTestId("workspace-submit").click();
+
+  // Spinner visible during the 600 ms save
+  await expect(page.getByTestId("workspace-spinner")).toBeVisible({ timeout: 2_000 });
+
+  // After save, redirected to /policies/upload
+  await expect(page).toHaveURL(/\/policies\/upload/, { timeout: 10_000 });
+});
+
+test("workspace setup – validates empty company field", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@example.com", role: "underwriter",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+  });
+
+  await page.goto("/onboarding/workspace");
+  await page.getByTestId("workspace-submit").click();
+  await expect(page.getByText("Company or organization name is required.")).toBeVisible();
+});
+
+test("workspace setup – role selection routes to /onboarding/workspace", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@example.com", role: "underwriter",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_user_role");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId("role-option-underwriter").click();
+  await expect(page).toHaveURL(/\/onboarding\/workspace/, { timeout: 10_000 });
+});
