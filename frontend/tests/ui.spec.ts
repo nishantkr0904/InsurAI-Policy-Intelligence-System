@@ -893,3 +893,115 @@ test("role selection – dashboard shows role-based tips after role is set", asy
   await expect(page.getByTestId("role-tips")).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText("Tips for Underwriters")).toBeVisible();
 });
+
+// ─── Onboarding completion & skip tests ──────────────────────────────────────
+
+test("onboarding completion – step 1 action saves completion and redirects to /dashboard", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.setItem("insurai_user_role", "underwriter");
+  });
+
+  await page.goto("/onboarding");
+
+  // Should start at step 1 (role already set)
+  await expect(page.getByText("Step 1 of 4")).toBeVisible({ timeout: 10_000 });
+
+  // Click the step 1 primary action button
+  await page.getByTestId("step-action-upload").click();
+
+  // Must redirect to /dashboard
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+
+  // insurai_onboarded must be saved
+  const onboarded = await page.evaluate(() => localStorage.getItem("insurai_onboarded"));
+  expect(onboarded).toBe("true");
+});
+
+test("onboarding completion – workspace is saved on completion", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.setItem("insurai_user_role", "fraud_analyst");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByText("Step 1 of 4")).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId("launch-btn") // not visible yet – skip to step 4 first
+    .or(page.getByTestId("next-step")).first().click();
+  // Navigate through all steps to launch
+  await page.getByTestId("next-step").click();
+  await page.getByTestId("next-step").click();
+  await page.getByTestId("launch-btn").click();
+
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+  const workspace = await page.evaluate(() => localStorage.getItem("insurai_workspace"));
+  expect(workspace).toBe("default");
+});
+
+test("onboarding skip – /onboarding redirects to /dashboard for returning users", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.setItem("insurai_onboarded", "true");
+    localStorage.setItem("insurai_workspace", "default");
+  });
+
+  await page.goto("/onboarding");
+
+  // Should be redirected to /dashboard without showing onboarding UI
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+  await expect(page.getByTestId("role-selection")).not.toBeVisible();
+  await expect(page.getByTestId("progress-indicator")).not.toBeVisible();
+});
+
+test("onboarding skip – / redirects to /dashboard for returning users", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.setItem("insurai_onboarded", "true");
+    localStorage.setItem("insurai_workspace", "default");
+  });
+
+  await page.goto("/");
+
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+});
+
+test("onboarding skip – onboarding_step key is removed on completion", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "admin",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.setItem("insurai_user_role", "claims_team");
+    localStorage.setItem("insurai_onboarding_step", "2");
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByText("Step 2 of 4")).toBeVisible({ timeout: 10_000 });
+
+  // Complete via step action button
+  await page.getByTestId("step-action-index").click();
+
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+  const stepKey = await page.evaluate(() => localStorage.getItem("insurai_onboarding_step"));
+  expect(stepKey).toBeNull();
+});
