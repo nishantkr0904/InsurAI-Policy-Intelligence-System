@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ONBOARDING_ROLES, saveSelectedRole, getSelectedRole } from "@/lib/auth";
+import { ONBOARDING_ROLES, saveSelectedRole, getSelectedRole, completeOnboarding } from "@/lib/auth";
 
 const STEPS = [
   {
@@ -71,18 +71,15 @@ export default function OnboardingFlow() {
     setStep(n);
   }
 
-  /** Navigate to a feature page, preserving onboarding state so Back works. */
-  function goToFeature(href: string) {
-    localStorage.setItem("insurai_workspace", "default");
-    localStorage.setItem("insurai_onboarding_step", String(step));
-    router.push(href);
+  /** Complete onboarding and redirect to dashboard. Called by step action buttons. */
+  function goToFeature() {
+    completeOnboarding();
+    router.push("/dashboard");
   }
 
   /** Mark onboarding complete and go to dashboard. */
   function launch() {
-    localStorage.setItem("insurai_workspace", "default");
-    localStorage.setItem("insurai_onboarded", "true");
-    localStorage.removeItem("insurai_onboarding_step");
+    completeOnboarding();
     router.push("/dashboard");
   }
 
@@ -195,7 +192,7 @@ export default function OnboardingFlow() {
             data-testid={current.testId}
             className="btn-primary w-full py-3 text-base rounded-xl"
             style={{ background: "var(--accent-gradient)" }}
-            onClick={() => goToFeature(current.href)}
+            onClick={() => goToFeature()}
           >
             {current.action} →
           </button>
