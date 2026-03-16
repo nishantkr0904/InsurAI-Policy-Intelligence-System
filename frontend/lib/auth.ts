@@ -76,7 +76,7 @@ export const ROLES = [
 /** The four roles surfaced during onboarding role-selection. */
 export const ONBOARDING_ROLES = [
   { value: "underwriter",         label: "Underwriter",         icon: "📋", desc: "Risk assessment & policy underwriting" },
-  { value: "claims_team",         label: "Claims Team",          icon: "✅", desc: "Validate and process insurance claims" },
+  { value: "claims_adjuster",       label: "Claims Adjuster",      icon: "✅", desc: "Validate and process insurance claims" },
   { value: "compliance_officer",  label: "Compliance Officer",   icon: "🛡️", desc: "Regulatory monitoring & audit reports" },
   { value: "fraud_analyst",       label: "Fraud Analyst",        icon: "🔍", desc: "Detect and investigate fraud patterns" },
 ] as const;

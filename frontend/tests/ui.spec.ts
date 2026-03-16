@@ -790,7 +790,7 @@ test("role selection – shows role selection screen before onboarding steps", a
 
   // All 4 role options are present
   await expect(page.getByTestId("role-option-underwriter")).toBeVisible();
-  await expect(page.getByTestId("role-option-claims_team")).toBeVisible();
+  await expect(page.getByTestId("role-option-claims_adjuster")).toBeVisible();
   await expect(page.getByTestId("role-option-compliance_officer")).toBeVisible();
   await expect(page.getByTestId("role-option-fraud_analyst")).toBeVisible();
 });
@@ -825,7 +825,7 @@ test("role selection – selecting a role saves it and advances to onboarding st
 test("role selection – each role option saves the correct value", async ({ page }) => {
   const roles = [
     { testId: "role-option-underwriter",        value: "underwriter" },
-    { testId: "role-option-claims_team",         value: "claims_team" },
+    { testId: "role-option-claims_adjuster",         value: "claims_adjuster" },
     { testId: "role-option-compliance_officer",  value: "compliance_officer" },
     { testId: "role-option-fraud_analyst",       value: "fraud_analyst" },
   ];
@@ -991,7 +991,7 @@ test("onboarding skip – onboarding_step key is removed on completion", async (
       workspace: "default", initials: "TU",
     }));
     localStorage.removeItem("insurai_onboarded");
-    localStorage.setItem("insurai_user_role", "claims_team");
+    localStorage.setItem("insurai_user_role", "claims_adjuster");
     localStorage.setItem("insurai_onboarding_step", "2");
   });
 
