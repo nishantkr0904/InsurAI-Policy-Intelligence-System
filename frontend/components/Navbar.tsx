@@ -58,10 +58,7 @@ export default function Navbar() {
     setAuthed(false);
     setUser(null);
     setProfileOpen(false);
-    router.push("/");
-  }
-
-  function isActive(href: string) {
+    router.push("/login");(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
     return pathname === href || pathname.startsWith(href + "/");
   }

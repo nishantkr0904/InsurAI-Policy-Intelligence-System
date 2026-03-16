@@ -62,7 +62,7 @@ export default function SettingsPage() {
             {saved ? "✓ Saved!" : "Save Changes"}
           </button>
           <button
-            onClick={() => { logout(); router.push("/"); }}
+            onClick={() => { logout(); router.push("/login"); }}
             className="btn-secondary text-sm"
             style={{ color: "var(--danger)", borderColor: "rgba(248,81,73,0.3)" }}
           >
