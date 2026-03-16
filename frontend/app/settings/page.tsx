@@ -50,8 +50,11 @@ export default function SettingsPage() {
           </select>
         </div>
         <div>
-          <label className="form-label">Workspace / Organization</label>
+          <label className="form-label">Company or Organization</label>
           <input className="input" value={user.workspace} onChange={(e) => setUser({ ...user, workspace: e.target.value })} />
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+            Your policies and team members will belong to this workspace.
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
