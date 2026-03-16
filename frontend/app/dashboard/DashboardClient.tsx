@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { isAuthenticated, getUser, type InsurAIUser } from "@/lib/auth";
+import { getSelectedRole } from "@/lib/auth";
 
 const STATS = [
   {
@@ -83,10 +84,46 @@ const ROLE_DASHBOARDS = [
   { href: "/dashboard/compliance",  label: "Compliance Dashboard",  desc: "Regulatory monitoring & audits",  color: "var(--warning)" },
 ];
 
+const ROLE_TIPS: Record<string, { title: string; tips: string[] }> = {
+  underwriter: {
+    title: "Tips for Underwriters",
+    tips: [
+      "Upload policy PDFs to extract coverage terms and exclusions instantly.",
+      "Use AI queries to compare risk clauses across multiple policies.",
+      "Check the Underwriter Dashboard for portfolio risk metrics.",
+    ],
+  },
+  claims_team: {
+    title: "Tips for Claims Teams",
+    tips: [
+      "Submit claim scenarios to the Validate Claim tool for instant AI verdicts.",
+      "Cross-reference claims against indexed policy documents in seconds.",
+      "Review recent activity for claim approval and rejection trends.",
+    ],
+  },
+  compliance_officer: {
+    title: "Tips for Compliance Officers",
+    tips: [
+      "Run the Compliance Audit tool to check regulatory alignment.",
+      "Use the Compliance Dashboard for audit trails and report generation.",
+      "Set up document indexing to keep compliance checks current.",
+    ],
+  },
+  fraud_analyst: {
+    title: "Tips for Fraud Analysts",
+    tips: [
+      "Monitor Fraud Alerts in the stats panel for newly flagged patterns.",
+      "Use the Fraud Review tool to investigate suspicious claim scenarios.",
+      "Correlate flagged claims with policy documents via AI queries.",
+    ],
+  },
+};
+
 export default function DashboardClient() {
   const router = useRouter();
   const [user, setUser] = useState<InsurAIUser | null>(null);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -95,6 +132,7 @@ export default function DashboardClient() {
     }
     const u = getUser();
     setUser(u);
+    setUserRole(getSelectedRole());
     // Show getting-started if documents haven't been uploaded yet
     const hasUploaded = localStorage.getItem("insurai_has_documents") === "true";
     setIsFirstVisit(!hasUploaded);
@@ -347,6 +385,31 @@ export default function DashboardClient() {
           ))}
         </div>
       </div>
+
+      {/* ── Role-Based Tips ──────────────────────────────────── */}
+      {userRole && ROLE_TIPS[userRole] && (
+        <div data-testid="role-tips">
+          <h2 className="section-title">{ROLE_TIPS[userRole].title}</h2>
+          <div
+            className="card"
+            style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.06) 0%, rgba(139,92,246,0.04) 100%)" }}
+          >
+            <ul className="flex flex-col gap-3">
+              {ROLE_TIPS[userRole].tips.map((tip) => (
+                <li key={tip} className="flex items-start gap-3">
+                  <span
+                    className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
+                    style={{ background: "var(--accent)", color: "#fff" }}
+                  >
+                    💡
+                  </span>
+                  <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {/* ── Role-Based Dashboards ────────────────────────────── */}
       <div>
