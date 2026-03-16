@@ -57,7 +57,7 @@ export default function LoginPage() {
 
   return (
     <div
-      className="flex-1 flex items-center justify-center px-6 py-16"
+      className="flex-1 flex items-center justify-center px-6 py-4"
       style={{ background: "var(--bg-base)", minHeight: "100%" }}
     >
       {/* Background glow */}
@@ -82,8 +82,8 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md relative" style={{ zIndex: 1 }}>
         {/* Header */}
-        <div className="text-center mb-8">
-          <Link href="/" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "10px", marginBottom: "24px" }}>
+        <div className="text-center mb-4">
+          <Link href="/" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center"
               style={{ background: "var(--accent-gradient)", boxShadow: "var(--shadow-accent)" }}
@@ -109,7 +109,7 @@ export default function LoginPage() {
 
         {/* Card */}
         <div
-          className="rounded-2xl p-8"
+          className="rounded-2xl p-5"
           style={{
             background: "var(--bg-surface)",
             border: "1px solid var(--border)",
@@ -117,7 +117,7 @@ export default function LoginPage() {
           }}
         >
           {/* SSO buttons */}
-          <div className="flex flex-col gap-3 mb-6">
+          <div className="flex flex-col gap-2 mb-4">
             <button
               type="button"
               data-testid="sso-google"
@@ -149,13 +149,13 @@ export default function LoginPage() {
           </div>
 
           {/* Divider */}
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-4">
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>or sign in with email</span>
             <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <div>
               <label className="form-label">Email address</label>
               <input
@@ -232,13 +232,13 @@ export default function LoginPage() {
           </form>
 
           {/* Security message */}
-          <p className="text-center text-xs mt-5" style={{ color: "var(--text-muted)" }}>
+          <p className="text-center text-xs mt-3" style={{ color: "var(--text-muted)" }}>
             🔒 Your data is encrypted and protected.
           </p>
 
           {/* Demo credentials hint */}
           <div
-            className="mt-4 rounded-lg px-4 py-3"
+            className="mt-3 rounded-lg px-4 py-2"
             style={{ background: "var(--accent-soft)", border: "1px solid rgba(59,130,246,0.2)" }}
           >
             <p className="text-xs" style={{ color: "var(--accent)" }}>
@@ -248,7 +248,7 @@ export default function LoginPage() {
         </div>
 
         {/* Security footer */}
-        <div className="flex items-center justify-center gap-4 mt-6" style={{ flexWrap: "wrap" }}>
+        <div className="flex items-center justify-center gap-4 mt-3" style={{ flexWrap: "wrap" }}>
           {["🔒 SOC2", "🛡️ PII Protected", "🔐 Encrypted"].map((badge) => (
             <span key={badge} style={{ fontSize: "11px", color: "var(--text-muted)" }}>
               {badge}
