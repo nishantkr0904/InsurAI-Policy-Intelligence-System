@@ -615,3 +615,19 @@ test("login – invalid credentials show an error message", async ({ page }) => 
   await expect(page.getByText("Invalid email or password. Please try again.")).toBeVisible({ timeout: 10_000 });
   await expect(page).toHaveURL("/login");
 });
+
+// ─── Login UX tests ───────────────────────────────────────────────────────────
+
+test("login UX – SSO buttons render", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.getByTestId("sso-google")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("sso-microsoft")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("sso-google")).toContainText("Continue with Google");
+  await expect(page.getByTestId("sso-microsoft")).toContainText("Continue with Microsoft");
+});
+
+test("login UX – forgot password link exists below password field", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.getByTestId("forgot-password")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("forgot-password")).toContainText("Forgot password?");
+});
