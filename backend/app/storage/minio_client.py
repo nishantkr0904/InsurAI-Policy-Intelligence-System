@@ -119,6 +119,25 @@ def get_presigned_url(
     return url
 
 
+def list_documents(
+    workspace_id: str,
+    bucket: str = settings.MINIO_BUCKET_DOCUMENTS,
+) -> list[StoredFile]:
+    """List all objects stored under a workspace prefix in MinIO."""
+    client = _get_client()
+    objects = client.list_objects(bucket, prefix=f"{workspace_id}/", recursive=True)
+    results = []
+    for obj in objects:
+        results.append(StoredFile(
+            object_name=obj.object_name or "",
+            bucket=bucket,
+            size_bytes=obj.size or 0,
+            content_type="application/octet-stream",
+            etag=obj.etag or "",
+        ))
+    return results
+
+
 def delete_file(
     object_name: str,
     bucket: str = settings.MINIO_BUCKET_DOCUMENTS,
