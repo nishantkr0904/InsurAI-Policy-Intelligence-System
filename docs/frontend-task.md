@@ -45,6 +45,8 @@
 - **Accessibility**: aria labels, aria-required, aria-invalid, aria-describedby, keyboard navigation, `eslint-plugin-jsx-a11y` installed
 - **E2E test suite**: Comprehensive Playwright tests covering onboarding, chat, documents, accessibility, and responsive layout (`tests/ui.spec.ts`)
 - **Real API integration**: `lib/api.ts` with endpoints for streaming chat, blocking chat, document list, and file upload with progress
+- **React Error Boundary**: App-wide error catching with `ErrorBoundary.tsx` class component wrapping root layout via `ClientLayoutWrapper.tsx`, displays user-friendly fallback UI with `ErrorFallback.tsx`, prevents component crashes from killing entire app — includes dev/prod error details toggle, "Try Again" recovery button, and support contact link
+- **Role-Based Access Control (FR023)**: Navigation links filtered by role permissions (`lib/rbac.ts`), route-level guards prevent unauthorized access with redirect and "Access Denied" UI (`components/RoleGuard.tsx`), 8 roles supported with centralized permission matrix
 
 ---
 
@@ -63,12 +65,11 @@
 
 > Ordered by: core functionality → user flow blocking → demo readiness
 
-1. **FR023 – Role-Based Access Control**: Roles are displayed in Navbar but **not enforced** — all 6 nav links visible to all users, no route guards restrict access by role — *security fundamental; every user sees admin-level navigation*
-2. **FR011 – Multi-Document Query**: No frontend UI for selecting or filtering across multiple documents before querying — *core RAG capability; users cannot scope queries across specific policy sets*
-3. **FR027 – Risk Trends Visualization**: No time-series charts or graphs showing claim trends, risk patterns, or anomaly visualization — only static stat cards exist — *dashboard lacks visual depth for demos*
-4. **FR026 – Query Analytics**: Only a single "AI Queries Today" metric on the dashboard — no query log table, no usage pattern charts, no historical analytics view — *admin oversight capability missing*
-5. **FR015 – Risk Assessment**: No dedicated underwriter risk assessment tool; all underwriter dashboard actions route to `/chat` instead of a standalone risk evaluation interface — *underwriter persona has no specialized workflow*
-6. **FR021 – Audit Policy History**: No audit trail UI showing history of policy modifications, claims decisions, or user activity logs — *compliance/audit persona cannot review historical actions*
+1. **FR011 – Multi-Document Query**: No frontend UI for selecting or filtering across multiple documents before querying — *core RAG capability; users cannot scope queries across specific policy sets*
+2. **FR027 – Risk Trends Visualization**: No time-series charts or graphs showing claim trends, risk patterns, or anomaly visualization — only static stat cards exist — *dashboard lacks visual depth for demos*
+3. **FR026 – Query Analytics**: Only a single "AI Queries Today" metric on the dashboard — no query log table, no usage pattern charts, no historical analytics view — *admin oversight capability missing*
+4. **FR015 – Risk Assessment**: No dedicated underwriter risk assessment tool; all underwriter dashboard actions route to `/chat` instead of a standalone risk evaluation interface — *underwriter persona has no specialized workflow*
+5. **FR021 – Audit Policy History**: No audit trail UI showing history of policy modifications, claims decisions, or user activity logs — *compliance/audit persona cannot review historical actions*
 
 ---
 
@@ -76,10 +77,8 @@
 
 > Ordered by: core functionality → user flow blocking → demo readiness
 
-1. **Role-Based Access Control enforcement (FR023)**: All routes are accessible to all authenticated users regardless of role — Navbar, route guards, and feature visibility must be gated by role — *security-critical; undermines multi-persona architecture*
-3. **Real authentication backend**: Login/signup forms exist but auth state is managed entirely via localStorage — no Keycloak/JWT/OIDC integration for production-grade identity management — *blocks real multi-user sessions and token-based API access*
-4. **React Error Boundary**: No Error Boundary component exists — unhandled component errors crash the entire app instead of showing a fallback UI — *any runtime error kills the user session*
-5. **State management architecture**: App uses only React `useState` — Zustand (global state) and React Query / TanStack Query (server state, caching, refetching) are specified in the architecture but not installed or used — *increasing complexity will cause prop-drilling and stale data bugs*
+1. **Real authentication backend**: Login/signup forms exist but auth state is managed entirely via localStorage — no Keycloak/JWT/OIDC integration for production-grade identity management — *blocks real multi-user sessions and token-based API access*
+2. **State management architecture**: App uses only React `useState` — Zustand (global state) and React Query / TanStack Query (server state, caching, refetching) are specified in the architecture but not installed or used — *increasing complexity will cause prop-drilling and stale data bugs*
 
 ---
 
