@@ -99,7 +99,7 @@ export default function OnboardingFlow() {
       >
         <div
           data-testid="role-selection"
-          className="w-full max-w-xl rounded-2xl p-10"
+          className="w-full max-w-[900px] rounded-2xl p-10"
           style={{
             background: "var(--bg-surface)",
             border: "1px solid var(--border)",
@@ -116,7 +116,7 @@ export default function OnboardingFlow() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {ONBOARDING_ROLES.map(({ value, label, icon, desc }) => {
               const isSelected = selectedRole === value;
               return (

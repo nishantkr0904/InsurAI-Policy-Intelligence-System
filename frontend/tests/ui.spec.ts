@@ -827,6 +827,111 @@ test("onboarding layout – workspace setup page also uses minimal header", asyn
   await expect(page.getByRole("link", { name: "Dashboard" })).not.toBeVisible();
 });
 
+// ─── Onboarding responsive layout tests ──────────────────────────────────────
+
+test("onboarding layout – role selection container has max-width 900px", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_user_role");
+  });
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/onboarding");
+  const container = page.getByTestId("role-selection");
+  await expect(container).toBeVisible({ timeout: 10_000 });
+
+  const box = await container.boundingBox();
+  expect(box).not.toBeNull();
+  // Width must not exceed 900px
+  expect(box!.width).toBeLessThanOrEqual(900);
+});
+
+test("onboarding layout – role cards render in 2-column grid on desktop", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_user_role");
+  });
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+
+  const card1 = page.getByTestId("role-option-underwriter");
+  const card2 = page.getByTestId("role-option-claims_adjuster");
+  const box1 = await card1.boundingBox();
+  const box2 = await card2.boundingBox();
+  expect(box1).not.toBeNull();
+  expect(box2).not.toBeNull();
+  // Cards are side-by-side (same row) on desktop
+  expect(Math.abs(box1!.y - box2!.y)).toBeLessThan(10);
+});
+
+test("onboarding layout – role cards stack to 1 column on mobile", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_user_role");
+  });
+
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+
+  const card1 = page.getByTestId("role-option-underwriter");
+  const card2 = page.getByTestId("role-option-claims_adjuster");
+  const box1 = await card1.boundingBox();
+  const box2 = await card2.boundingBox();
+  expect(box1).not.toBeNull();
+  expect(box2).not.toBeNull();
+  // Cards are stacked vertically on mobile
+  expect(box2!.y).toBeGreaterThan(box1!.y + box1!.height - 5);
+});
+
+test("onboarding layout – all 4 role cards are visible and aligned", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@test.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_user_role");
+  });
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/onboarding");
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+
+  // All 4 role cards visible
+  await expect(page.getByTestId("role-option-underwriter")).toBeVisible();
+  await expect(page.getByTestId("role-option-claims_adjuster")).toBeVisible();
+  await expect(page.getByTestId("role-option-compliance_officer")).toBeVisible();
+  await expect(page.getByTestId("role-option-fraud_analyst")).toBeVisible();
+
+  const box1 = await page.getByTestId("role-option-underwriter").boundingBox();
+  const box3 = await page.getByTestId("role-option-compliance_officer").boundingBox();
+  expect(box1).not.toBeNull();
+  expect(box3).not.toBeNull();
+  // Row 2 cards are below row 1
+  expect(box3!.y).toBeGreaterThan(box1!.y);
+  // Same horizontal left-edge in same column
+  expect(Math.abs(box1!.x - box3!.x)).toBeLessThan(5);
+});
+
 // ─── OnboardingProgress step-highlight tests ─────────────────────────────────
 
 test("onboarding progress – step 1 (Role) is active on role selection screen", async ({ page }) => {
