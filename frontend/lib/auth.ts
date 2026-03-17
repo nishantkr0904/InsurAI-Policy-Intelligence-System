@@ -113,3 +113,10 @@ export function saveWorkspace(company: string, workspaceName: string): void {
   }
   completeOnboarding(workspaceName);
 }
+
+/** Get the current workspace ID from localStorage. */
+export function getWorkspaceId(): string | null {
+  if (typeof window === "undefined") return null;
+  const user = getUser();
+  return user?.workspace || null;
+}
