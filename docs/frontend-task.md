@@ -47,6 +47,7 @@
 - **Real API integration**: `lib/api.ts` with endpoints for streaming chat, blocking chat, document list, and file upload with progress
 - **React Error Boundary**: App-wide error catching with `ErrorBoundary.tsx` class component wrapping root layout via `ClientLayoutWrapper.tsx`, displays user-friendly fallback UI with `ErrorFallback.tsx`, prevents component crashes from killing entire app — includes dev/prod error details toggle, "Try Again" recovery button, and support contact link
 - **Role-Based Access Control (FR023)**: Navigation links filtered by role permissions (`lib/rbac.ts`), route-level guards prevent unauthorized access with redirect and "Access Denied" UI (`components/RoleGuard.tsx`), 8 roles supported with centralized permission matrix
+- **State management architecture**: Zustand for global state (`lib/store.ts` with auth, user, workspace state persisted to localStorage), TanStack Query for server state (`components/QueryProvider.tsx`, `hooks/useQueries.ts`) with automatic caching, background refetching, and request deduplication — fraud and compliance pages migrated from manual `useEffect` + `fetch` to declarative query hooks
 
 ---
 
@@ -78,7 +79,6 @@
 > Ordered by: core functionality → user flow blocking → demo readiness
 
 1. **Real authentication backend**: Login/signup forms exist but auth state is managed entirely via localStorage — no Keycloak/JWT/OIDC integration for production-grade identity management — *blocks real multi-user sessions and token-based API access*
-2. **State management architecture**: App uses only React `useState` — Zustand (global state) and React Query / TanStack Query (server state, caching, refetching) are specified in the architecture but not installed or used — *increasing complexity will cause prop-drilling and stale data bugs*
 
 ---
 
