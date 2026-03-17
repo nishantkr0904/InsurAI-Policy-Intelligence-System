@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "@/app/globals.css";
 import Navbar from "@/components/Navbar";
+import ClientLayoutWrapper from "@/components/ClientLayoutWrapper";
 
 /**
  * Root layout – wraps every page in the InsurAI application.
@@ -43,24 +44,26 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body className="min-h-screen flex flex-col">
-        {/* ── Top Navigation ── */}
-        <Navbar />
+        <ClientLayoutWrapper>
+          {/* ── Top Navigation ── */}
+          <Navbar />
 
-        {/* ── Page Content ── */}
-        <main className="flex-1 flex flex-col overflow-auto">{children}</main>
+          {/* ── Page Content ── */}
+          <main className="flex-1 flex flex-col overflow-auto">{children}</main>
 
-        {/* ── Footer ── */}
-        <footer
-          className="shrink-0 text-center text-xs py-3"
-          style={{
-            color: "var(--text-muted)",
-            borderTop: "1px solid var(--border)",
-            background: "var(--bg-surface)",
-          }}
-        >
-          <span className="gradient-text font-semibold">InsurAI</span>
-          {" "}· AI responses are for informational purposes only.
-        </footer>
+          {/* ── Footer ── */}
+          <footer
+            className="shrink-0 text-center text-xs py-3"
+            style={{
+              color: "var(--text-muted)",
+              borderTop: "1px solid var(--border)",
+              background: "var(--bg-surface)",
+            }}
+          >
+            <span className="gradient-text font-semibold">InsurAI</span>
+            {" "}· AI responses are for informational purposes only.
+          </footer>
+        </ClientLayoutWrapper>
       </body>
     </html>
   );
