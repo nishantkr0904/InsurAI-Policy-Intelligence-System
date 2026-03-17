@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, saveWorkspace, getSelectedRole } from "@/lib/auth";
+import { isAuthenticated, saveWorkspace, getSelectedRole, saveSelectedRole } from "@/lib/auth";
 import OnboardingProgress from "@/components/OnboardingProgress";
 
 export default function WorkspaceSetupPage() {
@@ -11,9 +11,11 @@ export default function WorkspaceSetupPage() {
   const [workspaceName, setWorkspaceName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated()) router.replace("/login");
+    setSelectedRole(getSelectedRole());
   }, [router]);
 
   /** Auto-derive a workspace slug from the company name */
@@ -145,11 +147,22 @@ export default function WorkspaceSetupPage() {
         </div>
 
         {/* Role indicator */}
-        {getSelectedRole() && (
+        {selectedRole && (
           <p className="text-xs text-center mt-4" style={{ color: "var(--text-muted)" }}>
-            Setting up as <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>{getSelectedRole()?.replace("_", " ")}</span>
+            Setting up as <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>{selectedRole.replace("_", " ")}</span>
           </p>
         )}
+
+        {/* Back link */}
+        <div className="text-center mt-4">
+          <button
+            data-testid="workspace-back"
+            className="btn-ghost text-sm"
+            onClick={() => router.push("/onboarding")}
+          >
+            ← Change role
+          </button>
+        </div>
       </div>
     </div>
   );

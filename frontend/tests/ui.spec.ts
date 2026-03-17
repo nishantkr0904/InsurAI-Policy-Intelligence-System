@@ -17,105 +17,65 @@ async function setOnboarded(page: Page, workspace = "default") {
 }
 
 // ─── Test 1: Full onboarding flow ────────────────────────────────────────────
-test("onboarding flow – step through all 4 steps and land on /dashboard", async ({ page }) => {
+test("onboarding flow – role selection redirects to workspace setup", async ({ page }) => {
   await page.context().addInitScript(() => {
     localStorage.setItem("insurai_auth", "true");
     localStorage.setItem("insurai_user", JSON.stringify({
-      name: "Test User", email: "test@test.com", role: "admin",
+      name: "Test User", email: "test@test.com", role: "",
       workspace: "default", initials: "TU",
     }));
     localStorage.removeItem("insurai_onboarded");
-    localStorage.removeItem("insurai_workspace");
+    localStorage.removeItem("insurai_user_role");
   });
 
   await page.goto("/onboarding");
 
-  // Step 1 – Upload your first policy
-  await expect(page.getByText("Let's get your first policy analyzed")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText("Step 1 of 4")).toBeVisible();
-  await expect(page.getByText("Upload your first policy")).toBeVisible();
-  await page.getByTestId("next-step").click();
+  // Role selection screen
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId("role-option-underwriter").click();
+  await page.getByTestId("role-continue").click();
 
-  // Step 2 – Index policies
-  await expect(page.getByText("Step 2 of 4")).toBeVisible();
-  await expect(page.getByText("Index policies")).toBeVisible();
-  await page.getByTestId("next-step").click();
-
-  // Step 3 – Ask a policy question
-  await expect(page.getByText("Step 3 of 4")).toBeVisible();
-  await expect(page.getByText("Ask a policy question")).toBeVisible();
-  await page.getByTestId("next-step").click();
-
-  // Step 4 – Validate a claim
-  await expect(page.getByText("Step 4 of 4")).toBeVisible();
-  await expect(page.getByText("Validate a claim")).toBeVisible();
-  await page.getByTestId("launch-btn").click();
-
-  // Should land on /dashboard
-  await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+  // Should navigate to workspace setup
+  await expect(page).toHaveURL(/\/onboarding\/workspace/, { timeout: 10_000 });
 });
 
-// ─── Test 1b: Onboarding steps render ────────────────────────────────────────
-test("onboarding steps render – all 4 step titles and action buttons present", async ({ page }) => {
+// ─── Test 1b: Onboarding role cards render ───────────────────────────────────
+test("onboarding role cards – all 4 role cards are visible on role selection screen", async ({ page }) => {
   await page.context().addInitScript(() => {
     localStorage.setItem("insurai_auth", "true");
     localStorage.setItem("insurai_user", JSON.stringify({
-      name: "Test User", email: "test@test.com", role: "admin",
+      name: "Test User", email: "test@test.com", role: "",
       workspace: "default", initials: "TU",
     }));
     localStorage.removeItem("insurai_onboarded");
-    localStorage.removeItem("insurai_workspace");
+    localStorage.removeItem("insurai_user_role");
   });
 
   await page.goto("/onboarding");
 
-  // Step 1
-  await expect(page.getByTestId("onboarding-step")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText("Upload your first policy")).toBeVisible();
-  await expect(page.getByTestId("step-action-upload")).toBeVisible();
-  await page.getByTestId("next-step").click();
-
-  // Step 2
-  await expect(page.getByText("Index policies")).toBeVisible();
-  await expect(page.getByTestId("step-action-index")).toBeVisible();
-  await page.getByTestId("next-step").click();
-
-  // Step 3
-  await expect(page.getByText("Ask a policy question")).toBeVisible();
-  await expect(page.getByTestId("step-action-ask")).toBeVisible();
-  await page.getByTestId("next-step").click();
-
-  // Step 4
-  await expect(page.getByText("Validate a claim")).toBeVisible();
-  await expect(page.getByTestId("step-action-validate")).toBeVisible();
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("role-option-underwriter")).toBeVisible();
+  await expect(page.getByTestId("role-option-claims_adjuster")).toBeVisible();
+  await expect(page.getByTestId("role-option-compliance_officer")).toBeVisible();
+  await expect(page.getByTestId("role-option-fraud_analyst")).toBeVisible();
 });
 
-// ─── Test 1c: Progress indicator exists ──────────────────────────────────────
-test("progress indicator – shows Step X of 4 and advances on navigation", async ({ page }) => {
+// ─── Test 1c: Upload policy progress bar ─────────────────────────────────────
+test("policies/upload – shows OnboardingProgress at step 3 (Upload Policy)", async ({ page }) => {
   await page.context().addInitScript(() => {
     localStorage.setItem("insurai_auth", "true");
     localStorage.setItem("insurai_user", JSON.stringify({
-      name: "Test User", email: "test@test.com", role: "admin",
-      workspace: "default", initials: "TU",
+      name: "Test User", email: "test@test.com", role: "underwriter",
+      workspace: "acme", initials: "TU",
     }));
-    localStorage.removeItem("insurai_onboarded");
-    localStorage.removeItem("insurai_workspace");
+    localStorage.setItem("insurai_onboarded", "true");
+    localStorage.setItem("insurai_workspace", "acme");
   });
 
-  await page.goto("/onboarding");
+  await page.goto("/policies/upload");
 
-  const indicator = page.getByTestId("progress-indicator");
-  await expect(indicator).toBeVisible({ timeout: 10_000 });
-  await expect(indicator).toContainText("Step 1 of 4");
-
-  await page.getByTestId("next-step").click();
-  await expect(indicator).toContainText("Step 2 of 4");
-
-  await page.getByTestId("next-step").click();
-  await expect(indicator).toContainText("Step 3 of 4");
-
-  await page.getByTestId("next-step").click();
-  await expect(indicator).toContainText("Step 4 of 4");
+  await expect(page.getByTestId("onboarding-progress-bar")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("progress-step-3")).toHaveAttribute("data-status", "active");
 });
 
 // ─── Test 2: Chat page direct access ─────────────────────────────────────────
@@ -973,19 +933,19 @@ test("onboarding progress – step 2 (Workspace) is active on workspace setup pa
   await expect(page.getByTestId("progress-step-3")).toHaveAttribute("data-status", "pending");
 });
 
-test("onboarding progress – step 3 (Upload Policy) is active on feature onboarding steps", async ({ page }) => {
+test("onboarding progress – step 3 (Upload Policy) is active on /policies/upload", async ({ page }) => {
   await page.context().addInitScript(() => {
     localStorage.setItem("insurai_auth", "true");
     localStorage.setItem("insurai_user", JSON.stringify({
       name: "Test User", email: "test@test.com", role: "underwriter",
       workspace: "acme", initials: "TU",
     }));
-    localStorage.removeItem("insurai_onboarded");
+    localStorage.setItem("insurai_onboarded", "true");
+    localStorage.setItem("insurai_workspace", "acme");
     localStorage.setItem("insurai_user_role", "underwriter");
-    localStorage.setItem("insurai_onboarding_step", "1");
   });
 
-  await page.goto("/onboarding");
+  await page.goto("/policies/upload");
   await expect(page.getByTestId("onboarding-progress-bar")).toBeVisible({ timeout: 10_000 });
 
   await expect(page.getByTestId("progress-step-1")).toHaveAttribute("data-status", "done");
@@ -1107,7 +1067,7 @@ test("role selection – each role option saves the correct value", async ({ pag
   }
 });
 
-test("role selection – if role already saved, onboarding starts at step 1 directly", async ({ page }) => {
+test("role selection – if role already saved, /onboarding shows role selection with role pre-selected", async ({ page }) => {
   await page.context().addInitScript(() => {
     localStorage.setItem("insurai_auth", "true");
     localStorage.setItem("insurai_user", JSON.stringify({
@@ -1120,10 +1080,11 @@ test("role selection – if role already saved, onboarding starts at step 1 dire
 
   await page.goto("/onboarding");
 
-  // Should skip role selection and go straight to step 1
-  await expect(page.getByTestId("progress-indicator")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText("Step 1 of 4")).toBeVisible();
-  await expect(page.getByTestId("role-selection")).not.toBeVisible();
+  // Should show role selection with previously saved role pre-highlighted
+  await expect(page.getByTestId("role-selection")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("role-check-fraud_analyst")).toBeVisible();
+  // Continue button should be enabled
+  await expect(page.getByTestId("role-continue")).not.toBeDisabled();
 });
 
 test("role selection – dashboard shows role-based tips after role is set", async ({ page }) => {
@@ -1273,7 +1234,7 @@ test("role cards – Continue button activates after role selection", async ({ p
 
 // ─── Onboarding completion & skip tests ──────────────────────────────────────
 
-test("onboarding completion – step 1 action saves completion and redirects to /dashboard", async ({ page }) => {
+test("onboarding completion – workspace setup marks onboarding complete and redirects to /policies/upload", async ({ page }) => {
   await page.context().addInitScript(() => {
     localStorage.setItem("insurai_auth", "true");
     localStorage.setItem("insurai_user", JSON.stringify({
@@ -1284,23 +1245,21 @@ test("onboarding completion – step 1 action saves completion and redirects to 
     localStorage.setItem("insurai_user_role", "underwriter");
   });
 
-  await page.goto("/onboarding");
+  await page.goto("/onboarding/workspace");
 
-  // Should start at step 1 (role already set)
-  await expect(page.getByText("Step 1 of 4")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("workspace-form")).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId("input-company").fill("Acme Insurance");
+  await page.getByTestId("workspace-submit").click();
 
-  // Click the step 1 primary action button
-  await page.getByTestId("step-action-upload").click();
-
-  // Must redirect to /dashboard
-  await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+  // Must redirect to /policies/upload
+  await expect(page).toHaveURL(/\/policies\/upload/, { timeout: 10_000 });
 
   // insurai_onboarded must be saved
   const onboarded = await page.evaluate(() => localStorage.getItem("insurai_onboarded"));
   expect(onboarded).toBe("true");
 });
 
-test("onboarding completion – workspace is saved on completion", async ({ page }) => {
+test("onboarding completion – workspace name is saved to localStorage on completion", async ({ page }) => {
   await page.context().addInitScript(() => {
     localStorage.setItem("insurai_auth", "true");
     localStorage.setItem("insurai_user", JSON.stringify({
@@ -1311,18 +1270,14 @@ test("onboarding completion – workspace is saved on completion", async ({ page
     localStorage.setItem("insurai_user_role", "fraud_analyst");
   });
 
-  await page.goto("/onboarding");
-  await expect(page.getByText("Step 1 of 4")).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId("launch-btn") // not visible yet – skip to step 4 first
-    .or(page.getByTestId("next-step")).first().click();
-  // Navigate through all steps to launch
-  await page.getByTestId("next-step").click();
-  await page.getByTestId("next-step").click();
-  await page.getByTestId("launch-btn").click();
+  await page.goto("/onboarding/workspace");
+  await expect(page.getByTestId("workspace-form")).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId("input-company").fill("Acme Corp");
+  await page.getByTestId("workspace-submit").click();
 
-  await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+  await expect(page).toHaveURL(/\/policies\/upload/, { timeout: 10_000 });
   const workspace = await page.evaluate(() => localStorage.getItem("insurai_workspace"));
-  expect(workspace).toBe("default");
+  expect(workspace).toBe("acme-corp");
 });
 
 test("onboarding skip – /onboarding redirects to /dashboard for returning users", async ({ page }) => {
@@ -1341,7 +1296,6 @@ test("onboarding skip – /onboarding redirects to /dashboard for returning user
   // Should be redirected to /dashboard without showing onboarding UI
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
   await expect(page.getByTestId("role-selection")).not.toBeVisible();
-  await expect(page.getByTestId("progress-indicator")).not.toBeVisible();
 });
 
 test("onboarding skip – / redirects to /dashboard for returning users", async ({ page }) => {
@@ -1360,7 +1314,7 @@ test("onboarding skip – / redirects to /dashboard for returning users", async 
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
 });
 
-test("onboarding skip – onboarding_step key is removed on completion", async ({ page }) => {
+test("onboarding skip – onboarding_step key is removed on workspace completion", async ({ page }) => {
   await page.context().addInitScript(() => {
     localStorage.setItem("insurai_auth", "true");
     localStorage.setItem("insurai_user", JSON.stringify({
@@ -1372,13 +1326,12 @@ test("onboarding skip – onboarding_step key is removed on completion", async (
     localStorage.setItem("insurai_onboarding_step", "2");
   });
 
-  await page.goto("/onboarding");
-  await expect(page.getByText("Step 2 of 4")).toBeVisible({ timeout: 10_000 });
+  await page.goto("/onboarding/workspace");
+  await expect(page.getByTestId("workspace-form")).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId("input-company").fill("Test Corp");
+  await page.getByTestId("workspace-submit").click();
 
-  // Complete via step action button
-  await page.getByTestId("step-action-index").click();
-
-  await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+  await expect(page).toHaveURL(/\/policies\/upload/, { timeout: 10_000 });
   const stepKey = await page.evaluate(() => localStorage.getItem("insurai_onboarding_step"));
   expect(stepKey).toBeNull();
 });

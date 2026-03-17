@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isAuthenticated, isOnboarded } from "@/lib/auth";
 import UploadPanel from "@/components/UploadPanel";
+import OnboardingProgress from "@/components/OnboardingProgress";
 
 /**
  * /policies/upload – first-run upload screen reached after workspace setup.
@@ -32,6 +33,7 @@ export default function PoliciesUploadPage() {
   return (
     <div className="max-w-2xl mx-auto w-full px-6 py-10 space-y-6">
       <div>
+        <OnboardingProgress currentStep={3} />
         <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
           Upload your first policy
         </h1>
