@@ -1626,6 +1626,31 @@ test("workspace setup – saves workspace and redirects to /policies/upload", as
   await expect(page).toHaveURL(/\/policies\/upload/, { timeout: 10_000 });
 });
 
+test("workspace setup – role is persisted to user profile on completion", async ({ page }) => {
+  await page.context().addInitScript(() => {
+    localStorage.setItem("insurai_auth", "true");
+    localStorage.setItem("insurai_user", JSON.stringify({
+      name: "Test User", email: "test@example.com", role: "",
+      workspace: "default", initials: "TU",
+    }));
+    localStorage.removeItem("insurai_onboarded");
+    localStorage.setItem("insurai_user_role", "fraud_analyst");
+  });
+
+  await page.goto("/onboarding/workspace");
+  await page.getByTestId("input-company").fill("Acme Insurance Co.");
+  await page.getByTestId("input-workspace").fill("acme-insurance");
+  await page.getByTestId("workspace-submit").click();
+
+  await expect(page).toHaveURL(/\/policies\/upload/, { timeout: 10_000 });
+
+  // Role must be written into the user profile object
+  const userJson = await page.evaluate(() => localStorage.getItem("insurai_user"));
+  const user = JSON.parse(userJson!);
+  expect(user.role).toBe("fraud_analyst");
+  expect(user.workspace).toBe("acme-insurance");
+});
+
 test("workspace setup – validates empty company field", async ({ page }) => {
   await page.context().addInitScript(() => {
     localStorage.setItem("insurai_auth", "true");

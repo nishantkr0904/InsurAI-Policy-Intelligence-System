@@ -86,9 +86,30 @@ export type OnboardingRole = (typeof ONBOARDING_ROLES)[number]["value"];
 export function saveSelectedRole(role: string): void {
   if (typeof window === "undefined") return;
   localStorage.setItem("insurai_user_role", role);
+  // Keep the user object's role in sync so the Navbar reflects the selection.
+  const user = getUser();
+  if (user) {
+    user.role = role;
+    localStorage.setItem("insurai_user", JSON.stringify(user));
+  }
 }
 
 export function getSelectedRole(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("insurai_user_role");
+}
+
+/** Save workspace details, link them to the current user, and mark onboarding complete. */
+export function saveWorkspace(company: string, workspaceName: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("insurai_company", company);
+  const user = getUser();
+  if (user) {
+    user.workspace = workspaceName;
+    // Persist the selected role into the user profile on onboarding completion.
+    const selectedRole = getSelectedRole();
+    if (selectedRole) user.role = selectedRole;
+    localStorage.setItem("insurai_user", JSON.stringify(user));
+  }
+  completeOnboarding(workspaceName);
 }
