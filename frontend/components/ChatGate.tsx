@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticated, isOnboarded } from "@/lib/auth";
 import ChatPageClient from "@/components/ChatPageClient";
 
 /**
@@ -16,6 +16,10 @@ export default function ChatGate() {
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace("/login");
+      return;
+    }
+    if (!isOnboarded()) {
+      router.replace("/onboarding");
       return;
     }
     const ws = localStorage.getItem("insurai_workspace") || "default";

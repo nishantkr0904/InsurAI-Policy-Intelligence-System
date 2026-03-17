@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, getUser, logout, ROLES, type InsurAIUser } from "@/lib/auth";
+import { isAuthenticated, isOnboarded, getUser, logout, ROLES, type InsurAIUser } from "@/lib/auth";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -11,6 +11,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!isAuthenticated()) { router.replace("/login"); return; }
+    if (!isOnboarded()) { router.replace("/onboarding"); return; }
     setUser(getUser());
   }, [router]);
 

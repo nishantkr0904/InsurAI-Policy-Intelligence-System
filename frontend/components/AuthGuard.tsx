@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticated, isOnboarded } from "@/lib/auth";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -11,6 +11,7 @@ interface AuthGuardProps {
 /**
  * AuthGuard – wraps any client page that requires authentication.
  * Redirects unauthenticated users to /login.
+ * Redirects authenticated-but-not-yet-onboarded users to /onboarding.
  * Renders a spinner while the auth state is being resolved.
  */
 export default function AuthGuard({ children }: AuthGuardProps) {
@@ -20,6 +21,8 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace("/login");
+    } else if (!isOnboarded()) {
+      router.replace("/onboarding");
     } else {
       setReady(true);
     }

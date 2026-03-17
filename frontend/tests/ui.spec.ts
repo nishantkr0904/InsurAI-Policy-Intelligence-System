@@ -1320,6 +1320,8 @@ test("protected route – authenticated user can access /claims", async ({ page 
       name: "Test User", email: "test@test.com", role: "admin",
       workspace: "default", initials: "TU",
     }));
+    localStorage.setItem("insurai_onboarded", "true");
+    localStorage.setItem("insurai_workspace", "default");
   });
 
   await page.goto("/claims");
@@ -1336,6 +1338,8 @@ test("protected route – authenticated user can access /documents", async ({ pa
       name: "Test User", email: "test@test.com", role: "admin",
       workspace: "default", initials: "TU",
     }));
+    localStorage.setItem("insurai_onboarded", "true");
+    localStorage.setItem("insurai_workspace", "default");
   });
 
   await page.goto("/documents");
@@ -1344,6 +1348,29 @@ test("protected route – authenticated user can access /documents", async ({ pa
   await expect(page).not.toHaveURL(/\/login/);
   await expect(page.getByText("Documents")).toBeVisible({ timeout: 10_000 });
 });
+
+// ─── Onboarding route protection tests ───────────────────────────────────────
+
+const ONBOARDING_PROTECTED = ["/dashboard", "/claims", "/documents", "/chat", "/fraud", "/compliance", "/settings"];
+
+for (const route of ONBOARDING_PROTECTED) {
+  test(`onboarding guard – authenticated but not-onboarded user visiting ${route} is redirected to /onboarding`, async ({ page }) => {
+    await page.context().addInitScript(() => {
+      localStorage.setItem("insurai_auth", "true");
+      localStorage.setItem("insurai_user", JSON.stringify({
+        name: "Test User", email: "test@test.com", role: "",
+        workspace: "default", initials: "TU",
+      }));
+      localStorage.removeItem("insurai_onboarded");
+      localStorage.removeItem("insurai_workspace");
+    });
+
+    await page.goto(route);
+
+    await expect(page).toHaveURL(/\/onboarding/, { timeout: 10_000 });
+    await expect(page).not.toHaveURL(/\/login/);
+  });
+}
 
 // ─── Signup form tests ────────────────────────────────────────────────────────
 test("signup form – work email field exists", async ({ page }) => {
