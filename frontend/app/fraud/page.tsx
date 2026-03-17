@@ -1,11 +1,13 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
-import { fetchFraudAlerts, type FraudAlert } from "@/lib/api";
+import { type FraudAlert } from "@/lib/api";
 import { getWorkspaceId } from "@/lib/auth";
+import { useFraudAlerts } from "@/hooks/useQueries";
 
 /**
  * Fraud Detection page – FR016-FR018
+ * Now using TanStack Query for automatic caching and background refetching
  */
 
 const SEVERITY_STYLES: Record<string, { color: string; bg: string }> = {
@@ -21,27 +23,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function FraudPage() {
-  const [alerts, setAlerts] = useState<FraudAlert[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const workspaceId = getWorkspaceId();
+  const { data: alerts = [], isLoading: loading, error } = useFraudAlerts(workspaceId);
+  
   const [filter, setFilter] = useState<"all" | "high" | "medium" | "low">("all");
   const [selected, setSelected] = useState<FraudAlert | null>(null);
-
-  useEffect(() => {
-    async function loadAlerts() {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await fetchFraudAlerts(getWorkspaceId() || "default");
-        setAlerts(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load fraud alerts");
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadAlerts();
-  }, []);
 
   const filtered = filter === "all" ? alerts : alerts.filter((a) => a.severity === filter);
 
@@ -69,7 +55,7 @@ export default function FraudPage() {
           className="rounded-lg px-4 py-3 text-sm"
           style={{ background: "rgba(239,68,68,0.12)", color: "var(--danger)", border: "1px solid var(--danger)" }}
         >
-          <strong>Error:</strong> {error}
+          <strong>Error:</strong> {error?.message || "Failed to load fraud alerts"}
         </div>
       )}
 

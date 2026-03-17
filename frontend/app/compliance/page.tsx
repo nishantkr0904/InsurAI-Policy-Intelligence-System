@@ -1,11 +1,13 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
-import { fetchComplianceIssues, type ComplianceIssue } from "@/lib/api";
+import { type ComplianceIssue } from "@/lib/api";
 import { getWorkspaceId } from "@/lib/auth";
+import { useComplianceIssues } from "@/hooks/useQueries";
 
 /**
  * Compliance Audit page – FR019-FR021
+ * Now using TanStack Query for automatic caching and background refetching
  */
 
 const SEV_STYLES: Record<string, { color: string; bg: string; label: string }> = {
@@ -33,30 +35,14 @@ function calcScore(issues: ComplianceIssue[]) {
 }
 
 export default function CompliancePage() {
-  const [issues, setIssues] = useState<ComplianceIssue[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const workspaceId = getWorkspaceId();
+  const { data: issues = [], isLoading: loading, error, refetch } = useComplianceIssues(workspaceId);
+  
   const [running, setRunning] = useState(false);
   const [ran, setRan] = useState(false);
   const [workspace, setWorkspace] = useState("default");
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
-
-  useEffect(() => {
-    async function loadIssues() {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await fetchComplianceIssues(getWorkspaceId() || "default");
-        setIssues(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load compliance issues");
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadIssues();
-  }, []);
 
   const score = calcScore(issues);
   const openCritical = issues.filter((i) => i.severity === "critical" && i.status !== "resolved").length;
@@ -64,13 +50,9 @@ export default function CompliancePage() {
   async function runCheck() {
     setRunning(true);
     setRan(false);
-    setError(null);
     try {
-      const data = await fetchComplianceIssues(workspace);
-      setIssues(data);
+      await refetch();
       setRan(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to run compliance check");
     } finally {
       setRunning(false);
     }
@@ -105,7 +87,7 @@ export default function CompliancePage() {
           className="rounded-lg px-4 py-3 text-sm"
           style={{ background: "rgba(239,68,68,0.12)", color: "var(--danger)", border: "1px solid var(--danger)" }}
         >
-          <strong>Error:</strong> {error}
+          <strong>Error:</strong> {error?.message || "Failed to load compliance issues"}
         </div>
       )}
 
