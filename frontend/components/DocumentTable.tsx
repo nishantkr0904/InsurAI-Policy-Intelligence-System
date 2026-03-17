@@ -18,10 +18,10 @@ const STATUS_META: Record<
   DocumentRecord["status"],
   { label: string; color: string; bg: string }
 > = {
-  uploading:  { label: "Uploading",  color: "var(--warning)",  bg: "rgba(245,158,11,0.12)"  },
-  processing: { label: "Processing", color: "var(--warning)",  bg: "rgba(245,158,11,0.12)"  },
-  indexed:    { label: "Indexed",    color: "var(--success)",  bg: "rgba(34,197,94,0.12)"   },
-  error:      { label: "Error",      color: "var(--danger)",   bg: "rgba(239,68,68,0.12)"   },
+  uploading: { label: "Uploading", color: "var(--warning)", bg: "rgba(245,158,11,0.12)" },
+  processing: { label: "Processing", color: "var(--warning)", bg: "rgba(245,158,11,0.12)" },
+  indexed: { label: "Indexed", color: "var(--success)", bg: "rgba(34,197,94,0.12)" },
+  error: { label: "Error", color: "var(--danger)", bg: "rgba(239,68,68,0.12)" },
 };
 
 interface DocumentTableProps {
@@ -29,9 +29,9 @@ interface DocumentTableProps {
 }
 
 export default function DocumentTable({ workspaceId }: DocumentTableProps) {
-  const [docs, setDocs]     = useState<DocumentRecord[]>([]);
+  const [docs, setDocs] = useState<DocumentRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -120,8 +120,8 @@ export default function DocumentTable({ workspaceId }: DocumentTableProps) {
             const meta = STATUS_META[doc.status] ?? STATUS_META.error;
             const dateStr = doc.created_at
               ? new Date(doc.created_at).toLocaleDateString(undefined, {
-                  month: "short", day: "numeric", year: "numeric",
-                })
+                month: "short", day: "numeric", year: "numeric",
+              })
               : "—";
 
             return (

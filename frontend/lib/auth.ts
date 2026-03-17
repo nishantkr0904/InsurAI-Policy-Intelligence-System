@@ -53,18 +53,6 @@ export function completeOnboarding(workspace = "default"): void {
   localStorage.removeItem("insurai_onboarding_step");
 }
 
-/** Save workspace details, link them to the current user, and mark onboarding complete. */
-export function saveWorkspace(company: string, workspaceName: string): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("insurai_company", company);
-  const user = getUser();
-  if (user) {
-    user.workspace = workspaceName;
-    localStorage.setItem("insurai_user", JSON.stringify(user));
-  }
-  completeOnboarding(workspaceName);
-}
-
 export function getInitials(name: string): string {
   return name
     .split(" ")
@@ -98,12 +86,6 @@ export type OnboardingRole = (typeof ONBOARDING_ROLES)[number]["value"];
 export function saveSelectedRole(role: string): void {
   if (typeof window === "undefined") return;
   localStorage.setItem("insurai_user_role", role);
-  // Keep the user object's role in sync so the Navbar reflects the selection.
-  const user = getUser();
-  if (user) {
-    user.role = role;
-    localStorage.setItem("insurai_user", JSON.stringify(user));
-  }
 }
 
 export function getSelectedRole(): string | null {
