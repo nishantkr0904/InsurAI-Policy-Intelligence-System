@@ -187,3 +187,80 @@ export function uploadDocumentWithProgress(
     xhr.send(form);
   });
 }
+
+/** Shape of claim validation request. */
+export interface ClaimValidationRequest {
+  claim_id: string;
+  policy_number: string;
+  claim_type: string;
+  incident_date: string;
+  amount: number;
+  description: string;
+  workspace_id: string;
+}
+
+/** Shape of claim validation response. */
+export interface ClaimValidationResponse {
+  status: "approved" | "denied" | "pending";
+  reasoning: string;
+  clauses: { ref: string; text: string }[];
+  risk_score: number;
+}
+
+/** Validate a claim against policy rules. */
+export async function validateClaim(
+  request: ClaimValidationRequest,
+): Promise<ClaimValidationResponse> {
+  const res = await fetch(`${BASE}/claims/validate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) throw new Error(`Claim validation failed: ${res.status}`);
+  return res.json() as Promise<ClaimValidationResponse>;
+}
+
+/** Shape of a fraud alert. */
+export interface FraudAlert {
+  id: string;
+  claim_id: string;
+  policy_id: string;
+  type: string;
+  risk_score: number;
+  severity: "high" | "medium" | "low";
+  date: string;
+  description: string;
+  status: "under_review" | "resolved" | "dismissed";
+}
+
+/** Fetch fraud alerts for a workspace. */
+export async function fetchFraudAlerts(
+  workspaceId: string,
+): Promise<FraudAlert[]> {
+  const res = await fetch(
+    `${BASE}/fraud/alerts?workspace_id=${encodeURIComponent(workspaceId)}`,
+  );
+  if (!res.ok) throw new Error(`Failed to fetch fraud alerts: ${res.status}`);
+  return res.json() as Promise<FraudAlert[]>;
+}
+
+/** Shape of a compliance issue. */
+export interface ComplianceIssue {
+  id: string;
+  severity: "critical" | "warning" | "info";
+  rule: string;
+  description: string;
+  status: "open" | "acknowledged" | "resolved";
+}
+
+/** Fetch compliance issues for a workspace. */
+export async function fetchComplianceIssues(
+  workspaceId: string,
+): Promise<ComplianceIssue[]> {
+  const res = await fetch(
+    `${BASE}/compliance/issues?workspace_id=${encodeURIComponent(workspaceId)}`,
+  );
+  if (!res.ok)
+    throw new Error(`Failed to fetch compliance issues: ${res.status}`);
+  return res.json() as Promise<ComplianceIssue[]>;
+}

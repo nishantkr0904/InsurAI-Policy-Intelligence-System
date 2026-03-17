@@ -15,17 +15,17 @@
 
 ### Claims Validation
 
-- **FR013 – Claim Policy Validation**: Claims page displays validation results with status (approved/denied/pending), risk score, and referenced clauses (`app/claims/page.tsx`)
+- **FR013 – Claim Policy Validation**: Claims page displays validation results with status (approved/denied/pending), risk score, and referenced clauses — **now fully wired to `POST /api/v1/claims/validate` API** (`app/claims/page.tsx`, `lib/api.ts`)
 - **FR014 – Coverage Explanation**: AI-generated reasoning with referenced policy clauses and section references shown alongside validation results (`app/claims/page.tsx`)
 
 ### Fraud Detection
 
-- **FR016 – Fraud Pattern Detection**: Fraud page displays alerts with risk scores, severity levels, anomaly types, and color-coded badges (`app/fraud/page.tsx`)
+- **FR016 – Fraud Pattern Detection**: Fraud page displays alerts with risk scores, severity levels, anomaly types, and color-coded badges — **now fully wired to `GET /api/v1/fraud/alerts` API** (`app/fraud/page.tsx`, `lib/api.ts`)
 - **FR017 – Fraud Alert Generation**: Fraud alerts with alert ID, claim ID, type, risk score, severity, date, status, and view/dismiss actions (`app/fraud/page.tsx`)
 
 ### Compliance
 
-- **FR019 – Compliance Review**: Compliance page lists issues with severity, rule name, description, and status (open/acknowledged/resolved) (`app/compliance/page.tsx`)
+- **FR019 – Compliance Review**: Compliance page lists issues with severity, rule name, description, and status (open/acknowledged/resolved) — **now fully wired to `GET /api/v1/compliance/issues` API** (`app/compliance/page.tsx`, `lib/api.ts`)
 
 ### User Management
 
@@ -76,8 +76,7 @@
 
 > Ordered by: core functionality → user flow blocking → demo readiness
 
-1. **Claims and fraud pages use hardcoded mock data**: Claims validation, fraud alerts, and compliance issues render static `MOCK_*` arrays — no API calls to backend services — *demo breaks immediately when reviewers interact with claims/fraud/compliance pages*
-2. **Role-Based Access Control enforcement (FR023)**: All routes are accessible to all authenticated users regardless of role — Navbar, route guards, and feature visibility must be gated by role — *security-critical; undermines multi-persona architecture*
+1. **Role-Based Access Control enforcement (FR023)**: All routes are accessible to all authenticated users regardless of role — Navbar, route guards, and feature visibility must be gated by role — *security-critical; undermines multi-persona architecture*
 3. **Real authentication backend**: Login/signup forms exist but auth state is managed entirely via localStorage — no Keycloak/JWT/OIDC integration for production-grade identity management — *blocks real multi-user sessions and token-based API access*
 4. **React Error Boundary**: No Error Boundary component exists — unhandled component errors crash the entire app instead of showing a fallback UI — *any runtime error kills the user session*
 5. **State management architecture**: App uses only React `useState` — Zustand (global state) and React Query / TanStack Query (server state, caching, refetching) are specified in the architecture but not installed or used — *increasing complexity will cause prop-drilling and stale data bugs*
@@ -88,8 +87,7 @@
 
 > Ordered by: core functionality → user flow blocking → demo readiness
 
-1. **Wire claims/fraud/compliance to real APIs**: Replace `MOCK_ISSUES`, `MOCK_ALERTS`, and static claim results with actual backend API calls matching the FastAPI endpoints — *prerequisite for any live demo*
-2. **Replace localStorage auth with Keycloak/JWT**: Integrate OIDC login flow, token refresh, and session management per the security architecture — *prerequisite for multi-user production use*
+1. **Replace localStorage auth with Keycloak/JWT**: Integrate OIDC login flow, token refresh, and session management per the security architecture — *prerequisite for multi-user production use*
 3. **Add PDF viewer with chunk highlighting**: Integrate `react-pdf` or `@react-pdf-viewer/core` in the SourcePanel to render actual policy PDFs with highlighted retrieved sections — *high demo impact; visually demonstrates RAG grounding*
 4. **Install and adopt TanStack Query**: Replace manual `useEffect` + `fetch` patterns in DocumentTable and dashboard with proper caching, background refetching, and optimistic updates — *reduces data-fetching bugs and improves perceived speed*
 5. **Install and adopt Zustand**: Centralize auth state, user preferences, active workspace, and chat session state instead of prop-drilling and scattered `useState` — *prevents state fragmentation as features grow*
