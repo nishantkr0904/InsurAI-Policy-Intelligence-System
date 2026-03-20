@@ -222,7 +222,7 @@ async def get_compliance_issues(
                 if request.sort_by == "severity":
                     query = query.order_by(ComplianceIssueORM.severity.asc())
                 elif request.sort_by == "affected_records":
-                    query = query.order_by(ComplianceIssueORM.affected_policies.desc() if hasattr(ComplianceIssueORM, 'affected_policies') else ComplianceIssueORM.created_at.desc())
+                    query = query.order_by(ComplianceIssueORM.created_at.desc())
                 else:
                     query = query.order_by(ComplianceIssueORM.created_at.desc())
 
