@@ -24,9 +24,11 @@ interface ChatPanelProps {
   workspaceId: string;
   /** Called after each completed response with the retrieved source citations. */
   onCitations?: (sources: SourceCitation[]) => void;
+  /** Optional array of document IDs to filter queries. FR011 – Multi-Document Query. */
+  documentIds?: string[];
 }
 
-export default function ChatPanel({ workspaceId, onCitations }: ChatPanelProps) {
+export default function ChatPanel({ workspaceId, onCitations, documentIds }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -58,7 +60,8 @@ export default function ChatPanel({ workspaceId, onCitations }: ChatPanelProps) 
     ]);
 
     try {
-      const stream = streamChat(query, workspaceId);
+      // Pass documentIds to filter the search scope (FR011)
+      const stream = streamChat(query, workspaceId, 5, documentIds);
       for await (const token of stream) {
         if (token === null) break;           // [DONE] signal
         setMessages((prev) => {
@@ -76,7 +79,7 @@ export default function ChatPanel({ workspaceId, onCitations }: ChatPanelProps) 
       // The SSE stream emits tokens only; sources require a second call.
       if (onCitations) {
         try {
-          const full = await fetchChatResponse(query, workspaceId);
+          const full = await fetchChatResponse(query, workspaceId, 5, documentIds);
           onCitations(full.sources);
         } catch { /* citations are non-critical; silently ignore */ }
       }
