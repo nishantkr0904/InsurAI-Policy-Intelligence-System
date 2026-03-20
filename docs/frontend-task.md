@@ -39,6 +39,7 @@
 ### Analytics
 
 - **FR025 – Policy Analytics Dashboard**: Dashboard with stats cards (Documents Indexed, AI Queries, Claims Processed, Fraud Alerts), trend percentages, and quick-action links (`app/dashboard/`)
+- **FR027 – Risk Trends Visualization**: Time-series charts showing claim trends (30-day line chart), risk patterns by claim type (bar chart), and anomaly detection (scatter plot) with insights summary metrics (`components/RiskTrendsCharts.tsx`, `app/dashboard/DashboardClient.tsx`, Recharts library)
 
 ### Infrastructure & UX
 
@@ -58,7 +59,7 @@
 
 ## 🚧 In Progress
 
-> No tasks currently in progress. All core features have been implemented.
+> No tasks currently in progress. FR027 completed. Next priority: FR026 (Query Analytics) or FR015 (Risk Assessment)
 
 ---
 
@@ -66,10 +67,9 @@
 
 > Ordered by: core functionality → user flow blocking → demo readiness
 
-1. **FR027 – Risk Trends Visualization**: No time-series charts or graphs showing claim trends, risk patterns, or anomaly visualization — only static stat cards exist — _dashboard lacks visual depth for demos_
-2. **FR026 – Query Analytics**: Only a single "AI Queries Today" metric on the dashboard — no query log table, no usage pattern charts, no historical analytics view — _admin oversight capability missing_
-3. **FR015 – Risk Assessment**: No dedicated underwriter risk assessment tool; all underwriter dashboard actions route to `/chat` instead of a standalone risk evaluation interface — _underwriter persona has no specialized workflow_
-4. **FR021 – Audit Policy History**: No audit trail UI showing history of policy modifications, claims decisions, or user activity logs — _compliance/audit persona cannot review historical actions_
+1. **FR026 – Query Analytics**: Only a single "AI Queries Today" metric on the dashboard — no query log table, no usage pattern charts, no historical analytics view — _admin oversight capability missing_
+2. **FR015 – Risk Assessment**: No dedicated underwriter risk assessment tool; all underwriter dashboard actions route to `/chat` instead of a standalone risk evaluation interface — _underwriter persona has no specialized workflow_
+3. **FR021 – Audit Policy History**: No audit trail UI showing history of policy modifications, claims decisions, or user activity logs — _compliance/audit persona cannot review historical actions_
 
 ---
 
