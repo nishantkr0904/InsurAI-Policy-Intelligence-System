@@ -97,6 +97,21 @@
   - Related claims with similarity scores
   - Evidence organization for fraud analysis
 
+- ✅ **FR019 – Compliance Review**: `GET /api/v1/compliance/issues`
+  - Detects compliance issues against regulatory standards
+  - Returns: compliance issues with rule violations, severity, status
+  - Supports: 9 rule categories (data_privacy, security, coverage, etc.)
+  - Filtering: by status, severity, rule category
+  - Pagination: limit/offset with has_more indicator
+  - Includes summary statistics: counts by severity, status, category
+
+- ✅ **FR020 – Compliance Report Generation** (implemented as part of FR019)
+  - Generates comprehensive compliance audit reports
+  - Executive summary with compliance score (0-100)
+  - Category breakdown with average remediation times
+  - Top critical/high issues highlighted
+  - Actionable recommendations prioritized by impact
+
 ---
 
 ## 🚧 In Progress
@@ -109,22 +124,7 @@
 
 ### High Priority (Required for MVP)
 
-#### 1. **FR019 – Compliance Review API**
-**Status**: ❌ NOT STARTED
-**Endpoint**: `GET /api/v1/compliance/issues`
-**Description**: Return compliance issues against regulatory standards
-**Breaking Down**:
-- [ ] Create ComplianceIssue model (issue_id, rule_name, severity, status, description)
-- [ ] Create ComplianceIssuesResponse schema
-- [ ] Implement compliance checking logic: audit policies against rules
-- [ ] Return paginated issues with severity breakdown
-- [ ] Support report generation
-
-**Frontend Dependency**: `/compliance` page expects this endpoint
-
----
-
-#### 2. **FR021 – Audit Policy History API**
+#### 1. **FR021 – Audit Policy History API**
 **Status**: ❌ NOT STARTED
 **Endpoint**: `GET /api/v1/audit`, `POST /api/v1/audit/action`
 **Description**: Log and retrieve system audit trails

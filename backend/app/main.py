@@ -24,6 +24,7 @@ from app.rag.retrieve_router import router as retrieve_router
 from app.rag.stream_router import router as stream_router
 from app.claims.router import router as claims_router
 from app.fraud.router import router as fraud_router
+from app.compliance.router import router as compliance_router
 from app.storage.minio_client import ensure_bucket_exists
 from app.processing.vector_store import ensure_collection_exists
 
@@ -96,6 +97,7 @@ app.include_router(retrieve_router)
 app.include_router(stream_router)
 app.include_router(claims_router)
 app.include_router(fraud_router)
+app.include_router(compliance_router)
 
 
 @app.get("/health", tags=["Health"])
