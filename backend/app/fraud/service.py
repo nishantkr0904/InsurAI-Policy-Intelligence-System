@@ -25,6 +25,8 @@ from datetime import datetime, timedelta
 from typing import List
 
 import litellm
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 
 from app.fraud.schemas import (
     AnomalyType,
@@ -36,6 +38,7 @@ from app.fraud.schemas import (
     SeverityLevel,
 )
 from app.core.config import settings
+from app.models import FraudAlert as FraudAlertORM
 
 logger = logging.getLogger(__name__)
 
@@ -149,71 +152,150 @@ def _generate_sample_fraud_alerts(
     return alerts
 
 
-async def get_fraud_alerts(request: FraudAlertsRequest) -> FraudAlertsResponse:
+async def get_fraud_alerts(
+    request: FraudAlertsRequest,
+    session: AsyncSession | None = None,
+) -> FraudAlertsResponse:
     """
-    Retrieve fraud alerts for a workspace.
+    Retrieve fraud alerts for a workspace with filtering and pagination.
 
-    Pipeline:
-      1. Generate/retrieve alerts (MVP: sample data, future: from claims DB)
-      2. Apply filters (status, severity, risk score)
-      3. Sort by requested field
-      4. Apply pagination
-      5. Return response
+    Hybrid Database/MVP Approach:
+      1. If session provided: Query PostgreSQL FraudAlert table
+      2. If no session OR database empty: Use MVP sample data (fallback)
+      3. Apply filters, sorting, pagination
+      4. Return paginated response
 
     Args:
         request: FraudAlertsRequest with filters and pagination
+        session: Optional AsyncSession for database queries (from FastAPI Depends)
 
     Returns:
         FraudAlertsResponse with alerts and pagination info
     """
     logger.info(
-        "Retrieving fraud alerts: workspace=%s status=%s severity=%s min_risk=%.1f",
+        "Retrieving fraud alerts: workspace=%s status=%s severity=%s min_risk=%.1f db=%s",
         request.workspace_id,
         request.status_filter,
         request.severity_filter,
         request.min_risk_score,
+        "yes" if session else "no",
     )
 
-    # Step 1: Get all alerts (MVP: sample data)
-    all_alerts = _generate_sample_fraud_alerts(request.workspace_id, limit=100)
+    # Try to query database if session provided
+    all_alerts = None
+    if session:
+        try:
+            # Count existing alerts for this workspace
+            count_query = select(func.count()).select_from(FraudAlertORM).where(
+                FraudAlertORM.workspace_id == request.workspace_id
+            )
+            total_db = await session.scalar(count_query)
 
-    # Step 2: Apply filters
-    filtered_alerts = [
-        alert for alert in all_alerts
-        if (
-            (request.status_filter is None or alert.status == request.status_filter)
-            and (request.severity_filter is None or alert.severity == request.severity_filter)
-            and alert.risk_score >= request.min_risk_score
+            # If alerts exist, query them
+            if total_db > 0:
+                query = select(FraudAlertORM).where(
+                    FraudAlertORM.workspace_id == request.workspace_id
+                )
+
+                # Apply filters in database query
+                if request.status_filter:
+                    query = query.where(FraudAlertORM.status == request.status_filter.value)
+                if request.severity_filter:
+                    query = query.where(FraudAlertORM.severity == request.severity_filter.value)
+                if request.min_risk_score > 0:
+                    query = query.where(FraudAlertORM.risk_score >= request.min_risk_score)
+
+                # Sort
+                if request.sort_by == "risk_score":
+                    query = query.order_by(FraudAlertORM.risk_score.desc())
+                elif request.sort_by == "claim_amount":
+                    query = query.order_by(FraudAlertORM.claim_amount.desc())
+                else:  # detected_date (default)
+                    query = query.order_by(FraudAlertORM.created_at.desc())
+
+                # Execute query
+                result = await session.execute(query)
+                db_alerts = result.scalars().all()
+
+                # Convert ORM to Pydantic
+                all_alerts = [
+                    FraudAlert(
+                        alert_id=alert.alert_number,
+                        claim_id=alert.claim_id,
+                        policy_number=alert.policy_number or "",
+                        risk_score=alert.risk_score,
+                        severity=SeverityLevel(alert.severity),
+                        anomaly_types=[AnomalyType(a) for a in alert.anomaly_types] if alert.anomaly_types else [],
+                        status=AlertStatus(alert.status),
+                        reasoning=alert.reasoning or "",
+                        claim_amount=0.0,  # Not stored in ORM, using default
+                        submit_date=alert.created_at.isoformat() if alert.created_at else datetime.utcnow().isoformat(),
+                        detected_date=alert.created_at.isoformat() if alert.created_at else datetime.utcnow().isoformat(),
+                        related_claims=[
+                            RelatedClaim(
+                                claim_id=rc.get("claim_id", ""),
+                                similarity_score=rc.get("similarity_score", 0.0),
+                                claim_amount=rc.get("amount", 0.0),
+                                submit_date=rc.get("date", datetime.utcnow().isoformat()),
+                            )
+                            for rc in (alert.related_claims or [])
+                        ],
+                        confidence_score=alert.confidence_score,
+                    )
+                    for alert in db_alerts
+                ]
+                logger.info("Retrieved %d fraud alerts from database", len(all_alerts))
+        except Exception as exc:
+            logger.warning("Database query failed, falling back to sample data: %s", exc)
+            all_alerts = None
+
+    # Fallback to MVP sample data if no database alerts
+    if all_alerts is None:
+        logger.info("No database alerts found (first use?). Generating MVP sample data.")
+        all_alerts = _generate_sample_fraud_alerts(
+            workspace_id=request.workspace_id,
+            limit=100,
         )
-    ]
 
-    # Step 3: Sort
-    sort_key = "detected_date"
-    reverse_sort = True
+        # Apply filters to sample data
+        filtered_alerts = [
+            alert for alert in all_alerts
+            if (
+                (request.status_filter is None or alert.status == request.status_filter)
+                and (request.severity_filter is None or alert.severity == request.severity_filter)
+                and alert.risk_score >= request.min_risk_score
+            )
+        ]
 
-    if request.sort_by == "risk_score":
-        sort_key = lambda a: a.risk_score
+        # Sort sample data
+        sort_key = "detected_date"
         reverse_sort = True
-    elif request.sort_by == "claim_amount":
-        sort_key = lambda a: a.claim_amount
-        reverse_sort = True
-    else:  # detected_date (default)
-        sort_key = lambda a: a.detected_date
-        reverse_sort = True
 
-    sorted_alerts = sorted(
-        filtered_alerts,
-        key=sort_key if isinstance(sort_key, str) else sort_key,
-        reverse=reverse_sort,
-    )
+        if request.sort_by == "risk_score":
+            sort_key = lambda a: a.risk_score
+            reverse_sort = True
+        elif request.sort_by == "claim_amount":
+            sort_key = lambda a: a.claim_amount
+            reverse_sort = True
+        else:  # detected_date (default)
+            sort_key = lambda a: a.detected_date
+            reverse_sort = True
 
-    # Step 4: Paginate
-    total = len(sorted_alerts)
-    paginated_alerts = sorted_alerts[request.offset : request.offset + request.limit]
-    has_more = (request.offset + request.limit) < total
+        all_alerts = sorted(
+            filtered_alerts,
+            key=sort_key if isinstance(sort_key, str) else sort_key,
+            reverse=reverse_sort,
+        )
+
+    # Pagination
+    total = len(all_alerts)
+    start = request.offset
+    end = start + request.limit
+    paginated_alerts = all_alerts[start:end]
+    has_more = end < total
 
     logger.info(
-        "Fraud alerts retrieved: total=%d returned=%d",
+        "Fraud alerts returned: total=%d returned=%d",
         total,
         len(paginated_alerts),
     )

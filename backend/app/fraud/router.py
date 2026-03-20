@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import get_db
 from app.fraud.schemas import AnomalyType, AlertStatus, SeverityLevel, FraudAlertsRequest, FraudAlertsResponse
 from app.fraud.service import get_fraud_alerts
 
@@ -41,6 +43,7 @@ async def get_alerts_endpoint(
     limit: int = 50,
     offset: int = 0,
     sort_by: str = "detected_date",
+    session: AsyncSession = Depends(get_db),
 ) -> FraudAlertsResponse:
     """
     Retrieve fraud alerts for a workspace.
@@ -105,7 +108,7 @@ async def get_alerts_endpoint(
             offset=offset,
             sort_by=sort_by,
         )
-        result = await get_fraud_alerts(request)
+        result = await get_fraud_alerts(request, session)
     except Exception as exc:
         logger.error("Failed to retrieve fraud alerts: %s", exc)
         raise HTTPException(

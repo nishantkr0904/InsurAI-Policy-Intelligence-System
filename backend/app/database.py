@@ -19,7 +19,6 @@ import logging
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import QueuePool
 
 from app.core.config import settings
 from app.models import Base
@@ -43,7 +42,6 @@ engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
     future=True,
-    pool_class=QueuePool,
     pool_size=20,
     max_overflow=10,
     pool_recycle=3600,

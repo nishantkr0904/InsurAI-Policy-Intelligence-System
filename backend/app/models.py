@@ -189,8 +189,8 @@ class AuditLog(Base, BaseMixin):
 
     description = Column(Text, nullable=False)  # Human-readable description
 
-    # Flexible metadata as JSON
-    metadata = Column(JSON, nullable=True)
+    # Flexible metadata as JSON (renamed from metadata to avoid SQLAlchemy conflict)
+    meta_data = Column(JSON, nullable=True)
     # Example structure:
     # {
     #   "ip_address": "192.168.1.10",

@@ -321,7 +321,7 @@ async def get_audit_logs(
                         resource_type=log.resource_type,
                         resource_id=log.resource_id,
                         description=log.description,
-                        metadata=AuditMetadata(**log.metadata) if log.metadata else AuditMetadata(),
+                        metadata=AuditMetadata(**log.meta_data) if log.meta_data else AuditMetadata(),
                     )
                     for log in db_logs
                 ]
@@ -432,7 +432,7 @@ async def get_audit_analytics(
                         resource_type=log.resource_type,
                         resource_id=log.resource_id,
                         description=log.description,
-                        metadata=AuditMetadata(**log.metadata) if log.metadata else AuditMetadata(),
+                        metadata=AuditMetadata(**log.meta_data) if log.meta_data else AuditMetadata(),
                     )
                     for log in db_logs
                 ]
@@ -461,8 +461,8 @@ async def get_audit_analytics(
         action_stats[log.action]["count"] += 1
         if log.status == AuditStatus.SUCCESS:
             action_stats[log.action]["success"] += 1
-        if log.metadata.duration_ms:
-            action_stats[log.action]["durations"].append(log.metadata.duration_ms)
+        if log.meta_data.duration_ms:
+            action_stats[log.action]["durations"].append(log.meta_data.duration_ms)
 
     top_actions = []
     for action, stats in action_stats.items():
@@ -505,7 +505,7 @@ async def get_audit_analytics(
     critical_count = sum(1 for log in all_logs if log.severity == SeverityLevel.CRITICAL)
 
     # Average response time
-    all_durations = [log.metadata.duration_ms for log in all_logs if log.metadata.duration_ms]
+    all_durations = [log.meta_data.duration_ms for log in all_logs if log.meta_data.duration_ms]
     avg_response_time = sum(all_durations) / len(all_durations) if all_durations else None
 
     # Period
