@@ -27,6 +27,7 @@
 ### Compliance
 
 - **FR019 – Compliance Review**: Compliance page lists issues with severity, rule name, description, and status (open/acknowledged/resolved) — **now fully wired to `GET /api/v1/compliance/issues` API** (`app/compliance/page.tsx`, `lib/api.ts`)
+- **FR020 – Compliance Report Generation**: Structured compliance audit reports with executive summary (compliance score, issues by status), breakdown by severity, detailed issue cards, and AI-generated recommendations — displayed in fullscreen modal after clicking "Generate Report" (`app/compliance/page.tsx`, `components/ComplianceReport.tsx`)
 
 ### User Management
 
@@ -57,8 +58,7 @@
 > Ordered by: core functionality → user flow blocking → demo readiness
 
 1. **Source panel dual-pane**: Chat page has left/right pane layout with text citations, but **no PDF viewer component** with highlighted retrieved chunks (architecture requires embedded PDF highlighting) — *core RAG differentiator for demos*
-2. **FR020 – Compliance Report Generation**: "Generate Report" button exists but only displays a toast with a filename — **no actual structured report** with summarized issues and recommendations is rendered — *compliance workflow dead-ends without viewable output*
-3. **FR018 – Fraud Investigation Support**: Alert detail panel shows evidence summary text but **lacks structured evidence display** (no related claims cross-reference, no policy clause mapping) — *fraud alerts functional but investigation depth incomplete*
+2. **FR018 – Fraud Investigation Support**: Alert detail panel shows evidence summary text but **lacks structured evidence display** (no related claims cross-reference, no policy clause mapping) — *fraud alerts functional but investigation depth incomplete*
 
 ---
 
