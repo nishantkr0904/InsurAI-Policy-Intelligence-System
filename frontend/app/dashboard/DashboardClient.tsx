@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { isAuthenticated, getUser, isOnboarded, type InsurAIUser } from "@/lib/auth";
 import { getSelectedRole } from "@/lib/auth";
+import RiskTrendsCharts from "@/components/RiskTrendsCharts";
 
 const STATS = [
   {
@@ -285,6 +286,12 @@ export default function DashboardClient() {
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* ── Risk Trends Visualization (FR027) ────────────────── */}
+      <div>
+        <h2 className="section-title">Risk Trends & Analytics</h2>
+        <RiskTrendsCharts />
       </div>
 
       {/* ── AI Quick Query ───────────────────────────────────── */}
