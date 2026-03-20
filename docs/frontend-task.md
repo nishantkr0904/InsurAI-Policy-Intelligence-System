@@ -45,6 +45,7 @@
 ### Infrastructure & UX
 
 - **Role-based dashboard routing**: Separate views at `/dashboard/underwriter` and `/dashboard/compliance` with role-specific content
+- **Underwriter Risk Assessment (FR015)**: Dedicated underwriter interface at `/dashboard/underwriter` with RiskAssessmentForm for policy details (ID, type, coverage, deductible, claim history) and RiskAssessmentResults displaying risk scores, premium adjustments, key factors, mitigation strategies, and review schedules (`app/dashboard/underwriter/`, `components/RiskAssessmentForm.tsx`, `components/RiskAssessmentResults.tsx`)
 - **Onboarding flow**: 3-step onboarding with role selection (4 roles), workspace setup, and optional policy upload (`OnboardingFlow.tsx`, `OnboardingProgress.tsx`)
 - **Document management page**: List view with status tracking, auto-refresh polling, error/empty states (`app/documents/page.tsx`)
 - **Settings page**: Profile editing (name, email, role, company/workspace), security badges, sign-out (`app/settings/page.tsx`)
@@ -60,7 +61,7 @@
 
 ## 🚧 In Progress
 
-> No tasks currently in progress. FR026 (Query Analytics) completed.
+> No tasks currently in progress. FR015 (Risk Assessment) completed.
 
 ---
 
@@ -68,8 +69,7 @@
 
 > Ordered by: core functionality → user flow blocking → demo readiness
 
-1. **FR015 – Risk Assessment**: No dedicated underwriter risk assessment tool; all underwriter dashboard actions route to `/chat` instead of a standalone risk evaluation interface — _underwriter persona has no specialized workflow_
-2. **FR021 – Audit Policy History**: No audit trail UI showing history of policy modifications, claims decisions, or user activity logs — _compliance/audit persona cannot review historical actions_
+1. **FR021 – Audit Policy History**: No audit trail UI showing history of policy modifications, claims decisions, or user activity logs — _compliance/audit persona cannot review historical actions_
 
 ---
 
@@ -90,6 +90,5 @@
 3. **Install and adopt TanStack Query**: Replace manual `useEffect` + `fetch` patterns in DocumentTable and dashboard with proper caching, background refetching, and optimistic updates — _reduces data-fetching bugs and improves perceived speed_
 4. **Install and adopt Zustand**: Centralize auth state, user preferences, active workspace, and chat session state instead of prop-drilling and scattered `useState` — _prevents state fragmentation as features grow_
 5. **Add toast notification system**: Install `sonner` or `react-hot-toast` for consistent success/error feedback across uploads, report generation, and form submissions — _polishes user feedback for demos_
-6. **Build dedicated risk assessment tool**: Create a standalone underwriter interface for evaluating policy/claim risk with structured inputs and AI-generated risk reports — _completes underwriter persona workflow_
-7. **Add audit trail page**: Build a `/audit` route displaying timestamped logs of policy uploads, modifications, claims decisions, and user actions — _completes auditor persona workflow_
-8. **Add loading skeletons**: Replace spinner-only loading states with content-shaped skeleton placeholders for better perceived performance — _UX polish for final release_
+6. **Add audit trail page**: Build a `/audit` route displaying timestamped logs of policy uploads, modifications, claims decisions, and user actions — _completes auditor persona workflow_
+7. **Add loading skeletons**: Replace spinner-only loading states with content-shaped skeleton placeholders for better perceived performance — _UX polish for final release_
