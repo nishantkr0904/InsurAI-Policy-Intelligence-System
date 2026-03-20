@@ -13,6 +13,7 @@
 - **FR009 – Contextual AI Answers**: Streaming AI responses rendered progressively with loading indicators (`ChatPanel.tsx`)
 - **FR010 – Source Citation**: SourcePanel displays citations with document ID, page number, relevance score, and text snippet preview (`SourcePanel.tsx`)
 - **Source Panel Dual-Pane PDF Viewer**: Clickable source citations open a fullscreen PDF viewer with page navigation (prev/next, jump to page), zoom controls (50%-200%), highlighted chunk banner showing retrieved text with relevance score, loading/error states, and dynamic component loading via Next.js — implements the "PDF Source Viewer (highlighting retrieved chunks)" architecture (`components/PDFViewer.tsx`, `components/SourcePanel.tsx`, `components/ChatPageClient.tsx`)
+- **FR011 – Multi-Document Query**: DocumentSelector component allows users to select which documents to search across, with collapsible panel showing document list, multi-select checkboxes, Select All/Clear All buttons, document status badges, and auto-selection of indexed documents — API functions updated to pass document_ids filter to chat endpoints (`components/DocumentSelector.tsx`, `components/ChatPanel.tsx`, `components/ChatPageClient.tsx`, `lib/api.ts`)
 
 ### Claims Validation
 
@@ -65,11 +66,10 @@
 
 > Ordered by: core functionality → user flow blocking → demo readiness
 
-1. **FR011 – Multi-Document Query**: No frontend UI for selecting or filtering across multiple documents before querying — _core RAG capability; users cannot scope queries across specific policy sets_
-2. **FR027 – Risk Trends Visualization**: No time-series charts or graphs showing claim trends, risk patterns, or anomaly visualization — only static stat cards exist — _dashboard lacks visual depth for demos_
-3. **FR026 – Query Analytics**: Only a single "AI Queries Today" metric on the dashboard — no query log table, no usage pattern charts, no historical analytics view — _admin oversight capability missing_
-4. **FR015 – Risk Assessment**: No dedicated underwriter risk assessment tool; all underwriter dashboard actions route to `/chat` instead of a standalone risk evaluation interface — _underwriter persona has no specialized workflow_
-5. **FR021 – Audit Policy History**: No audit trail UI showing history of policy modifications, claims decisions, or user activity logs — _compliance/audit persona cannot review historical actions_
+1. **FR027 – Risk Trends Visualization**: No time-series charts or graphs showing claim trends, risk patterns, or anomaly visualization — only static stat cards exist — _dashboard lacks visual depth for demos_
+2. **FR026 – Query Analytics**: Only a single "AI Queries Today" metric on the dashboard — no query log table, no usage pattern charts, no historical analytics view — _admin oversight capability missing_
+3. **FR015 – Risk Assessment**: No dedicated underwriter risk assessment tool; all underwriter dashboard actions route to `/chat` instead of a standalone risk evaluation interface — _underwriter persona has no specialized workflow_
+4. **FR021 – Audit Policy History**: No audit trail UI showing history of policy modifications, claims decisions, or user activity logs — _compliance/audit persona cannot review historical actions_
 
 ---
 
