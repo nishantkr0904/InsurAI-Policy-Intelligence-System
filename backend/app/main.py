@@ -22,6 +22,7 @@ from app.ingestion.router import router as ingestion_router
 from app.rag.router import router as rag_router
 from app.rag.retrieve_router import router as retrieve_router
 from app.rag.stream_router import router as stream_router
+from app.claims.router import router as claims_router
 from app.storage.minio_client import ensure_bucket_exists
 from app.processing.vector_store import ensure_collection_exists
 
@@ -92,6 +93,7 @@ app.include_router(ingestion_router)
 app.include_router(rag_router)
 app.include_router(retrieve_router)
 app.include_router(stream_router)
+app.include_router(claims_router)
 
 
 @app.get("/health", tags=["Health"])
