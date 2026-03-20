@@ -4,11 +4,15 @@ Compliance Detection Service.
 Implements compliance issue detection, violation tracking, and report generation.
 
 Pipeline:
-  1. Retrieve stored compliance violations
+  1. Retrieve stored compliance violations from PostgreSQL
   2. Categorize by compliance rule
   3. Apply filters and pagination
   4. Generate reports with recommendations
   5. Return structured response
+
+Hybrid Database/MVP Approach:
+  - Tries PostgreSQL queries first (if session provided)
+  - Falls back to MVP sample data if no session or database empty
 
 Architecture ref:
   docs/requirements.md #FR019 – Compliance Review
@@ -21,6 +25,9 @@ import random
 import uuid
 from datetime import datetime, timedelta
 from typing import List
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 
 from app.compliance.schemas import (
     RuleCategory,
@@ -35,6 +42,7 @@ from app.compliance.schemas import (
     CategoryBreakdown,
     RiskRecommendation,
 )
+from app.models import ComplianceIssue as ComplianceIssueORM
 
 import logging
 
@@ -162,97 +170,141 @@ def _generate_sample_compliance_issues(
     return issues
 
 
-async def get_compliance_issues(request: ComplianceIssuesRequest) -> ComplianceIssuesResponse:
+async def get_compliance_issues(
+    request: ComplianceIssuesRequest,
+    session: AsyncSession | None = None,
+) -> ComplianceIssuesResponse:
     """
-    Retrieve compliance issues for a workspace.
+    Retrieve compliance issues for a workspace with filtering and pagination.
 
-    Pipeline:
-      1. Generate/retrieve issues (MVP: sample data)
-      2. Apply filters (status, severity, category)
-      3. Sort by requested field
-      4. Apply pagination
-      5. Generate summary statistics
-      6. Return response
+    Hybrid Database/MVP Approach:
+      1. If session provided: Query PostgreSQL ComplianceIssue table
+      2. If no session OR database empty: Use MVP sample data (fallback)
+      3. Apply filters, sorting, pagination
+      4. Return paginated response with summary
 
     Args:
         request: ComplianceIssuesRequest with filters and pagination
+        session: Optional AsyncSession for database queries (from FastAPI Depends)
 
     Returns:
         ComplianceIssuesResponse with issues and pagination info
     """
     logger.info(
-        "Retrieving compliance issues: workspace=%s status=%s severity=%s category=%s",
+        "Retrieving compliance issues: workspace=%s status=%s severity=%s category=%s db=%s",
         request.workspace_id,
         request.status_filter,
         request.severity_filter,
         request.category_filter,
+        "yes" if session else "no",
     )
 
-    # Step 1: Get all issues (MVP: sample data)
-    all_issues = _generate_sample_compliance_issues(request.workspace_id, limit=100)
+    all_issues = None
+    if session:
+        try:
+            count_query = select(func.count()).select_from(ComplianceIssueORM).where(
+                ComplianceIssueORM.workspace_id == request.workspace_id
+            )
+            total_db = await session.scalar(count_query)
 
-    # Step 2: Apply filters
-    filtered_issues = [
-        issue for issue in all_issues
-        if (
-            (request.status_filter is None or issue.status == request.status_filter)
-            and (request.severity_filter is None or issue.severity == request.severity_filter)
-            and (request.category_filter is None or issue.rule_category == request.category_filter)
-        )
-    ]
+            if total_db > 0:
+                query = select(ComplianceIssueORM).where(
+                    ComplianceIssueORM.workspace_id == request.workspace_id
+                )
 
-    # Step 3: Sort
-    if request.sort_by == "severity":
-        severity_order = {
-            SeverityLevel.CRITICAL: 0,
-            SeverityLevel.HIGH: 1,
-            SeverityLevel.MEDIUM: 2,
-            SeverityLevel.LOW: 3,
-        }
-        sorted_issues = sorted(
-            filtered_issues,
-            key=lambda x: severity_order[x.severity],
-        )
-    elif request.sort_by == "affected_records":
-        sorted_issues = sorted(
-            filtered_issues,
-            key=lambda x: x.affected_records,
-            reverse=True,
-        )
-    else:  # detected_date (default)
-        sorted_issues = sorted(
-            filtered_issues,
-            key=lambda x: x.detected_date,
-            reverse=True,
+                if request.status_filter:
+                    query = query.where(ComplianceIssueORM.status == request.status_filter.value)
+                if request.severity_filter:
+                    query = query.where(ComplianceIssueORM.severity == request.severity_filter.value)
+                if request.category_filter:
+                    query = query.where(ComplianceIssueORM.rule_category == request.category_filter.value)
+
+                if request.sort_by == "severity":
+                    query = query.order_by(ComplianceIssueORM.severity.asc())
+                elif request.sort_by == "affected_records":
+                    query = query.order_by(ComplianceIssueORM.affected_policies.desc() if hasattr(ComplianceIssueORM, 'affected_policies') else ComplianceIssueORM.created_at.desc())
+                else:
+                    query = query.order_by(ComplianceIssueORM.created_at.desc())
+
+                result = await session.execute(query)
+                db_issues = result.scalars().all()
+
+                all_issues = [
+                    ComplianceIssue(
+                        issue_id=issue.issue_number,
+                        rule_name=issue.title or "",
+                        rule_category=RuleCategory(issue.rule_category),
+                        description=issue.description or "",
+                        severity=SeverityLevel(issue.severity),
+                        status=IssueStatus(issue.status),
+                        policy_id=issue.policy_number,
+                        document_section=None,
+                        detected_date=issue.created_at.isoformat() if issue.created_at else datetime.utcnow().isoformat(),
+                        due_date=issue.remediation_deadline.isoformat() if issue.remediation_deadline else None,
+                        remediation_steps=[issue.required_remediation] if issue.required_remediation else [],
+                        affected_records=len(issue.affected_policies) if issue.affected_policies else 0,
+                    )
+                    for issue in db_issues
+                ]
+                logger.info("Retrieved %d compliance issues from database", len(all_issues))
+        except Exception as exc:
+            logger.warning("Database query failed, falling back to sample data: %s", exc)
+            all_issues = None
+
+    if all_issues is None:
+        logger.info("No database issues found (first use?). Generating MVP sample data.")
+        all_issues = _generate_sample_compliance_issues(
+            workspace_id=request.workspace_id,
+            limit=100,
         )
 
-    # Step 4: Paginate
-    total = len(sorted_issues)
-    paginated_issues = sorted_issues[request.offset : request.offset + request.limit]
+        filtered_issues = [
+            issue for issue in all_issues
+            if (
+                (request.status_filter is None or issue.status == request.status_filter)
+                and (request.severity_filter is None or issue.severity == request.severity_filter)
+                and (request.category_filter is None or issue.rule_category == request.category_filter)
+            )
+        ]
+
+        if request.sort_by == "severity":
+            severity_order = {
+                SeverityLevel.CRITICAL: 0,
+                SeverityLevel.HIGH: 1,
+                SeverityLevel.MEDIUM: 2,
+                SeverityLevel.LOW: 3,
+            }
+            all_issues = sorted(filtered_issues, key=lambda x: severity_order[x.severity])
+        elif request.sort_by == "affected_records":
+            all_issues = sorted(filtered_issues, key=lambda x: x.affected_records, reverse=True)
+        else:
+            all_issues = sorted(filtered_issues, key=lambda x: x.detected_date, reverse=True)
+
+    total = len(all_issues)
+    paginated_issues = all_issues[request.offset : request.offset + request.limit]
     has_more = (request.offset + request.limit) < total
 
-    # Step 5: Generate summary
     summary = {
         "total_count": total,
         "by_severity": {
-            "critical": sum(1 for i in filtered_issues if i.severity == SeverityLevel.CRITICAL),
-            "high": sum(1 for i in filtered_issues if i.severity == SeverityLevel.HIGH),
-            "medium": sum(1 for i in filtered_issues if i.severity == SeverityLevel.MEDIUM),
-            "low": sum(1 for i in filtered_issues if i.severity == SeverityLevel.LOW),
+            "critical": sum(1 for i in all_issues if i.severity == SeverityLevel.CRITICAL),
+            "high": sum(1 for i in all_issues if i.severity == SeverityLevel.HIGH),
+            "medium": sum(1 for i in all_issues if i.severity == SeverityLevel.MEDIUM),
+            "low": sum(1 for i in all_issues if i.severity == SeverityLevel.LOW),
         },
         "by_status": {
-            "open": sum(1 for i in filtered_issues if i.status == IssueStatus.OPEN),
-            "acknowledged": sum(1 for i in filtered_issues if i.status == IssueStatus.ACKNOWLEDGED),
-            "in_progress": sum(1 for i in filtered_issues if i.status == IssueStatus.IN_PROGRESS),
-            "resolved": sum(1 for i in filtered_issues if i.status == IssueStatus.RESOLVED),
+            "open": sum(1 for i in all_issues if i.status == IssueStatus.OPEN),
+            "acknowledged": sum(1 for i in all_issues if i.status == IssueStatus.ACKNOWLEDGED),
+            "in_progress": sum(1 for i in all_issues if i.status == IssueStatus.IN_PROGRESS),
+            "resolved": sum(1 for i in all_issues if i.status == IssueStatus.RESOLVED),
         },
         "by_category": {
-            cat.value: sum(1 for i in filtered_issues if i.rule_category == cat)
+            cat.value: sum(1 for i in all_issues if i.rule_category == cat)
             for cat in RuleCategory
         },
     }
 
-    logger.info("Compliance issues retrieved: total=%d returned=%d", total, len(paginated_issues))
+    logger.info("Compliance issues returned: total=%d returned=%d", total, len(paginated_issues))
 
     return ComplianceIssuesResponse(
         issues=paginated_issues,
@@ -266,6 +318,7 @@ async def get_compliance_issues(request: ComplianceIssuesRequest) -> ComplianceI
 
 async def generate_compliance_report(
     request: ComplianceReportRequest,
+    session: AsyncSession | None = None,
 ) -> ComplianceReport:
     """
     Generate a comprehensive compliance audit report.
@@ -275,29 +328,27 @@ async def generate_compliance_report(
 
     Args:
         request: ComplianceReportRequest with workspace and options
+        session: Optional AsyncSession for database queries
 
     Returns:
         ComplianceReport with executive summary and recommendations
     """
     logger.info("Generating compliance report: workspace=%s", request.workspace_id)
 
-    # Get all issues
     issues_request = ComplianceIssuesRequest(
         workspace_id=request.workspace_id,
         limit=1000,
         offset=0,
     )
-    issues_response = await get_compliance_issues(issues_request)
+    issues_response = await get_compliance_issues(issues_request, session)
     all_issues = issues_response.issues
 
-    # Filter resolved if requested
     issues = (
         all_issues
         if request.include_resolved
         else [i for i in all_issues if i.status != IssueStatus.RESOLVED]
     )
 
-    # Calculate compliance score
     critical_weight = 0
     high_weight = sum(1 for i in issues if i.severity == SeverityLevel.HIGH)
     medium_weight = sum(1 for i in issues if i.severity == SeverityLevel.MEDIUM) * 0.5
@@ -307,7 +358,6 @@ async def generate_compliance_report(
     total_risk = critical_weight * 10 + high_weight * 5 + medium_weight
     compliance_score = max(0, 100 - (total_risk * 5))
 
-    # Category breakdown
     category_breakdown = []
     for category in RuleCategory:
         category_issues = [i for i in issues if i.rule_category == category]
@@ -328,14 +378,12 @@ async def generate_compliance_report(
                 )
             )
 
-    # Top issues by severity
     top_issues = sorted(
         issues,
         key=lambda x: (x.severity == SeverityLevel.CRITICAL, x.severity == SeverityLevel.HIGH),
         reverse=True,
     )[:5]
 
-    # Recommendations
     recommendations = [
         RiskRecommendation(
             priority=1,
