@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import get_db
 from app.compliance.schemas import (
     RuleCategory,
     IssueStatus,
@@ -49,6 +51,7 @@ async def get_issues_endpoint(
     limit: int = 50,
     offset: int = 0,
     sort_by: str = "detected_date",
+    session: AsyncSession = Depends(get_db),
 ) -> ComplianceIssuesResponse:
     """
     Retrieve compliance issues for a workspace.
@@ -105,7 +108,7 @@ async def get_issues_endpoint(
             offset=offset,
             sort_by=sort_by,
         )
-        result = await get_compliance_issues(request)
+        result = await get_compliance_issues(request, session)
     except Exception as exc:
         logger.error("Failed to retrieve compliance issues: %s", exc)
         raise HTTPException(
@@ -135,6 +138,7 @@ async def get_issues_endpoint(
 async def get_report_endpoint(
     workspace_id: str = "default",
     include_resolved: bool = False,
+    session: AsyncSession = Depends(get_db),
 ) -> ComplianceReport:
     """
     Generate a comprehensive compliance audit report.
@@ -166,7 +170,7 @@ async def get_report_endpoint(
             workspace_id=workspace_id,
             include_resolved=include_resolved,
         )
-        result = await generate_compliance_report(request)
+        result = await generate_compliance_report(request, session)
     except Exception as exc:
         logger.error("Failed to generate compliance report: %s", exc)
         raise HTTPException(
