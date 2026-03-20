@@ -1,12 +1,19 @@
 "use client";
 import { useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
+import ClaimDocumentUpload from "@/components/ClaimDocumentUpload";
 import { validateClaim, type ClaimValidationResponse } from "@/lib/api";
 import { getWorkspaceId } from "@/lib/auth";
 
 /**
  * Claims Validation page – FR012-FR015
  */
+
+interface UploadedDocument {
+  id: string;
+  filename: string;
+  size: number;
+}
 
 const CLAIM_TYPES = [
   { value: "property_damage", label: "Property Damage" },
@@ -26,6 +33,7 @@ export default function ClaimsPage() {
   const [result, setResult] = useState<ClaimValidationResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [form, setForm] = useState({
     claimId: "",
     policyNumber: "",
@@ -39,6 +47,15 @@ export default function ClaimsPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  }
+
+  function handleDocumentAdded(doc: UploadedDocument) {
+    setDocuments((prev) => [...prev, doc]);
+    setError(null);
+  }
+
+  function handleDocumentRemoved(id: string) {
+    setDocuments((prev) => prev.filter((doc) => doc.id !== id));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -159,6 +176,20 @@ export default function ClaimsPage() {
                 style={{ resize: "vertical" }}
               />
             </div>
+
+            {/* Document Upload - FR012 */}
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="form-label">Supporting Documents</label>
+              <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
+                Attach receipts, photos, police reports, or other evidence
+              </p>
+              <ClaimDocumentUpload
+                workspaceId={getWorkspaceId() || "default"}
+                documents={documents}
+                onDocumentAdded={handleDocumentAdded}
+                onDocumentRemoved={handleDocumentRemoved}
+              />
+            </div>
           </div>
 
           <button type="submit" className="btn-primary" disabled={loading}>
@@ -182,6 +213,30 @@ export default function ClaimsPage() {
                 {style.label}
               </span>
             </div>
+
+            {/* Attached Documents Info */}
+            {documents.length > 0 && (
+              <div
+                className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg"
+                style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  style={{ color: "var(--accent)" }}
+                >
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5-5m0 0l5 5m-5-5v12" />
+                </svg>
+                <span style={{ color: "var(--text-secondary)" }}>
+                  {documents.length} supporting {documents.length === 1 ? "document" : "documents"} attached
+                </span>
+              </div>
+            )}
 
             <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
               {result.reasoning}
