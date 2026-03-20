@@ -17,6 +17,7 @@ import dynamic from "next/dynamic";
 import ChatPanel from "@/components/ChatPanel";
 import UploadPanel from "@/components/UploadPanel";
 import SourcePanel from "@/components/SourcePanel";
+import DocumentSelector from "@/components/DocumentSelector";
 import type { SourceCitation } from "@/lib/api";
 
 // Dynamic import PDFViewer with SSR disabled (react-pdf uses browser APIs)
@@ -39,6 +40,7 @@ interface Props {
 export default function ChatPageClient({ workspaceId }: Props) {
   const [citations, setCitations] = useState<SourceCitation[]>([]);
   const [selectedCitation, setSelectedCitation] = useState<SourceCitation | null>(null);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
 
   return (
     <>
@@ -74,10 +76,14 @@ export default function ChatPageClient({ workspaceId }: Props) {
               {workspaceId}
             </span>
           </div>
-          <ChatPanel workspaceId={workspaceId} onCitations={setCitations} />
+          <ChatPanel
+            workspaceId={workspaceId}
+            onCitations={setCitations}
+            documentIds={selectedDocIds.length > 0 ? selectedDocIds : undefined}
+          />
         </section>
 
-        {/* ── Right: Sources + Upload ── */}
+        {/* ── Right: Document Selector + Sources + Upload ── */}
         <aside
           className="w-full lg:w-80 flex flex-col gap-4 p-4 overflow-y-auto lg:shrink-0 border-t lg:border-t-0"
           style={{
@@ -85,6 +91,12 @@ export default function ChatPageClient({ workspaceId }: Props) {
             borderColor: "var(--border)",
           }}
         >
+          {/* Document Selector - FR011 Multi-Document Query */}
+          <DocumentSelector
+            workspaceId={workspaceId}
+            selectedDocIds={selectedDocIds}
+            onSelectionChange={setSelectedDocIds}
+          />
           <SourcePanel
             citations={citations}
             onCitationClick={setSelectedCitation}
