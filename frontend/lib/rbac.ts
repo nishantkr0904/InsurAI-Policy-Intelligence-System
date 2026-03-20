@@ -32,6 +32,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/fraud",
     "/compliance",
     "/analytics",
+    "/audit",
     "/settings",
   ],
 
@@ -55,7 +56,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/settings",
   ],
 
-  // Compliance Officer: compliance audit, policies, AI chat, analytics
+  // Compliance Officer: compliance audit, policies, AI chat, analytics, audit trail
   compliance_officer: [
     "/dashboard",
     "/dashboard/compliance",
@@ -63,10 +64,11 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/chat",
     "/compliance",
     "/analytics",
+    "/audit",
     "/settings",
   ],
 
-  // Fraud Analyst: fraud detection, claims, policies, AI chat, analytics
+  // Fraud Analyst: fraud detection, claims, policies, AI chat, analytics, audit trail
   fraud_analyst: [
     "/dashboard",
     "/documents",
@@ -74,6 +76,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/claims",
     "/fraud",
     "/analytics",
+    "/audit",
     "/settings",
   ],
 
@@ -85,13 +88,14 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/settings",
   ],
 
-  // Auditor: compliance, policies (read-only focus), analytics
+  // Auditor: compliance, policies (read-only focus), analytics, audit trail
   auditor: [
     "/dashboard",
     "/documents",
     "/chat",
     "/compliance",
     "/analytics",
+    "/audit",
     "/settings",
   ],
 

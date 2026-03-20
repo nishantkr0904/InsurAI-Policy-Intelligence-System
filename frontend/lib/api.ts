@@ -378,3 +378,51 @@ export async function performRiskAssessment(
     throw new Error(`Risk assessment request failed: ${res.status}`);
   return res.json() as Promise<RiskAssessmentResponse>;
 }
+
+/** Shape of an audit log entry. */
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  user_id: string;
+  user_name: string;
+  action_type: "policy_upload" | "policy_update" | "claim_decision" | "risk_assessment" | "compliance_check" | "fraud_alert" | "login" | "logout" | "settings_change";
+  resource_type: "policy" | "claim" | "compliance" | "fraud" | "user" | "workspace";
+  resource_id: string;
+  resource_name: string;
+  description: string;
+  status: "success" | "failure";
+  ip_address?: string;
+  changes?: Record<string, { old: string; new: string }>;
+}
+
+/** Fetch audit logs for a workspace. */
+export async function fetchAuditLogs(
+  workspaceId: string,
+  limit = 100,
+): Promise<AuditLogEntry[]> {
+  const res = await fetch(
+    `${BASE}/audit/logs?workspace_id=${encodeURIComponent(workspaceId)}&limit=${limit}`,
+  );
+  if (!res.ok) throw new Error(`Failed to fetch audit logs: ${res.status}`);
+  return res.json() as Promise<AuditLogEntry[]>;
+}
+
+/** Shape of audit summary statistics. */
+export interface AuditSummary {
+  total_actions: number;
+  total_users: number;
+  success_rate: number;
+  critical_actions: number;
+  date_range: { start: string; end: string };
+}
+
+/** Fetch audit summary for a workspace. */
+export async function fetchAuditSummary(
+  workspaceId: string,
+): Promise<AuditSummary> {
+  const res = await fetch(
+    `${BASE}/audit/summary?workspace_id=${encodeURIComponent(workspaceId)}`,
+  );
+  if (!res.ok) throw new Error(`Failed to fetch audit summary: ${res.status}`);
+  return res.json() as Promise<AuditSummary>;
+}
