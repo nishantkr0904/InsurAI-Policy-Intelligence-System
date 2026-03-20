@@ -46,6 +46,7 @@
 
 - **Role-based dashboard routing**: Separate views at `/dashboard/underwriter` and `/dashboard/compliance` with role-specific content
 - **Underwriter Risk Assessment (FR015)**: Dedicated underwriter interface at `/dashboard/underwriter` with RiskAssessmentForm for policy details (ID, type, coverage, deductible, claim history) and RiskAssessmentResults displaying risk scores, premium adjustments, key factors, mitigation strategies, and review schedules (`app/dashboard/underwriter/`, `components/RiskAssessmentForm.tsx`, `components/RiskAssessmentResults.tsx`)
+- **Audit Trail (FR021)**: Comprehensive audit log page at `/audit` with tabbed navigation (Overview/All Logs/Failures), AuditLogTable with search/filtering by action/status/user, AuditAnalytics with 24-hour trends, success rate, top actions, most active users, and export capabilities (`app/audit/`, `components/AuditLogTable.tsx`, `components/AuditAnalytics.tsx`, Recharts library)
 - **Onboarding flow**: 3-step onboarding with role selection (4 roles), workspace setup, and optional policy upload (`OnboardingFlow.tsx`, `OnboardingProgress.tsx`)
 - **Document management page**: List view with status tracking, auto-refresh polling, error/empty states (`app/documents/page.tsx`)
 - **Settings page**: Profile editing (name, email, role, company/workspace), security badges, sign-out (`app/settings/page.tsx`)
@@ -61,7 +62,7 @@
 
 ## 🚧 In Progress
 
-> No tasks currently in progress. FR015 (Risk Assessment) completed.
+> No tasks currently in progress. FR021 (Audit Trail) completed.
 
 ---
 
@@ -69,7 +70,7 @@
 
 > Ordered by: core functionality → user flow blocking → demo readiness
 
-1. **FR021 – Audit Policy History**: No audit trail UI showing history of policy modifications, claims decisions, or user activity logs — _compliance/audit persona cannot review historical actions_
+All core requirements (FR001-FR027) and persona workflows are now complete!
 
 ---
 
@@ -87,8 +88,5 @@
 
 1. **Replace localStorage auth with Keycloak/JWT**: Integrate OIDC login flow, token refresh, and session management per the security architecture — _prerequisite for multi-user production use_
 2. **Add PDF viewer with chunk highlighting**: Integrate `react-pdf` or `@react-pdf-viewer/core` in the SourcePanel to render actual policy PDFs with highlighted retrieved sections — _high demo impact; visually demonstrates RAG grounding_
-3. **Install and adopt TanStack Query**: Replace manual `useEffect` + `fetch` patterns in DocumentTable and dashboard with proper caching, background refetching, and optimistic updates — _reduces data-fetching bugs and improves perceived speed_
-4. **Install and adopt Zustand**: Centralize auth state, user preferences, active workspace, and chat session state instead of prop-drilling and scattered `useState` — _prevents state fragmentation as features grow_
-5. **Add toast notification system**: Install `sonner` or `react-hot-toast` for consistent success/error feedback across uploads, report generation, and form submissions — _polishes user feedback for demos_
-6. **Add audit trail page**: Build a `/audit` route displaying timestamped logs of policy uploads, modifications, claims decisions, and user actions — _completes auditor persona workflow_
-7. **Add loading skeletons**: Replace spinner-only loading states with content-shaped skeleton placeholders for better perceived performance — _UX polish for final release_
+3. **Add toast notification system**: Install `sonner` or `react-hot-toast` for consistent success/error feedback across uploads, report generation, and form submissions — _polishes user feedback for demos_
+4. **Add loading skeletons**: Replace spinner-only loading states with content-shaped skeleton placeholders for better perceived performance — _UX polish for final release_
