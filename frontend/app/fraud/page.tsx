@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
+import FraudInvestigationPanel from "@/components/FraudInvestigationPanel";
 import { type FraudAlert } from "@/lib/api";
 import { getWorkspaceId } from "@/lib/auth";
 import { useFraudAlerts } from "@/hooks/useQueries";
@@ -181,48 +182,12 @@ export default function FraudPage() {
             </table>
           </div>
 
-          {/* Detail panel */}
+          {/* Fraud Investigation Panel - FR018 */}
           {selected && (
-            <div className="card space-y-4" style={{ borderColor: "rgba(59,130,246,0.3)" }}>
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
-                  Alert Details — <span style={{ color: "var(--accent)" }}>{selected.id}</span>
-                </h2>
-                <button
-                  onClick={() => setSelected(null)}
-                  className="btn-secondary text-xs"
-                  style={{ padding: "0.3rem 0.75rem" }}
-                >
-                  ✕ Close
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                {[
-                  { label: "Claim ID", value: selected.claim_id },
-                  { label: "Policy ID", value: selected.policy_id },
-                  { label: "Type", value: selected.type },
-                  { label: "Risk Score", value: `${selected.risk_score}/100`, danger: true },
-                ].map(({ label, value, danger }) => (
-                  <div key={label} className="rounded-lg p-3" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                    <p className="text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{label}</p>
-                    <p className="font-semibold text-sm" style={{ color: danger ? "var(--danger)" : "var(--text-primary)" }}>
-                      {value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <div
-                className="rounded-lg p-4"
-                style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
-              >
-                <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  Evidence Summary
-                </p>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
-                  {selected.description}
-                </p>
-              </div>
-            </div>
+            <FraudInvestigationPanel
+              alert={selected}
+              onClose={() => setSelected(null)}
+            />
           )}
         </>
       )}
