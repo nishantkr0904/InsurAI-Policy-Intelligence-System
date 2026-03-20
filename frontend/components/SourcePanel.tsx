@@ -5,6 +5,7 @@
  *
  * Populated via the blocking POST /api/v1/chat response after each stream
  * completes.  Shows document ID, relevance score, and text preview per chunk.
+ * Citations are clickable to open the PDF viewer with highlighted chunks.
  *
  * Architecture ref:
  *   docs/roadmap.md Phase 7 – "PDF Source Viewer (highlighting retrieved chunks)"
@@ -14,9 +15,10 @@ import type { SourceCitation } from "@/lib/api";
 
 interface SourcePanelProps {
   citations: SourceCitation[];
+  onCitationClick?: (citation: SourceCitation) => void;
 }
 
-export default function SourcePanel({ citations }: SourcePanelProps) {
+export default function SourcePanel({ citations, onCitationClick }: SourcePanelProps) {
   if (citations.length === 0) {
     return (
       <div className="card">
@@ -76,15 +78,21 @@ export default function SourcePanel({ citations }: SourcePanelProps) {
               ? `p. ${c.page_number}`
               : `chunk ${c.chunk_index}`;
           const sourceUrl = `/api/v1/documents/${c.document_id}`;
+          const isClickable = !!onCitationClick;
 
           return (
             <li
               key={i}
-              className="flex flex-col gap-1.5 p-3 rounded-lg"
+              className={`flex flex-col gap-1.5 p-3 rounded-lg transition-all ${isClickable ? "cursor-pointer hover:ring-2 hover:ring-offset-1" : ""}`}
               style={{
                 background: "var(--bg-surface)",
                 border: "1px solid var(--border)",
+                ["--tw-ring-color" as string]: "var(--accent)",
               }}
+              onClick={isClickable ? () => onCitationClick(c) : undefined}
+              role={isClickable ? "button" : undefined}
+              tabIndex={isClickable ? 0 : undefined}
+              onKeyDown={isClickable ? (e) => { if (e.key === "Enter" || e.key === " ") onCitationClick(c); } : undefined}
             >
               {/* Document name + score */}
               <div className="flex items-center justify-between gap-2">
@@ -126,15 +134,29 @@ export default function SourcePanel({ citations }: SourcePanelProps) {
               </p>
 
               {/* Clickable link to source document */}
-              <a
-                href={sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs self-start hover:underline"
-                style={{ color: "var(--accent)" }}
-              >
-                View source →
-              </a>
+              {isClickable ? (
+                <span
+                  className="text-xs self-start font-semibold flex items-center gap-1"
+                  style={{ color: "var(--accent)" }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                  View in PDF Viewer →
+                </span>
+              ) : (
+                <a
+                  href={sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs self-start hover:underline"
+                  style={{ color: "var(--accent)" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  View source →
+                </a>
+              )}
             </li>
           );
         })}
