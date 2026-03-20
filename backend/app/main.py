@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.database import init_db, close_db
 from app.ingestion.router import router as ingestion_router
 from app.rag.router import router as rag_router
 from app.rag.retrieve_router import router as retrieve_router
@@ -38,14 +39,25 @@ async def lifespan(app: FastAPI):
     FastAPI lifespan handler.
 
     Startup:
+      - Initializes PostgreSQL database and creates schema.
       - Ensures the MinIO document bucket exists.
         Logs a warning if MinIO is unreachable rather than crashing,
         so the server can still start in degraded mode during development.
+      - Ensures Milvus vector collection exists for embeddings.
 
     Shutdown:
-      - (Future) graceful teardown hooks go here.
+      - Closes database connections.
+      - Graceful teardown of all services.
     """
     # --- Startup ---
+    try:
+        await init_db()
+        logger.info("PostgreSQL database schema initialized.")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Database initialization failed (is PostgreSQL running?): %s", exc
+        )
+
     try:
         ensure_bucket_exists(settings.MINIO_BUCKET_DOCUMENTS)
         logger.info("MinIO bucket '%s' is ready.", settings.MINIO_BUCKET_DOCUMENTS)
@@ -67,6 +79,7 @@ async def lifespan(app: FastAPI):
     yield  # Application runs here
 
     # --- Shutdown ---
+    await close_db()
     logger.info("InsurAI backend shutting down.")
 
 
