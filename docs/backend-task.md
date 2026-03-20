@@ -3,15 +3,18 @@
 ## ✅ Completed Tasks
 
 ### Phase 1: Foundation & Infrastructure
+
 - ✅ **Docker-compose setup**: PostgreSQL, MinIO, Redis, Milvus, Keycloak
 - ✅ **FastAPI scaffolding**: CORS, health checks, lifespan handlers
 
 ### Phase 2: Authentication & Core Backend
+
 - ✅ **Keycloak integration**: Realm/clients/roles configured
 - ✅ **FastAPI auth middleware**: JWT validation stubs integrated
 - ✅ **SQLAlchemy ORM**: Connected to PostgreSQL (schemas defined)
 
 ### Phase 3: Document Ingestion Pipeline
+
 - ✅ **FR001 – Upload Policy Documents**: `POST /api/v1/documents/upload`
   - Accepts PDF/DOCX/TXT, validates file type/size (50MB max)
   - Stores in MinIO, enqueues Celery ingestion job
@@ -22,6 +25,7 @@
   - Status badges: PENDING, PROCESSING, INDEXED, ERROR
 
 ### Phase 4: Vector Database & Embeddings
+
 - ✅ **FR002 – Document Parsing**: `ingest_document` Celery task
   - Extracts text from PDF (PyMuPDF), DOCX (python-docx), TXT
   - Stores parsed text as sidecar in MinIO
@@ -41,6 +45,7 @@
   - Inserts vectors with document_id, workspace_id, chunk_index metadata
 
 ### Phase 5: RAG Retrieval System
+
 - ✅ **FR008 – Retrieval-Augmented Response**: Hybrid search pipeline
   - Milvus dense vector search (cosine distance)
   - BM25 keyword search fallback
@@ -50,6 +55,7 @@
   - document_id, page_number, snippet_text, relevance_score
 
 ### Phase 6: LLM Integration
+
 - ✅ **FR007 – AI Policy Chat**: `POST /api/v1/chat`
   - Query → Retrieve → Synthesize → Return ChatResponse
   - Supports custom model selection
@@ -64,11 +70,13 @@
   - `data: {"token": "..."}` format
 
 ### Phase 7: Frontend Interface
+
 - ✅ **Frontend implementation**: Next.js 15 with all features
   - Chat interface, document upload, status tracking
   - Dashboard, analytics, role-based routing
 
 ### Phase 7.5: Domain-Specific APIs (NEW)
+
 - ✅ **FR013 – Claim Policy Validation**: `POST /api/v1/claims/validate`
   - Validates claims against policy documents using RAG
   - Returns: approval_status, risk_score, severity, reasoning, referenced_clauses
@@ -140,9 +148,11 @@
 ### Medium Priority (Infrastructure & Polish)
 
 #### 5. **FR024 – Workspace Isolation**
+
 **Status**: ❌ NOT STARTED
 **Description**: Multi-tenant data isolation at the database level
 **Breaking Down**:
+
 - [ ] Add workspace_id foreign key to all data models
 - [ ] Add workspace filtering to all queries
 - [ ] Implement workspace authorization checks in routers
@@ -151,9 +161,11 @@
 ---
 
 #### 6. **FR028 – Activity Logging**
+
 **Status**: ❌ NOT STARTED
 **Description**: Middleware to log all API requests/responses
 **Breaking Down**:
+
 - [ ] Create ActivityLog model
 - [ ] Implement FastAPI middleware for logging
 - [ ] Log: user_id, endpoint, method, status, timestamp, duration
@@ -162,9 +174,11 @@
 ---
 
 #### 7. **FR029 – Error Monitoring**
+
 **Status**: ❌ NOT STARTED
 **Description**: Capture and report errors in ingestion/indexing pipelines
 **Breaking Down**:
+
 - [ ] Create ErrorLog model
 - [ ] Add try-catch with logging to Celery tasks
 - [ ] Store errors in PostgreSQL
@@ -173,9 +187,11 @@
 ---
 
 #### 8. **FR030 – Performance Monitoring**
+
 **Status**: ❌ NOT STARTED
 **Description**: Track API latency, AI processing time, retrieval speed
 **Breaking Down**:
+
 - [ ] Add timing instrumentation to key functions
 - [ ] Create PerformanceMetric model
 - [ ] Expose metrics via `/api/v1/metrics`
@@ -185,6 +201,7 @@
 ## 📋 Implementation Order
 
 **Following roadmap dependency chain:**
+
 1. ✅ Phase 1-6: Foundation, Auth, Ingestion, RAG, LLM (COMPLETED)
 2. ⏳ **Phase 7.5: Domain-Specific APIs** (NEXT)
    - Start with FR013 (Claims Validation)
