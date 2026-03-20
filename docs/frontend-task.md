@@ -23,6 +23,7 @@
 
 - **FR016 – Fraud Pattern Detection**: Fraud page displays alerts with risk scores, severity levels, anomaly types, and color-coded badges — **now fully wired to `GET /api/v1/fraud/alerts` API** (`app/fraud/page.tsx`, `lib/api.ts`)
 - **FR017 – Fraud Alert Generation**: Fraud alerts with alert ID, claim ID, type, risk score, severity, date, status, and view/dismiss actions (`app/fraud/page.tsx`)
+- **FR018 – Fraud Investigation Support**: Comprehensive investigation panel with tabbed interface (Evidence/Related Claims/Policy Clauses), structured fraud indicators, related claims cross-reference with similarity scores, policy clause mapping with violation detection, investigation timeline, and action buttons (Resolve/Dismiss/Escalate) — displayed in fullscreen modal when viewing an alert (`app/fraud/page.tsx`, `components/FraudInvestigationPanel.tsx`)
 
 ### Compliance
 
@@ -57,8 +58,7 @@
 
 > Ordered by: core functionality → user flow blocking → demo readiness
 
-1. **Source panel dual-pane**: Chat page has left/right pane layout with text citations, but **no PDF viewer component** with highlighted retrieved chunks (architecture requires embedded PDF highlighting) — *core RAG differentiator for demos*
-2. **FR018 – Fraud Investigation Support**: Alert detail panel shows evidence summary text but **lacks structured evidence display** (no related claims cross-reference, no policy clause mapping) — *fraud alerts functional but investigation depth incomplete*
+1. **Source panel dual-pane**: Chat page has left/right pane layout with text citations, but **no PDF viewer component** with highlighted retrieved chunks (architecture requires embedded PDF highlighting) — _core RAG differentiator for demos_
 
 ---
 
@@ -66,11 +66,11 @@
 
 > Ordered by: core functionality → user flow blocking → demo readiness
 
-1. **FR011 – Multi-Document Query**: No frontend UI for selecting or filtering across multiple documents before querying — *core RAG capability; users cannot scope queries across specific policy sets*
-2. **FR027 – Risk Trends Visualization**: No time-series charts or graphs showing claim trends, risk patterns, or anomaly visualization — only static stat cards exist — *dashboard lacks visual depth for demos*
-3. **FR026 – Query Analytics**: Only a single "AI Queries Today" metric on the dashboard — no query log table, no usage pattern charts, no historical analytics view — *admin oversight capability missing*
-4. **FR015 – Risk Assessment**: No dedicated underwriter risk assessment tool; all underwriter dashboard actions route to `/chat` instead of a standalone risk evaluation interface — *underwriter persona has no specialized workflow*
-5. **FR021 – Audit Policy History**: No audit trail UI showing history of policy modifications, claims decisions, or user activity logs — *compliance/audit persona cannot review historical actions*
+1. **FR011 – Multi-Document Query**: No frontend UI for selecting or filtering across multiple documents before querying — _core RAG capability; users cannot scope queries across specific policy sets_
+2. **FR027 – Risk Trends Visualization**: No time-series charts or graphs showing claim trends, risk patterns, or anomaly visualization — only static stat cards exist — _dashboard lacks visual depth for demos_
+3. **FR026 – Query Analytics**: Only a single "AI Queries Today" metric on the dashboard — no query log table, no usage pattern charts, no historical analytics view — _admin oversight capability missing_
+4. **FR015 – Risk Assessment**: No dedicated underwriter risk assessment tool; all underwriter dashboard actions route to `/chat` instead of a standalone risk evaluation interface — _underwriter persona has no specialized workflow_
+5. **FR021 – Audit Policy History**: No audit trail UI showing history of policy modifications, claims decisions, or user activity logs — _compliance/audit persona cannot review historical actions_
 
 ---
 
@@ -78,7 +78,7 @@
 
 > Ordered by: core functionality → user flow blocking → demo readiness
 
-1. **Real authentication backend**: Login/signup forms exist but auth state is managed entirely via localStorage — no Keycloak/JWT/OIDC integration for production-grade identity management — *blocks real multi-user sessions and token-based API access*
+1. **Real authentication backend**: Login/signup forms exist but auth state is managed entirely via localStorage — no Keycloak/JWT/OIDC integration for production-grade identity management — _blocks real multi-user sessions and token-based API access_
 
 ---
 
@@ -86,12 +86,12 @@
 
 > Ordered by: core functionality → user flow blocking → demo readiness
 
-1. **Replace localStorage auth with Keycloak/JWT**: Integrate OIDC login flow, token refresh, and session management per the security architecture — *prerequisite for multi-user production use*
-3. **Add PDF viewer with chunk highlighting**: Integrate `react-pdf` or `@react-pdf-viewer/core` in the SourcePanel to render actual policy PDFs with highlighted retrieved sections — *high demo impact; visually demonstrates RAG grounding*
-4. **Install and adopt TanStack Query**: Replace manual `useEffect` + `fetch` patterns in DocumentTable and dashboard with proper caching, background refetching, and optimistic updates — *reduces data-fetching bugs and improves perceived speed*
-5. **Install and adopt Zustand**: Centralize auth state, user preferences, active workspace, and chat session state instead of prop-drilling and scattered `useState` — *prevents state fragmentation as features grow*
-6. **Add toast notification system**: Install `sonner` or `react-hot-toast` for consistent success/error feedback across uploads, report generation, and form submissions — *polishes user feedback for demos*
-7. **Build dedicated risk assessment tool**: Create a standalone underwriter interface for evaluating policy/claim risk with structured inputs and AI-generated risk reports — *completes underwriter persona workflow*
-8. **Add query analytics dashboard page**: Build a dedicated `/analytics` route with query log table, usage-over-time charts (e.g., Recharts), and filter controls — *completes admin persona workflow*
-9. **Add audit trail page**: Build a `/audit` route displaying timestamped logs of policy uploads, modifications, claims decisions, and user actions — *completes auditor persona workflow*
-10. **Add loading skeletons**: Replace spinner-only loading states with content-shaped skeleton placeholders for better perceived performance — *UX polish for final release*
+1. **Replace localStorage auth with Keycloak/JWT**: Integrate OIDC login flow, token refresh, and session management per the security architecture — _prerequisite for multi-user production use_
+2. **Add PDF viewer with chunk highlighting**: Integrate `react-pdf` or `@react-pdf-viewer/core` in the SourcePanel to render actual policy PDFs with highlighted retrieved sections — _high demo impact; visually demonstrates RAG grounding_
+3. **Install and adopt TanStack Query**: Replace manual `useEffect` + `fetch` patterns in DocumentTable and dashboard with proper caching, background refetching, and optimistic updates — _reduces data-fetching bugs and improves perceived speed_
+4. **Install and adopt Zustand**: Centralize auth state, user preferences, active workspace, and chat session state instead of prop-drilling and scattered `useState` — _prevents state fragmentation as features grow_
+5. **Add toast notification system**: Install `sonner` or `react-hot-toast` for consistent success/error feedback across uploads, report generation, and form submissions — _polishes user feedback for demos_
+6. **Build dedicated risk assessment tool**: Create a standalone underwriter interface for evaluating policy/claim risk with structured inputs and AI-generated risk reports — _completes underwriter persona workflow_
+7. **Add query analytics dashboard page**: Build a dedicated `/analytics` route with query log table, usage-over-time charts (e.g., Recharts), and filter controls — _completes admin persona workflow_
+8. **Add audit trail page**: Build a `/audit` route displaying timestamped logs of policy uploads, modifications, claims decisions, and user actions — _completes auditor persona workflow_
+9. **Add loading skeletons**: Replace spinner-only loading states with content-shaped skeleton placeholders for better perceived performance — _UX polish for final release_
