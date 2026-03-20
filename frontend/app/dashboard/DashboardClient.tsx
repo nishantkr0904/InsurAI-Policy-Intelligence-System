@@ -54,7 +54,7 @@ const QUICK_ACTIONS = [
   { href: "/claims",    label: "Validate Claim",   desc: "Submit a claim scenario for AI-powered validation",    accent: "var(--success)", bg: "var(--success-soft)", icon: "✅" },
   { href: "/fraud",     label: "Fraud Review",     desc: "Review flagged suspicious patterns and alerts",        accent: "var(--danger)",  bg: "var(--danger-soft)",  icon: "🔍" },
   { href: "/compliance",label: "Compliance Audit", desc: "Check regulatory compliance and generate reports",     accent: "var(--warning)", bg: "var(--warning-soft)", icon: "🛡️" },
-  { href: "/documents", label: "View Policies",    desc: "Browse indexed policies and their processing status",  accent: "var(--accent)",  bg: "var(--accent-soft)",  icon: "📂" },
+  { href: "/analytics", label: "Query Analytics",  desc: "Monitor AI query patterns and performance metrics",     accent: "var(--purple)", bg: "var(--purple-soft)",  icon: "📊" },
 ];
 
 const RECENT_ACTIVITY = [

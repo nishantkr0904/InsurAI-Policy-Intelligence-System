@@ -12,6 +12,7 @@ const APP_NAV = [
   { href: "/claims",     label: "Claims" },
   { href: "/fraud",      label: "Fraud" },
   { href: "/compliance", label: "Compliance" },
+  { href: "/analytics",  label: "Analytics" },
 ];
 
 const ROLE_LABELS: Record<string, string> = {

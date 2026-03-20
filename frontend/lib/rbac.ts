@@ -31,16 +31,18 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/claims",
     "/fraud",
     "/compliance",
+    "/analytics",
     "/settings",
   ],
 
-  // Underwriter: risk assessment, policies, AI chat
+  // Underwriter: risk assessment, policies, AI chat, analytics
   underwriter: [
     "/dashboard",
     "/dashboard/underwriter",
     "/documents",
     "/chat",
     "/claims",
+    "/analytics",
     "/settings",
   ],
 
@@ -53,23 +55,25 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/settings",
   ],
 
-  // Compliance Officer: compliance audit, policies, AI chat
+  // Compliance Officer: compliance audit, policies, AI chat, analytics
   compliance_officer: [
     "/dashboard",
     "/dashboard/compliance",
     "/documents",
     "/chat",
     "/compliance",
+    "/analytics",
     "/settings",
   ],
 
-  // Fraud Analyst: fraud detection, claims, policies, AI chat
+  // Fraud Analyst: fraud detection, claims, policies, AI chat, analytics
   fraud_analyst: [
     "/dashboard",
     "/documents",
     "/chat",
     "/claims",
     "/fraud",
+    "/analytics",
     "/settings",
   ],
 
@@ -81,12 +85,13 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/settings",
   ],
 
-  // Auditor: compliance, policies (read-only focus)
+  // Auditor: compliance, policies (read-only focus), analytics
   auditor: [
     "/dashboard",
     "/documents",
     "/chat",
     "/compliance",
+    "/analytics",
     "/settings",
   ],
 
@@ -109,6 +114,7 @@ const ALL_NAV_LINKS: NavLink[] = [
   { href: "/claims", label: "Claims" },
   { href: "/fraud", label: "Fraud" },
   { href: "/compliance", label: "Compliance" },
+  { href: "/analytics", label: "Analytics" },
 ];
 
 /**

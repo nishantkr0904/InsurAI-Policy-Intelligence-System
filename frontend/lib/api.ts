@@ -292,3 +292,52 @@ export async function fetchComplianceIssues(
     throw new Error(`Failed to fetch compliance issues: ${res.status}`);
   return res.json() as Promise<ComplianceIssue[]>;
 }
+
+/** Shape of a single query log entry. */
+export interface QueryLogEntry {
+  query_id: string;
+  query: string;
+  user_id: string;
+  workspace_id: string;
+  timestamp: string;
+  response_time_ms: number;
+  model: string;
+  token_usage: number;
+  documents_searched: number;
+  relevant_chunks: number;
+  status: "success" | "error" | "timeout";
+}
+
+/** Fetch query logs for a workspace. */
+export async function fetchQueryLogs(
+  workspaceId: string,
+  limit = 100,
+): Promise<QueryLogEntry[]> {
+  const res = await fetch(
+    `${BASE}/analytics/queries?workspace_id=${encodeURIComponent(workspaceId)}&limit=${limit}`,
+  );
+  if (!res.ok) throw new Error(`Failed to fetch query logs: ${res.status}`);
+  return res.json() as Promise<QueryLogEntry[]>;
+}
+
+/** Shape of query analytics summary. */
+export interface QueryAnalyticsSummary {
+  total_queries: number;
+  avg_response_time_ms: number;
+  success_rate: number;
+  total_tokens: number;
+  avg_accuracy: number;
+  total_users: number;
+}
+
+/** Fetch query analytics summary for a workspace. */
+export async function fetchQueryAnalyticsSummary(
+  workspaceId: string,
+): Promise<QueryAnalyticsSummary> {
+  const res = await fetch(
+    `${BASE}/analytics/queries/summary?workspace_id=${encodeURIComponent(workspaceId)}`,
+  );
+  if (!res.ok)
+    throw new Error(`Failed to fetch query analytics summary: ${res.status}`);
+  return res.json() as Promise<QueryAnalyticsSummary>;
+}
