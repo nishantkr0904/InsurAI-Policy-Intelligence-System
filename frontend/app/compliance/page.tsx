@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
+import ComplianceReport from "@/components/ComplianceReport";
 import { type ComplianceIssue } from "@/lib/api";
 import { getWorkspaceId } from "@/lib/auth";
 import { useComplianceIssues } from "@/hooks/useQueries";
@@ -37,12 +38,12 @@ function calcScore(issues: ComplianceIssue[]) {
 export default function CompliancePage() {
   const workspaceId = getWorkspaceId();
   const { data: issues = [], isLoading: loading, error, refetch } = useComplianceIssues(workspaceId);
-  
+
   const [running, setRunning] = useState(false);
   const [ran, setRan] = useState(false);
   const [workspace, setWorkspace] = useState("default");
   const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
   const score = calcScore(issues);
   const openCritical = issues.filter((i) => i.severity === "critical" && i.status !== "resolved").length;
@@ -60,9 +61,10 @@ export default function CompliancePage() {
 
   async function generateReport() {
     setGenerating(true);
+    // Simulate report generation processing
     await new Promise((r) => setTimeout(r, 1200));
     setGenerating(false);
-    setGenerated(true);
+    setShowReport(true);
   }
 
   const scoreColor =
@@ -239,23 +241,17 @@ export default function CompliancePage() {
               ) : "Generate Report →"}
             </button>
           </div>
-
-          {generated && (
-            <div
-              className="rounded-xl px-4 py-3 text-sm flex items-center gap-2"
-              style={{
-                background: "var(--success-soft)",
-                border: "1px solid rgba(63,185,80,0.25)",
-                color: "var(--success)",
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Report generated: compliance-audit-{workspace}-{new Date().toISOString().split("T")[0]}.pdf
-            </div>
-          )}
         </>
+      )}
+
+      {/* Compliance Report Modal - FR020 */}
+      {showReport && (
+        <ComplianceReport
+          issues={issues}
+          score={score}
+          workspace={workspace}
+          onClose={() => setShowReport(false)}
+        />
       )}
     </div>
     </AuthGuard>
