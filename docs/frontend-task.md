@@ -17,6 +17,7 @@
 
 - **FR013 – Claim Policy Validation**: Claims page displays validation results with status (approved/denied/pending), risk score, and referenced clauses — **now fully wired to `POST /api/v1/claims/validate` API** (`app/claims/page.tsx`, `lib/api.ts`)
 - **FR014 – Coverage Explanation**: AI-generated reasoning with referenced policy clauses and section references shown alongside validation results (`app/claims/page.tsx`)
+- **FR012 – Submit Claim Details**: Claims form with complete input fields (claim ID, policy number, type, date, amount, description) **and document attachment capability** — users can attach supporting documents (receipts, photos, reports) with inline upload, progress tracking, and multi-file support (`app/claims/page.tsx`, `components/ClaimDocumentUpload.tsx`)
 
 ### Fraud Detection
 
@@ -55,10 +56,9 @@
 
 > Ordered by: core functionality → user flow blocking → demo readiness
 
-1. **FR012 – Submit Claim Details**: Claim form has input fields (claim ID, policy number, type, date, amount, description) but is **missing document attachment/upload** for supporting evidence — *blocks the complete claims submission flow*
-2. **Source panel dual-pane**: Chat page has left/right pane layout with text citations, but **no PDF viewer component** with highlighted retrieved chunks (architecture requires embedded PDF highlighting) — *core RAG differentiator for demos*
-3. **FR020 – Compliance Report Generation**: "Generate Report" button exists but only displays a toast with a filename — **no actual structured report** with summarized issues and recommendations is rendered — *compliance workflow dead-ends without viewable output*
-4. **FR018 – Fraud Investigation Support**: Alert detail panel shows evidence summary text but **lacks structured evidence display** (no related claims cross-reference, no policy clause mapping) — *fraud alerts functional but investigation depth incomplete*
+1. **Source panel dual-pane**: Chat page has left/right pane layout with text citations, but **no PDF viewer component** with highlighted retrieved chunks (architecture requires embedded PDF highlighting) — *core RAG differentiator for demos*
+2. **FR020 – Compliance Report Generation**: "Generate Report" button exists but only displays a toast with a filename — **no actual structured report** with summarized issues and recommendations is rendered — *compliance workflow dead-ends without viewable output*
+3. **FR018 – Fraud Investigation Support**: Alert detail panel shows evidence summary text but **lacks structured evidence display** (no related claims cross-reference, no policy clause mapping) — *fraud alerts functional but investigation depth incomplete*
 
 ---
 
