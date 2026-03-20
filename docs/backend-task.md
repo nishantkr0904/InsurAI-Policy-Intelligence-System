@@ -112,6 +112,15 @@
   - Top critical/high issues highlighted
   - Actionable recommendations prioritized by impact
 
+- ✅ **FR021 – Audit Trail Logging**: `GET /api/v1/audit` & `GET /api/v1/audit/analytics`
+  - Retrieves system audit logs with comprehensive filtering
+  - Returns: audit logs with timestamp, user, action, status, severity, metadata
+  - Supports: filtering by user_id, action, status, severity, date range
+  - Pagination: limit/offset with has_more indicator
+  - Analytics endpoint: top actions, most active users, success rates
+  - Includes: IP address, user agent, duration, error tracking
+  - Summary statistics: counts by action, status, user, severity
+
 ---
 
 ## 🚧 In Progress
@@ -124,18 +133,7 @@
 
 ### High Priority (Required for MVP)
 
-#### 1. **FR021 – Audit Policy History API**
-**Status**: ❌ NOT STARTED
-**Endpoint**: `GET /api/v1/audit`, `POST /api/v1/audit/action`
-**Description**: Log and retrieve system audit trails
-**Breaking Down**:
-- [ ] Create AuditLog model (log_id, user_id, action, resource, status, timestamp)
-- [ ] Create AuditLogRequest/Response schemas
-- [ ] Implement audit logging: intercept all user actions
-- [ ] Return paginated audit log with filtering/search
-- [ ] Compute analytics: top actions, user activity, success rates
-
-**Frontend Dependency**: `/audit` page expects this endpoint
+> All domain-specific APIs are now complete! Focus shifts to infrastructure tasks.
 
 ---
 
