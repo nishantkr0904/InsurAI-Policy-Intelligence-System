@@ -42,16 +42,30 @@ const BASE = "/api/v1";
  * Open a streaming connection to /api/v1/chat/stream using the Fetch API.
  * Returns an async generator that yields decoded token strings.
  * Emits null when the stream is complete.
+ *
+ * @param documentIds - Optional array of document IDs to filter the search.
+ *                      If provided, only these documents will be queried.
+ *                      Implements FR011 – Multi-Document Query.
  */
 export async function* streamChat(
   query: string,
   workspaceId: string,
   topK = 5,
+  documentIds?: string[],
 ): AsyncGenerator<string | null> {
+  const body: Record<string, unknown> = {
+    query,
+    workspace_id: workspaceId,
+    top_k: topK,
+  };
+  if (documentIds && documentIds.length > 0) {
+    body.document_ids = documentIds;
+  }
+
   const res = await fetch(`${BASE}/chat/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, workspace_id: workspaceId, top_k: topK }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok || !res.body) {
@@ -91,16 +105,30 @@ export async function* streamChat(
 /**
  * Blocking chat call – returns the full ChatResponse including source citations.
  * Called after SSE streaming completes to surface cited chunks in SourcePanel.
+ *
+ * @param documentIds - Optional array of document IDs to filter the search.
+ *                      If provided, only these documents will be queried.
+ *                      Implements FR011 – Multi-Document Query.
  */
 export async function fetchChatResponse(
   query: string,
   workspaceId: string,
   topK = 5,
+  documentIds?: string[],
 ): Promise<ChatResponse> {
+  const body: Record<string, unknown> = {
+    query,
+    workspace_id: workspaceId,
+    top_k: topK,
+  };
+  if (documentIds && documentIds.length > 0) {
+    body.document_ids = documentIds;
+  }
+
   const res = await fetch(`${BASE}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, workspace_id: workspaceId, top_k: topK }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Chat request failed: ${res.status}`);
   return res.json() as Promise<ChatResponse>;
