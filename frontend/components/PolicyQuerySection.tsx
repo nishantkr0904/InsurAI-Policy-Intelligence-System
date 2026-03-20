@@ -23,12 +23,12 @@ export default function PolicyQuerySection() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [value,   setValue]   = useState("");
-  const [phrase,  setPhrase]  = useState("");     // animated placeholder text
-  const [pIdx,    setPIdx]    = useState(0);      // which question we're on
-  const [cIdx,    setCIdx]    = useState(0);      // char position
+  const [value, setValue] = useState("");
+  const [phrase, setPhrase] = useState("");     // animated placeholder text
+  const [pIdx, setPIdx] = useState(0);      // which question we're on
+  const [cIdx, setCIdx] = useState(0);      // char position
   const [erasing, setErasing] = useState(false);
-  const [paused,  setPaused]  = useState(false);  // pause while user is typing
+  const [paused, setPaused] = useState(false);  // pause while user is typing
 
   /* ── Typewriter effect ────────────────────────────────────── */
   useEffect(() => {
@@ -37,10 +37,10 @@ export default function PolicyQuerySection() {
     const current = EXAMPLE_QUESTIONS[pIdx];
 
     let delay: number;
-    if (!erasing && cIdx < current.length)        delay = 48;
-    else if (!erasing && cIdx === current.length)  delay = 1800;
-    else if (erasing && cIdx > 0)                  delay = 22;
-    else                                            delay = 400;
+    if (!erasing && cIdx < current.length) delay = 48;
+    else if (!erasing && cIdx === current.length) delay = 1800;
+    else if (erasing && cIdx > 0) delay = 22;
+    else delay = 400;
 
     const id = setTimeout(() => {
       if (!erasing && cIdx < current.length) {

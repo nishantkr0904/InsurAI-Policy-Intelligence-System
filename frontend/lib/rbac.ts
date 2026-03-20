@@ -116,10 +116,10 @@ const ALL_NAV_LINKS: NavLink[] = [
  */
 export function canAccessRoute(role: string | null, route: string): boolean {
   if (!role) return false;
-  
+
   const normalizedRole = role as UserRole;
   const allowedRoutes = ROLE_PERMISSIONS[normalizedRole];
-  
+
   if (!allowedRoutes) return false;
 
   // Check if the route or any parent route is in the allowed list
@@ -139,7 +139,7 @@ export function getVisibleNavLinks(role: string | null): NavLink[] {
 
   const normalizedRole = role as UserRole;
   const allowedRoutes = ROLE_PERMISSIONS[normalizedRole];
-  
+
   if (!allowedRoutes) return [];
 
   // Filter nav links to only those the role can access
@@ -153,7 +153,7 @@ export function getVisibleNavLinks(role: string | null): NavLink[] {
  */
 export function getUnauthorizedMessage(role: string | null): string {
   if (!role) return "You must be logged in to access this page.";
-  
+
   const roleLabel = role.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   return `Access denied. This page is not available for ${roleLabel} role.`;
 }

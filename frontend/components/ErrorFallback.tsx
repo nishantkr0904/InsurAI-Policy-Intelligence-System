@@ -66,7 +66,7 @@ export default function ErrorFallback({ error, resetError }: ErrorFallbackProps)
             className="text-center mb-6"
             style={{ color: "var(--text-secondary)" }}
           >
-            We encountered an unexpected error. Don't worry — your data is safe. 
+            We encountered an unexpected error. Don't worry — your data is safe.
             Try refreshing the page or contact support if the problem persists.
           </p>
 

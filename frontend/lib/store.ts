@@ -24,13 +24,13 @@ interface AppState {
   // Auth state
   user: User | null;
   isAuthenticated: boolean;
-  
+
   // Workspace
   workspaceId: string | null;
-  
+
   // Onboarding
   onboardingComplete: boolean;
-  
+
   // Actions
   setUser: (user: User | null) => void;
   setWorkspace: (workspaceId: string) => void;
@@ -48,10 +48,10 @@ export const useAppStore = create<AppState>()(
       onboardingComplete: false,
 
       // Actions
-      setUser: (user) => set({ 
-        user, 
+      setUser: (user) => set({
+        user,
         isAuthenticated: !!user,
-        workspaceId: user?.workspace || null 
+        workspaceId: user?.workspace || null
       }),
 
       setWorkspace: (workspaceId) => set({ workspaceId }),

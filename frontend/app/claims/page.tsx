@@ -46,7 +46,7 @@ export default function ClaimsPage() {
     setLoading(true);
     setResult(null);
     setError(null);
-    
+
     try {
       const response = await validateClaim({
         claim_id: form.claimId,
@@ -69,167 +69,167 @@ export default function ClaimsPage() {
 
   return (
     <AuthGuard>
-    <div className="px-6 py-6 max-w-5xl mx-auto w-full space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-          Claims Validation
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          Submit a claim for AI-powered validation against your active policy.
-        </p>
-      </div>
-
-      {/* Error Banner */}
-      {error && (
-        <div
-          className="rounded-lg px-4 py-3 text-sm"
-          style={{ background: "rgba(239,68,68,0.12)", color: "var(--danger)", border: "1px solid var(--danger)" }}
-        >
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="card space-y-5">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <label className="form-label">Claim ID</label>
-            <input
-              className="input"
-              name="claimId"
-              value={form.claimId}
-              onChange={handleChange}
-              placeholder="CLM-0001"
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="form-label">Policy Number</label>
-            <input
-              className="input"
-              name="policyNumber"
-              value={form.policyNumber}
-              onChange={handleChange}
-              placeholder="AUTO-2024-001"
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="form-label">Claim Type</label>
-            <select className="input" name="claimType" value={form.claimType} onChange={handleChange}>
-              {CLAIM_TYPES.map(({ value, label }) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="form-label">Incident Date</label>
-            <input
-              className="input"
-              name="incidentDate"
-              type="date"
-              value={form.incidentDate}
-              onChange={handleChange}
-              required
-            />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <label className="form-label">Claim Amount (USD)</label>
-            <input
-              className="input"
-              name="amount"
-              type="number"
-              min="0"
-              value={form.amount}
-              onChange={handleChange}
-              placeholder="10000"
-              required
-            />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <label className="form-label">Description</label>
-            <textarea
-              className="input"
-              name="description"
-              rows={4}
-              value={form.description}
-              onChange={handleChange}
-              placeholder="Describe the incident in detail…"
-              style={{ resize: "vertical" }}
-            />
-          </div>
-        </div>
-
-        <button type="submit" className="btn-primary" disabled={loading}>
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-              Validating…
-            </span>
-          ) : "Validate Claim →"}
-        </button>
-      </form>
-
-      {/* Result */}
-      {result && style && (
-        <div className="card space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-base" style={{ color: "var(--text-primary)" }}>
-              Validation Result
-            </h2>
-            <span className="badge font-semibold" style={{ background: style.bg, color: style.color }}>
-              {style.label}
-            </span>
-          </div>
-
-          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            {result.reasoning}
+      <div className="px-6 py-6 max-w-5xl mx-auto w-full space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
+            Claims Validation
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+            Submit a claim for AI-powered validation against your active policy.
           </p>
+        </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Risk Score</span>
-            <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${result.risk_score}%`,
-                  background:
-                    result.risk_score > 70
-                      ? "var(--danger)"
-                      : result.risk_score > 40
-                      ? "var(--warning)"
-                      : "var(--success)",
-                }}
+        {/* Error Banner */}
+        {error && (
+          <div
+            className="rounded-lg px-4 py-3 text-sm"
+            style={{ background: "rgba(239,68,68,0.12)", color: "var(--danger)", border: "1px solid var(--danger)" }}
+          >
+            <strong>Error:</strong> {error}
+          </div>
+        )}
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="card space-y-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="form-label">Claim ID</label>
+              <input
+                className="input"
+                name="claimId"
+                value={form.claimId}
+                onChange={handleChange}
+                placeholder="CLM-0001"
+                required
               />
             </div>
-            <span className="text-xs font-bold" style={{ color: "var(--text-primary)" }}>
-              {result.risk_score}/100
-            </span>
+            <div className="space-y-1.5">
+              <label className="form-label">Policy Number</label>
+              <input
+                className="input"
+                name="policyNumber"
+                value={form.policyNumber}
+                onChange={handleChange}
+                placeholder="AUTO-2024-001"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="form-label">Claim Type</label>
+              <select className="input" name="claimType" value={form.claimType} onChange={handleChange}>
+                {CLAIM_TYPES.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="form-label">Incident Date</label>
+              <input
+                className="input"
+                name="incidentDate"
+                type="date"
+                value={form.incidentDate}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="form-label">Claim Amount (USD)</label>
+              <input
+                className="input"
+                name="amount"
+                type="number"
+                min="0"
+                value={form.amount}
+                onChange={handleChange}
+                placeholder="10000"
+                required
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="form-label">Description</label>
+              <textarea
+                className="input"
+                name="description"
+                rows={4}
+                value={form.description}
+                onChange={handleChange}
+                placeholder="Describe the incident in detail…"
+                style={{ resize: "vertical" }}
+              />
+            </div>
           </div>
 
-          {result.clauses.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
-                Referenced Clauses
-              </p>
-              {result.clauses.map(({ ref, text }) => (
-                <div
-                  key={ref}
-                  className="flex gap-3 rounded-lg px-4 py-3 text-sm"
-                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
-                >
-                  <span className="shrink-0 font-bold" style={{ color: "var(--accent)" }}>
-                    {ref}
-                  </span>
-                  <span style={{ color: "var(--text-secondary)" }}>{text}</span>
-                </div>
-              ))}
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                Validating…
+              </span>
+            ) : "Validate Claim →"}
+          </button>
+        </form>
+
+        {/* Result */}
+        {result && style && (
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-base" style={{ color: "var(--text-primary)" }}>
+                Validation Result
+              </h2>
+              <span className="badge font-semibold" style={{ background: style.bg, color: style.color }}>
+                {style.label}
+              </span>
             </div>
-          )}
-        </div>
-      )}
-    </div>
+
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              {result.reasoning}
+            </p>
+
+            <div className="flex items-center gap-3">
+              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Risk Score</span>
+              <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${result.risk_score}%`,
+                    background:
+                      result.risk_score > 70
+                        ? "var(--danger)"
+                        : result.risk_score > 40
+                          ? "var(--warning)"
+                          : "var(--success)",
+                  }}
+                />
+              </div>
+              <span className="text-xs font-bold" style={{ color: "var(--text-primary)" }}>
+                {result.risk_score}/100
+              </span>
+            </div>
+
+            {result.clauses.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                  Referenced Clauses
+                </p>
+                {result.clauses.map(({ ref, text }) => (
+                  <div
+                    key={ref}
+                    className="flex gap-3 rounded-lg px-4 py-3 text-sm"
+                    style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+                  >
+                    <span className="shrink-0 font-bold" style={{ color: "var(--accent)" }}>
+                      {ref}
+                    </span>
+                    <span style={{ color: "var(--text-secondary)" }}>{text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </AuthGuard>
   );
 }

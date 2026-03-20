@@ -11,8 +11,8 @@
  */
 
 const STEPS = [
-  { id: 1, label: "Role",          icon: "👤" },
-  { id: 2, label: "Workspace",     icon: "🏢" },
+  { id: 1, label: "Role", icon: "👤" },
+  { id: 2, label: "Workspace", icon: "🏢" },
   { id: 3, label: "Upload Policy", icon: "📄" },
 ] as const;
 
@@ -50,17 +50,17 @@ export default function OnboardingProgress({ currentStep }: Props) {
                 style={
                   status === "done"
                     ? {
-                        background: "var(--accent)",
-                        color: "#fff",
-                        boxShadow: "0 0 0 3px rgba(59,130,246,0.15)",
-                      }
+                      background: "var(--accent)",
+                      color: "#fff",
+                      boxShadow: "0 0 0 3px rgba(59,130,246,0.15)",
+                    }
                     : status === "active"
-                    ? {
+                      ? {
                         background: "var(--accent-gradient)",
                         color: "#fff",
                         boxShadow: "0 0 0 4px rgba(59,130,246,0.25)",
                       }
-                    : {
+                      : {
                         background: "var(--bg-card)",
                         color: "var(--text-muted)",
                         border: "1px solid var(--border)",
@@ -91,8 +91,8 @@ export default function OnboardingProgress({ currentStep }: Props) {
                     status === "active"
                       ? "var(--text-primary)"
                       : status === "done"
-                      ? "var(--accent)"
-                      : "var(--text-muted)",
+                        ? "var(--accent)"
+                        : "var(--text-muted)",
                 }}
               >
                 {label}
