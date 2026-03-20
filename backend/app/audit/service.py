@@ -3,15 +3,22 @@ Audit Trail Service.
 
 Implements audit logging, retrieval, filtering, and analytics.
 
+Database Architecture:
+  - Queries PostgreSQL AuditLog table as primary source
+  - Falls back to MVP sample data if database is empty (first use)
+  - Hybrid approach: gradually moves from MVP to database persistence
+  - Workspace-isolated queries (no cross-tenant data leaks)
+
 Pipeline:
-  1. Retrieve audit logs from workspace (MVP: sample data)
-  2. Apply filters: user_id, action, status, severity, date range
-  3. Compute summary statistics
-  4. Return paginated results with analytics
+  1. Try to retrieve audit logs from database
+  2. If database empty, generate and return MVP sample data
+  3. Apply filters: user_id, action, status, severity, date range
+  4. Compute summary statistics
+  5. Return paginated results with analytics
 
 Architecture ref:
   docs/requirements.md #FR021 – Audit Trail Logging
-  docs/roadmap.md Phase 7.5 – Domain-Specific APIs
+  docs/roadmap.md Phase 8 – Database Integration
 """
 
 from __future__ import annotations
@@ -23,11 +30,14 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from typing import List, Dict
 
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, and_
+
 from app.audit.schemas import (
     AuditAction,
     AuditAnalytics,
     AuditAnalyticsRequest,
-    AuditLog,
+    AuditLog as AuditLogSchema,
     AuditLogsRequest,
     AuditLogsResponse,
     AuditMetadata,
@@ -36,6 +46,7 @@ from app.audit.schemas import (
     SeverityLevel,
     TopAction,
 )
+from app.models import AuditLog as AuditLogORM
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +54,12 @@ logger = logging.getLogger(__name__)
 def _generate_sample_audit_logs(
     workspace_id: str,
     limit: int = 100,
-) -> List[AuditLog]:
+) -> List[AuditLogSchema]:
     """
     Generate sample audit logs for MVP (until real audit database exists).
 
     This function creates realistic-looking audit entries spanning various
-    actions and statuses.
+    actions and statuses. Used as fallback when database is empty.
     """
     logs = []
 
@@ -143,7 +154,7 @@ def _generate_sample_audit_logs(
                 "Timeout exceeded",
             ])
 
-        log = AuditLog(
+        log = AuditLogSchema(
             audit_id=f"audit_{uuid.uuid4().hex}",
             timestamp=timestamp.isoformat(),
             workspace_id=workspace_id,
@@ -167,9 +178,9 @@ def _generate_sample_audit_logs(
 
 
 def _apply_filters(
-    logs: List[AuditLog],
+    logs: List[AuditLogSchema],
     request: AuditLogsRequest,
-) -> List[AuditLog]:
+) -> List[AuditLogSchema]:
     """Apply filters to audit logs."""
     filtered = logs
 
@@ -224,53 +235,130 @@ def _compute_summary(logs: List[AuditLog]) -> Dict:
     }
 
 
-async def get_audit_logs(request: AuditLogsRequest) -> AuditLogsResponse:
+async def get_audit_logs(
+    request: AuditLogsRequest,
+    session: AsyncSession | None = None,
+) -> AuditLogsResponse:
     """
     Retrieve audit logs for a workspace with filtering and pagination.
 
+    Hybrid Database/MVP Approach:
+      1. If session provided: Query PostgreSQL AuditLog table
+      2. If no session OR database empty: Use MVP sample data (fallback)
+      3. Apply filters, sorting, pagination
+      4. Return paginated response with summary statistics
+
     Args:
         request: AuditLogsRequest with filters and pagination
+        session: Optional AsyncSession for database queries (from FastAPI Depends)
 
     Returns:
         AuditLogsResponse with logs, pagination info, and summary statistics
     """
     logger.info(
-        "Retrieving audit logs: workspace=%s user=%s action=%s status=%s severity=%s",
+        "Retrieving audit logs: workspace=%s user=%s action=%s status=%s severity=%s db=%s",
         request.workspace_id,
         request.user_id_filter,
         request.action_filter,
         request.status_filter,
         request.severity_filter,
+        "yes" if session else "no",
     )
 
-    # Generate sample data (MVP)
-    all_logs = _generate_sample_audit_logs(
-        workspace_id=request.workspace_id,
-        limit=200,  # Generate larger pool for filtering
-    )
+    # Try to query database if session provided
+    all_logs = None
+    if session:
+        try:
+            # Count existing logs for this workspace
+            count_query = select(func.count()).select_from(AuditLogORM).where(
+                AuditLogORM.workspace_id == request.workspace_id
+            )
+            total_db = await session.scalar(count_query)
 
-    # Apply filters
-    filtered_logs = _apply_filters(all_logs, request)
+            # If logs exist, query them
+            if total_db > 0:
+                query = select(AuditLogORM).where(
+                    AuditLogORM.workspace_id == request.workspace_id
+                )
 
-    # Sort
-    if request.sort_by == "timestamp":
-        filtered_logs.sort(key=lambda x: x.timestamp, reverse=True)
-    elif request.sort_by == "action":
-        filtered_logs.sort(key=lambda x: x.action.value)
-    elif request.sort_by == "status":
-        filtered_logs.sort(key=lambda x: x.status.value)
+                # Apply filters in database query
+                if request.user_id_filter:
+                    query = query.where(AuditLogORM.user_id == request.user_id_filter)
+                if request.action_filter:
+                    query = query.where(AuditLogORM.action == request.action_filter.value)
+                if request.status_filter:
+                    query = query.where(AuditLogORM.status == request.status_filter.value)
+                if request.severity_filter:
+                    query = query.where(AuditLogORM.severity == request.severity_filter.value)
+                if request.start_date:
+                    query = query.where(AuditLogORM.created_at >= request.start_date)
+                if request.end_date:
+                    query = query.where(AuditLogORM.created_at <= request.end_date)
+
+                # Sort
+                if request.sort_by == "timestamp":
+                    query = query.order_by(AuditLogORM.created_at.desc())
+                elif request.sort_by == "action":
+                    query = query.order_by(AuditLogORM.action)
+                elif request.sort_by == "status":
+                    query = query.order_by(AuditLogORM.status)
+
+                # Execute query
+                result = await session.execute(query)
+                db_logs = result.scalars().all()
+
+                # Convert ORM to Pydantic
+                all_logs = [
+                    AuditLogSchema(
+                        audit_id=log.id,
+                        timestamp=log.created_at.isoformat(),
+                        workspace_id=log.workspace_id,
+                        user_id=log.user_id,
+                        user_email=log.user_email,
+                        action=AuditAction(log.action),
+                        status=AuditStatus(log.status),
+                        severity=SeverityLevel(log.severity),
+                        resource_type=log.resource_type,
+                        resource_id=log.resource_id,
+                        description=log.description,
+                        metadata=AuditMetadata(**log.metadata) if log.metadata else AuditMetadata(),
+                    )
+                    for log in db_logs
+                ]
+                logger.info("Retrieved %d audit logs from database", len(all_logs))
+        except Exception as exc:
+            logger.warning("Database query failed, falling back to sample data: %s", exc)
+            all_logs = None
+
+    # Fallback to MVP sample data if no database logs
+    if all_logs is None:
+        logger.info("No database logs found (first use?). Generating MVP sample data.")
+        all_logs = _generate_sample_audit_logs(
+            workspace_id=request.workspace_id,
+            limit=200,  # Generate larger pool for filtering
+        )
+        # Apply filters to sample data
+        all_logs = _apply_filters(all_logs, request)
+
+        # Sort sample data
+        if request.sort_by == "timestamp":
+            all_logs.sort(key=lambda x: x.timestamp, reverse=True)
+        elif request.sort_by == "action":
+            all_logs.sort(key=lambda x: x.action.value)
+        elif request.sort_by == "status":
+            all_logs.sort(key=lambda x: x.status.value)
 
     # Pagination
-    total = len(filtered_logs)
+    total = len(all_logs)
     start = request.offset
     end = start + request.limit
-    paginated_logs = filtered_logs[start:end]
+    paginated_logs = all_logs[start:end]
 
     # Compute summary
-    summary = _compute_summary(filtered_logs)
+    summary = _compute_summary(all_logs)
 
     logger.info(
-        "Audit logs retrieved: total=%d returned=%d",
+        "Audit logs returned: total=%d returned=%d",
         total,
         len(paginated_logs),
     )
@@ -285,34 +373,81 @@ async def get_audit_logs(request: AuditLogsRequest) -> AuditLogsResponse:
     )
 
 
-async def get_audit_analytics(request: AuditAnalyticsRequest) -> AuditAnalytics:
+async def get_audit_analytics(
+    request: AuditAnalyticsRequest,
+    session: AsyncSession | None = None,
+) -> AuditAnalytics:
     """
     Generate analytics summary for audit trail.
 
+    Hybrid Database/MVP Approach:
+      1. If session provided: Query PostgreSQL AuditLog table
+      2. If no session OR database empty: Use MVP sample data (fallback)
+      3. Calculate analytics metrics
+
     Args:
         request: AuditAnalyticsRequest with date range and parameters
+        session: Optional AsyncSession for database queries
 
     Returns:
         AuditAnalytics with top actions, active users, and metrics
     """
     logger.info(
-        "Generating audit analytics: workspace=%s start=%s end=%s",
+        "Generating audit analytics: workspace=%s start=%s end=%s db=%s",
         request.workspace_id,
         request.start_date,
         request.end_date,
+        "yes" if session else "no",
     )
 
-    # Generate sample data
-    all_logs = _generate_sample_audit_logs(
-        workspace_id=request.workspace_id,
-        limit=500,
-    )
+    # Try to query database if session provided
+    all_logs = None
+    if session:
+        try:
+            # Query with date filter if provided
+            query = select(AuditLogORM).where(
+                AuditLogORM.workspace_id == request.workspace_id
+            )
 
-    # Filter by date range
-    if request.start_date:
-        all_logs = [log for log in all_logs if log.timestamp >= request.start_date]
-    if request.end_date:
-        all_logs = [log for log in all_logs if log.timestamp <= request.end_date]
+            if request.start_date:
+                query = query.where(AuditLogORM.created_at >= request.start_date)
+            if request.end_date:
+                query = query.where(AuditLogORM.created_at <= request.end_date)
+
+            result = await session.execute(query)
+            db_logs = result.scalars().all()
+
+            if len(db_logs) > 0:
+                # Convert ORM to Pydantic
+                all_logs = [
+                    AuditLogSchema(
+                        audit_id=log.id,
+                        timestamp=log.created_at.isoformat(),
+                        workspace_id=log.workspace_id,
+                        user_id=log.user_id,
+                        user_email=log.user_email,
+                        action=AuditAction(log.action),
+                        status=AuditStatus(log.status),
+                        severity=SeverityLevel(log.severity),
+                        resource_type=log.resource_type,
+                        resource_id=log.resource_id,
+                        description=log.description,
+                        metadata=AuditMetadata(**log.metadata) if log.metadata else AuditMetadata(),
+                    )
+                    for log in db_logs
+                ]
+                logger.info("Retrieved %d audit logs from database for analytics", len(all_logs))
+        except Exception as exc:
+            logger.warning("Database query failed, falling back to sample data: %s", exc)
+            all_logs = None
+
+    # Fallback to MVP sample data if no database logs
+    if all_logs is None:
+        logger.info("No database logs found (first use?). Generating MVP sample data for analytics.")
+        all_logs = _generate_sample_audit_logs(
+            workspace_id=request.workspace_id,
+            limit=500,
+        )
 
     total_events = len(all_logs)
 

@@ -12,8 +12,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import get_db
 from app.audit.schemas import (
     AuditAction,
     AuditAnalytics,
@@ -51,6 +53,7 @@ async def get_audit_logs_endpoint(
     limit: int = 50,
     offset: int = 0,
     sort_by: str = "timestamp",
+    session: AsyncSession = Depends(get_db),
 ) -> AuditLogsResponse:
     """
     Retrieve audit logs for a workspace.
@@ -122,7 +125,7 @@ async def get_audit_logs_endpoint(
             offset=offset,
             sort_by=sort_by,
         )
-        result = await get_audit_logs(request)
+        result = await get_audit_logs(request, session)
     except Exception as exc:
         logger.error("Failed to retrieve audit logs: %s", exc)
         raise HTTPException(
@@ -154,6 +157,7 @@ async def get_analytics_endpoint(
     start_date: str | None = None,
     end_date: str | None = None,
     top_n: int = 10,
+    session: AsyncSession = Depends(get_db),
 ) -> AuditAnalytics:
     """
     Generate audit trail analytics.
@@ -201,7 +205,7 @@ async def get_analytics_endpoint(
             end_date=end_date,
             top_n=top_n,
         )
-        result = await get_audit_analytics(request)
+        result = await get_audit_analytics(request, session)
     except Exception as exc:
         logger.error("Failed to generate audit analytics: %s", exc)
         raise HTTPException(
