@@ -341,3 +341,40 @@ export async function fetchQueryAnalyticsSummary(
     throw new Error(`Failed to fetch query analytics summary: ${res.status}`);
   return res.json() as Promise<QueryAnalyticsSummary>;
 }
+
+/** Shape of a risk assessment request. */
+export interface RiskAssessmentRequest {
+  policy_id: string;
+  policy_type: string;
+  coverage_amount: number;
+  deductible: number;
+  insured_value: number;
+  location_risk_tier: "low" | "medium" | "high";
+  claim_history: number; // number of claims in past 5 years
+  workspace_id: string;
+}
+
+/** Shape of a risk assessment response. */
+export interface RiskAssessmentResponse {
+  risk_score: number; // 0-100
+  risk_level: "low" | "medium" | "high" | "critical";
+  underwriting_recommendation: string;
+  key_risk_factors: string[];
+  mitigation_strategies: string[];
+  premium_adjustment: number; // percentage
+  next_review_date: string;
+}
+
+/** Perform risk assessment on a policy. */
+export async function performRiskAssessment(
+  request: RiskAssessmentRequest,
+): Promise<RiskAssessmentResponse> {
+  const res = await fetch(`${BASE}/underwriting/risk-assessment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!res.ok)
+    throw new Error(`Risk assessment request failed: ${res.status}`);
+  return res.json() as Promise<RiskAssessmentResponse>;
+}
