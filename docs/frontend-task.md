@@ -12,6 +12,7 @@
 - **FR007 – AI Policy Chat**: ChatPanel with message history, natural language input, suggestion chips, and real SSE streaming via `fetch().body.getReader()` (`ChatPanel.tsx`, `lib/api.ts`)
 - **FR009 – Contextual AI Answers**: Streaming AI responses rendered progressively with loading indicators (`ChatPanel.tsx`)
 - **FR010 – Source Citation**: SourcePanel displays citations with document ID, page number, relevance score, and text snippet preview (`SourcePanel.tsx`)
+- **Source Panel Dual-Pane PDF Viewer**: Clickable source citations open a fullscreen PDF viewer with page navigation (prev/next, jump to page), zoom controls (50%-200%), highlighted chunk banner showing retrieved text with relevance score, loading/error states, and dynamic component loading via Next.js — implements the "PDF Source Viewer (highlighting retrieved chunks)" architecture (`components/PDFViewer.tsx`, `components/SourcePanel.tsx`, `components/ChatPageClient.tsx`)
 
 ### Claims Validation
 
@@ -56,9 +57,7 @@
 
 ## 🚧 In Progress
 
-> Ordered by: core functionality → user flow blocking → demo readiness
-
-1. **Source panel dual-pane**: Chat page has left/right pane layout with text citations, but **no PDF viewer component** with highlighted retrieved chunks (architecture requires embedded PDF highlighting) — _core RAG differentiator for demos_
+> No tasks currently in progress. All core features have been implemented.
 
 ---
 
