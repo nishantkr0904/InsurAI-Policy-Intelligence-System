@@ -1,0 +1,122 @@
+"""
+Fraud Detection Router.
+
+Exposes GET /api/v1/fraud/alerts endpoint for fraud alert retrieval and analysis.
+
+Architecture ref:
+  docs/requirements.md #FR016 – Fraud Pattern Detection
+  docs/requirements.md #FR017 – Fraud Alert Generation
+  docs/roadmap.md Phase 7.5 – Domain-Specific APIs
+"""
+
+from __future__ import annotations
+
+import logging
+
+from fastapi import APIRouter, HTTPException, status
+
+from app.fraud.schemas import AnomalyType, AlertStatus, SeverityLevel, FraudAlertsRequest, FraudAlertsResponse
+from app.fraud.service import get_fraud_alerts
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/v1/fraud", tags=["Fraud Detection"])
+
+
+@router.get(
+    "/alerts",
+    response_model=FraudAlertsResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve fraud alerts for a workspace",
+    description=(
+        "Get fraud alerts with optional filtering by status, severity, and risk score. "
+        "Supports pagination and sorting."
+    ),
+)
+async def get_alerts_endpoint(
+    workspace_id: str = "default",
+    status_filter: AlertStatus | None = None,
+    severity_filter: SeverityLevel | None = None,
+    min_risk_score: float = 0.0,
+    limit: int = 50,
+    offset: int = 0,
+    sort_by: str = "detected_date",
+) -> FraudAlertsResponse:
+    """
+    Retrieve fraud alerts for a workspace.
+
+    Query parameters:
+      - workspace_id: Workspace namespace (default: "default")
+      - status_filter: Filter by status (new, under_review, escalated, resolved, false_positive)
+      - severity_filter: Filter by severity (low, medium, high, critical)
+      - min_risk_score: Minimum fraud risk score (0-100)
+      - limit: Maximum results (1-500, default: 50)
+      - offset: Result offset for pagination (default: 0)
+      - sort_by: Sort field (detected_date, risk_score, claim_amount)
+
+    Response:
+      - alerts: List of FraudAlert objects with:
+        - alert_id, claim_id, policy_number
+        - risk_score (0-100), severity, anomaly_types
+        - status, reasoning, confidence_score
+        - related_claims with similarity scores
+      - total: Total number of alerts matching filters
+      - limit, offset: Pagination info
+      - has_more: Whether more results exist
+
+    Errors:
+      - 400: Invalid query parameters
+      - 503: Service unavailable
+    """
+    logger.info(
+        "Fraud alerts request: workspace=%s status=%s severity=%s min_risk=%.1f limit=%d offset=%d",
+        workspace_id,
+        status_filter,
+        severity_filter,
+        min_risk_score,
+        limit,
+        offset,
+    )
+
+    # Validate parameters
+    if limit < 1 or limit > 500:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="limit must be between 1 and 500",
+        )
+    if offset < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="offset must be >= 0",
+        )
+    if min_risk_score < 0 or min_risk_score > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="min_risk_score must be between 0 and 100",
+        )
+
+    try:
+        request = FraudAlertsRequest(
+            workspace_id=workspace_id,
+            status_filter=status_filter,
+            severity_filter=severity_filter,
+            min_risk_score=min_risk_score,
+            limit=limit,
+            offset=offset,
+            sort_by=sort_by,
+        )
+        result = await get_fraud_alerts(request)
+    except Exception as exc:
+        logger.error("Failed to retrieve fraud alerts: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Fraud alert service unavailable: {exc}",
+        ) from exc
+
+    logger.info(
+        "Fraud alerts returned: total=%d returned=%d",
+        result.total,
+        len(result.alerts),
+    )
+
+    return result

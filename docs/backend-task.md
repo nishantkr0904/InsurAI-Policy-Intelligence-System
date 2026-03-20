@@ -80,6 +80,23 @@
   - Clause violation detection
   - Related through ClaimValidationResponse.reasoning + referenced_clauses fields
 
+- ✅ **FR016 – Fraud Pattern Detection**: `GET /api/v1/fraud/alerts`
+  - Detects fraud patterns and anomalies
+  - Returns: fraud alerts with risk scores, severity, anomaly types
+  - Supports: filtering (status, severity, min_risk_score), pagination, sorting
+  - Includes related claims analysis with similarity scores
+  - Provides investigation support with evidence panels
+
+- ✅ **FR017 – Fraud Alert Generation** (implemented as part of FR016)
+  - Generates structured fraud alerts with metadata
+  - Supports: NEW, UNDER_REVIEW, ESCALATED, RESOLVED statuses
+  - Includes: alert_id, claim_id, risk_score, anomaly_types, confidence_score
+
+- ✅ **FR018 – Fraud Investigation Support** (implemented as part of FR016)
+  - Investigation panels with related claims
+  - Related claims with similarity scores
+  - Evidence organization for fraud analysis
+
 ---
 
 ## 🚧 In Progress
@@ -92,22 +109,7 @@
 
 ### High Priority (Required for MVP)
 
-#### 1. **FR016 – Fraud Pattern Detection API**
-**Status**: ❌ NOT STARTED
-**Endpoint**: `GET /api/v1/fraud/alerts`
-**Description**: Return fraud alerts with risk scores and anomaly types
-**Breaking Down**:
-- [ ] Create FraudAlert model (alert_id, claim_id, risk_score, severity, type, status)
-- [ ] Create FraudAlertsResponse schema
-- [ ] Implement fraud detection logic: analyze claim patterns, detect anomalies
-- [ ] Return paginated list of alerts with filtering/sorting
-- [ ] Wire to claims validation for risk assessment
-
-**Frontend Dependency**: `/fraud` page expects this endpoint
-
----
-
-#### 2. **FR019 – Compliance Review API**
+#### 1. **FR019 – Compliance Review API**
 **Status**: ❌ NOT STARTED
 **Endpoint**: `GET /api/v1/compliance/issues`
 **Description**: Return compliance issues against regulatory standards
@@ -122,7 +124,7 @@
 
 ---
 
-#### 3. **FR021 – Audit Policy History API**
+#### 2. **FR021 – Audit Policy History API**
 **Status**: ❌ NOT STARTED
 **Endpoint**: `GET /api/v1/audit`, `POST /api/v1/audit/action`
 **Description**: Log and retrieve system audit trails
