@@ -94,6 +94,97 @@ class BaseMixin:
 
 
 # ============================================================================
+# WORKSPACE MODEL
+# ============================================================================
+
+class Workspace(Base):
+    """
+    Workspace (tenant) table.
+
+    Central entity for multi-tenant data isolation.
+    Each workspace represents an independent insurance organization with:
+      - Unique identity (slug, name, organization)
+      - Owner and members (user access control)
+      - Settings and preferences (configuration)
+      - Resource limits (quotas, storage limits)
+
+    All other models reference workspace_id to enforce data isolation.
+
+    Architecture ref:
+      docs/system-architecture.md §11 – Multi-Tenant Architecture
+    """
+
+    __tablename__ = "workspaces"
+
+    # Primary key (NOT using BaseMixin because Workspace is the root entity)
+    id = Column(String(36), primary_key=True, default=_generate_id)
+
+    # Identity
+    slug = Column(String(64), nullable=False, unique=True, index=True)
+    # URL-safe identifier: "acme-insurance", "global-underwriters"
+
+    name = Column(String(255), nullable=False)
+    # Display name: "ACME Insurance Co."
+
+    organization = Column(String(255), nullable=True)
+    # Legal entity name
+
+    # Ownership
+    owner_id = Column(String(64), nullable=False, index=True)
+    # User ID of workspace owner (for billing, admin rights)
+
+    # Members (JSON array of user IDs with roles)
+    members = Column(JSON, nullable=False, default=list)
+    # Example:
+    # [
+    #   {"user_id": "user_123", "role": "admin", "joined_at": "2026-03-20"},
+    #   {"user_id": "user_456", "role": "member", "joined_at": "2026-03-21"}
+    # ]
+
+    # Settings
+    settings = Column(JSON, nullable=False, default=dict)
+    # Example:
+    # {
+    #   "default_retention_days": 90,
+    #   "allow_public_sharing": false,
+    #   "require_mfa": true,
+    #   "timezone": "America/New_York"
+    # }
+
+    # Resource limits
+    max_documents = Column(Integer, nullable=True, default=10000)
+    max_storage_bytes = Column(Integer, nullable=True, default=10737418240)  # 10 GB
+    max_users = Column(Integer, nullable=True, default=50)
+
+    # Status
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    # false = suspended/disabled workspace
+
+    # Timestamps
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        server_default=func.now(),
+        index=True,
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        server_default=func.now(),
+    )
+    deleted_at = Column(DateTime, nullable=True, index=True)  # Soft delete
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_workspace_owner", "owner_id"),
+        Index("idx_workspace_active", "is_active", "deleted_at"),
+    )
+
+
+# ============================================================================
 # DOCUMENT MODEL
 # ============================================================================
 
