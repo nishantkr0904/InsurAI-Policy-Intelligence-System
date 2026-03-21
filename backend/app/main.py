@@ -27,6 +27,7 @@ from app.claims.router import router as claims_router
 from app.fraud.router import router as fraud_router
 from app.compliance.router import router as compliance_router
 from app.audit.router import router as audit_router
+from app.workspaces.router import router as workspaces_router
 from app.storage.minio_client import ensure_bucket_exists
 from app.processing.vector_store import ensure_collection_exists
 
@@ -105,6 +106,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
+app.include_router(workspaces_router)
 app.include_router(ingestion_router)
 app.include_router(rag_router)
 app.include_router(retrieve_router)
