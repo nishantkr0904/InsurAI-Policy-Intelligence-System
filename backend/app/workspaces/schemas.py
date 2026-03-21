@@ -31,9 +31,7 @@ class WorkspaceSettings(BaseModel):
     """Workspace configuration settings."""
 
     default_retention_days: int = Field(90, description="Default data retention period")
-    allow_public_sharing:
-
- bool = Field(False, description="Allow public document sharing")
+    allow_public_sharing: bool = Field(False, description="Allow public document sharing")
     require_mfa: bool = Field(False, description="Require multi-factor authentication")
     timezone: str = Field("UTC", description="Default timezone")
 
