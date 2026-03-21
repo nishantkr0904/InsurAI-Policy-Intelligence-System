@@ -9,6 +9,7 @@ Models:
   - ComplianceIssue: Compliance violation tracking
   - ClaimValidation: Claim validation decisions
   - Chunk: Document chunks (optional, for future Milvus metadata)
+  - ErrorLog: System error tracking for monitoring (FR029)
 
 All models include workspace_id for strict multi-tenant isolation.
 
@@ -549,4 +550,111 @@ class Chunk(Base, BaseMixin):
     # Indexes
     __table_args__ = (
         Index("idx_chunk_document_index", "document_id", "chunk_index"),
+    )
+
+
+# ============================================================================
+# ERROR LOG MODEL (FR029)
+# ============================================================================
+
+class ErrorLog(Base):
+    """
+    System error tracking table (FR029).
+
+    Records all errors from:
+      - API endpoints (HTTP 5xx errors)
+      - Celery tasks (ingestion, indexing failures)
+      - Background jobs (embedding, vector store operations)
+      - External service failures (MinIO, Milvus, LLM APIs)
+
+    Contains:
+      - Error identification (error_id, error_code, error_type)
+      - Context (source, operation, workspace_id, user_id)
+      - Details (message, stack_trace, request_data)
+      - Resolution (status, resolved_at, resolution_notes)
+
+    Architecture ref:
+      docs/requirements.md #FR029 – Error Monitoring
+    """
+
+    __tablename__ = "error_logs"
+
+    # Primary key
+    id = Column(String(36), primary_key=True, default=_generate_id)
+
+    # Error identification
+    error_code = Column(String(50), nullable=True, index=True)
+    # Format: "INGESTION_FAILED", "EMBEDDING_ERROR", "API_ERROR", etc.
+
+    error_type = Column(String(100), nullable=False, index=True)
+    # Python exception type: "ValueError", "ConnectionError", "TimeoutError"
+
+    # Context
+    source = Column(String(50), nullable=False, index=True)
+    # Values: "api", "celery", "ingestion", "embedding", "indexing", "llm", "minio", "milvus"
+
+    operation = Column(String(100), nullable=False)
+    # Operation that failed: "ingest_document", "generate_embeddings", "POST /api/v1/chat"
+
+    workspace_id = Column(String(64), nullable=True, index=True)
+    # May be null for system-level errors
+
+    user_id = Column(String(64), nullable=True, index=True)
+    # User who triggered the operation (if applicable)
+
+    # Error details
+    message = Column(Text, nullable=False)
+    # Human-readable error message
+
+    stack_trace = Column(Text, nullable=True)
+    # Full Python traceback for debugging
+
+    # Request context (for API errors)
+    request_data = Column(JSON, nullable=True)
+    # Example:
+    # {
+    #   "method": "POST",
+    #   "path": "/api/v1/chat",
+    #   "query_params": {},
+    #   "headers": {"X-User-ID": "..."},
+    #   "body_preview": "..."
+    # }
+
+    # Task context (for Celery errors)
+    task_data = Column(JSON, nullable=True)
+    # Example:
+    # {
+    #   "task_id": "abc123",
+    #   "task_name": "insurai.ingest_document",
+    #   "args": ["doc_id", "object_key"],
+    #   "retries": 2
+    # }
+
+    # Severity
+    severity = Column(String(20), nullable=False, default="error", index=True)
+    # Values: warning, error, critical
+
+    # Resolution tracking
+    status = Column(String(20), nullable=False, default="new", index=True)
+    # Values: new, acknowledged, investigating, resolved, ignored
+
+    resolved_at = Column(DateTime, nullable=True)
+    resolved_by = Column(String(64), nullable=True)
+    resolution_notes = Column(Text, nullable=True)
+
+    # Timestamps
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        server_default=func.now(),
+        index=True,
+    )
+
+    # Indexes for efficient querying
+    __table_args__ = (
+        Index("idx_error_source_type", "source", "error_type"),
+        Index("idx_error_workspace_created", "workspace_id", "created_at"),
+        Index("idx_error_severity_status", "severity", "status"),
+        Index("idx_error_created", "created_at"),
     )
