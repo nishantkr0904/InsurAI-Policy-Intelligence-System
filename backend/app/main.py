@@ -30,6 +30,7 @@ from app.compliance.router import router as compliance_router
 from app.audit.router import router as audit_router
 from app.workspaces.router import router as workspaces_router
 from app.errors.router import router as errors_router
+from app.metrics.router import router as metrics_router
 from app.storage.minio_client import ensure_bucket_exists
 from app.processing.vector_store import ensure_collection_exists
 
@@ -128,6 +129,7 @@ app.include_router(fraud_router)
 app.include_router(compliance_router)
 app.include_router(audit_router)
 app.include_router(errors_router)
+app.include_router(metrics_router)
 
 
 @app.get("/health", tags=["Health"])
