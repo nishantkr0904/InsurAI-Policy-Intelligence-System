@@ -10,6 +10,7 @@ Models:
   - ClaimValidation: Claim validation decisions
   - Chunk: Document chunks (optional, for future Milvus metadata)
   - ErrorLog: System error tracking for monitoring (FR029)
+  - PerformanceMetric: Performance metrics for API and AI operations (FR030)
 
 All models include workspace_id for strict multi-tenant isolation.
 
@@ -657,4 +658,131 @@ class ErrorLog(Base):
         Index("idx_error_workspace_created", "workspace_id", "created_at"),
         Index("idx_error_severity_status", "severity", "status"),
         Index("idx_error_created", "created_at"),
+    )
+
+
+# ============================================================================
+# PERFORMANCE METRIC MODEL (FR030)
+# ============================================================================
+
+class PerformanceMetric(Base):
+    """
+    Performance metrics tracking table (FR030).
+
+    Records timing and performance data from:
+      - API requests (HTTP endpoint latency)
+      - RAG operations (retrieval, reranking, synthesis)
+      - LLM operations (inference time, token usage)
+      - Embedding operations (generation time, batch size)
+      - Vector search (query time, result count)
+      - Database operations (query duration)
+
+    Contains:
+      - Operation context (operation, endpoint, source)
+      - Timing metrics (duration_ms, breakdown by phase)
+      - Resource metrics (tokens used, items processed)
+      - Result metadata (result_count, quality scores)
+      - Workspace and user context for multi-tenancy
+
+    Architecture ref:
+      docs/requirements.md #FR030 – Performance Monitoring
+    """
+
+    __tablename__ = "performance_metrics"
+
+    # Primary key
+    id = Column(String(36), primary_key=True, default=_generate_id)
+
+    # Workspace isolation
+    workspace_id = Column(String(64), nullable=True, index=True)
+
+    # User context
+    user_id = Column(String(64), nullable=True, index=True)
+
+    # Operation context
+    operation = Column(String(100), nullable=False, index=True)
+    # Values: "rag_chat", "retrieval_query", "embeddings", "vector_search",
+    #         "llm_synthesis", "document_ingest", "api_request", etc.
+
+    endpoint = Column(String(128), nullable=True, index=True)
+    # HTTP endpoint for API requests: "POST /api/v1/chat"
+
+    source = Column(String(50), nullable=False, index=True)
+    # Values: "api", "rag", "celery", "embedding", "milvus", "llm"
+
+    # Total duration
+    duration_ms = Column(Float, nullable=False, index=True)
+    # Total time in milliseconds for the operation
+
+    # Phased breakdown (for composite operations like RAG)
+    # Example: {"retrieval": 120, "reranking": 45, "synthesis": 1200}
+    phase_durations = Column(JSON, nullable=True)
+
+    # Result metrics
+    result_count = Column(Integer, nullable=True)
+    # Number of items returned (e.g., documents retrieved, chunks ranked)
+
+    # AI/LLM metrics
+    tokens_used = Column(Integer, nullable=True)
+    # Total tokens used in LLM operation
+
+    tokens_input = Column(Integer, nullable=True)
+    # Input tokens for LLM
+
+    tokens_output = Column(Integer, nullable=True)
+    # Output tokens for LLM
+
+    model_name = Column(String(100), nullable=True)
+    # Model used: "gpt-4", "claude-opus", "text-embedding-3-small", etc.
+
+    # Embedding metrics
+    batch_size = Column(Integer, nullable=True)
+    # Number of items embedded in batch
+
+    embedding_dim = Column(Integer, nullable=True)
+    # Dimension of embedding vector
+
+    # Vector search metrics
+    query_time_ms = Column(Float, nullable=True)
+    # Time spent in vector database query
+
+    rerank_score = Column(Float, nullable=True)
+    # Reranking score (0-1) for top result
+
+    # Status and quality
+    status = Column(String(20), nullable=False, default="success", index=True)
+    # Values: success, partial, error
+
+    quality_score = Column(Float, nullable=True)
+    # Quality indicator (0-1) for the operation result
+
+    # Additional context
+    metric_data = Column(JSON, nullable=True)
+    # Flexible field for operation-specific metrics
+    # Example:
+    # {
+    #   "retrieval_method": "hybrid",
+    #   "milvus_results": 50,
+    #   "bm25_results": 20,
+    #   "final_ranked": 5,
+    #   "cache_hit": false,
+    #   "retry_count": 0
+    # }
+
+    # Timestamps
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        server_default=func.now(),
+        index=True,
+    )
+
+    # Indexes for efficient querying
+    __table_args__ = (
+        Index("idx_perf_workspace_operation", "workspace_id", "operation"),
+        Index("idx_perf_operation_created", "operation", "created_at"),
+        Index("idx_perf_duration", "duration_ms"),
+        Index("idx_perf_endpoint_created", "endpoint", "created_at"),
+        Index("idx_perf_workspace_created", "workspace_id", "created_at"),
     )
