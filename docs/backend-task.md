@@ -164,16 +164,19 @@
 
 ### Medium Priority (Infrastructure & Polish)
 
-#### 6. **FR028 – Activity Logging**
+#### 6. **FR028 – Activity Logging** ✅ COMPLETED
 
-**Status**: ❌ NOT STARTED
+**Status**: ✅ COMPLETED
 **Description**: Middleware to log all API requests/responses
-**Breaking Down**:
+**Implementation**:
 
-- [ ] Create ActivityLog model
-- [ ] Implement FastAPI middleware for logging
-- [ ] Log: user_id, endpoint, method, status, timestamp, duration
-- [ ] Expose via `/api/v1/audit`
+- [x] Created ActivityLoggingMiddleware in `app/middleware/activity_logger.py`
+- [x] Captures: user_id, endpoint, method, status, timestamp, duration, IP
+- [x] Maps endpoints to semantic action types (document_view, chat_query, etc.)
+- [x] Non-blocking async logging to avoid latency impact
+- [x] Stores in existing AuditLog table via PostgreSQL
+- [x] Excludes health/docs endpoints from logging
+- [x] Integrated in `app/main.py`
 
 ---
 
