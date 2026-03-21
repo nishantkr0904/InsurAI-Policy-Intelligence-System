@@ -200,15 +200,26 @@
 
 ---
 
-#### 8. **FR030 – Performance Monitoring**
+#### 8. **FR030 – Performance Monitoring** ✅ COMPLETED
 
-**Status**: ❌ NOT STARTED
+**Status**: ✅ COMPLETED
 **Description**: Track API latency, AI processing time, retrieval speed
-**Breaking Down**:
+**Implementation**:
 
-- [ ] Add timing instrumentation to key functions
-- [ ] Create PerformanceMetric model
-- [ ] Expose metrics via `/api/v1/metrics`
+- [x] Created PerformanceMetric model in `app/models.py`
+- [x] Built performance monitoring service in `app/metrics/service.py`
+- [x] Created timing utilities: `measure_performance()` async context manager
+- [x] Created performance metrics router with 3 API endpoints:
+  - [x] `GET /api/v1/metrics` – List metrics with filtering, pagination
+  - [x] `GET /api/v1/metrics/stats` – Aggregated statistics (avg, min, max, p50/p95/p99)
+  - [x] `GET /api/v1/metrics/health` – System health status and recommendations
+- [x] Captures: duration_ms, tokens_used, tokens_input, tokens_output, result_count
+- [x] Health classification: healthy (p95 < 1000ms), degraded (1000-3000ms), critical (> 3000ms)
+- [x] Performance data by operation, endpoint, source, model
+- [x] Records phase breakdowns (retrieval, synthesis, etc.)
+- [x] Non-blocking async metric recording
+- [x] Multi-tenant support with workspace isolation
+- [x] Integrated into main.py
 
 ---
 
