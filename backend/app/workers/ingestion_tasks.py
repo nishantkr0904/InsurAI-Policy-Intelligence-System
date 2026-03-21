@@ -23,8 +23,11 @@ Architecture ref:
   docs/roadmap.md Phase 3 – step 2 "Parsing (DeepDoc/OCR)"
 """
 
+import asyncio
 import json
 import logging
+import traceback
+import uuid
 from io import BytesIO
 
 from app.workers.celery_app import celery_app
@@ -33,6 +36,8 @@ from app.core.config import settings
 from app.processing.chunker import chunk_text
 from app.processing.embedder import generate_embeddings
 from app.processing.vector_store import insert_vectors
+from app.database import AsyncSessionLocal
+from app.models import ErrorLog
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +82,56 @@ def _extract_text(file_bytes: bytes, content_type: str) -> str:
         return f"[Unsupported content type: {content_type}]"
 
 
+async def _log_celery_error(
+    task_name: str,
+    task_id: str,
+    error: Exception,
+    document_id: str,
+    workspace_id: str,
+) -> None:
+    """
+    Log Celery task error to ErrorLog table (FR029).
+
+    Runs asynchronously to avoid blocking task execution.
+    """
+    try:
+        severity = "critical" if isinstance(error, (ConnectionError, TimeoutError)) else "error"
+
+        task_data = {
+            "task_id": task_id,
+            "task_name": task_name,
+            "document_id": document_id,
+        }
+
+        async with AsyncSessionLocal() as session:
+            error_log = ErrorLog(
+                id=str(uuid.uuid4()),
+                error_code="CELERY_TASK_FAILED",
+                error_type=type(error).__name__,
+                source="celery",
+                operation=task_name,
+                workspace_id=workspace_id,
+                user_id=None,
+                message=str(error),
+                stack_trace=traceback.format_exc(),
+                task_data=task_data,
+                severity=severity,
+                status="new",
+            )
+            session.add(error_log)
+            await session.commit()
+
+            logger.info(
+                "Celery error logged: task=%s error=%s severity=%s",
+                task_name,
+                type(error).__name__,
+                severity,
+            )
+
+    except Exception as log_exc:
+        logger.warning("Failed to log celery error: %s", log_exc)
+
+
 @celery_app.task(
     name="insurai.ingest_document",
     bind=True,
@@ -104,96 +159,122 @@ def ingest_document(
 
     Returns:
         dict with keys: document_id, status, extracted_chars, sidecar_key.
+
+    Errors:
+        Logs errors to ErrorLog table for monitoring (FR029).
+        Re-raises exceptions to trigger Celery retry mechanism.
     """
-    logger.info(
-        "Starting ingestion for document_id=%s object_key=%s",
-        document_id,
-        object_key,
-    )
+    try:
+        logger.info(
+            "Starting ingestion for document_id=%s object_key=%s",
+            document_id,
+            object_key,
+        )
 
-    # 1. Fetch raw bytes from MinIO
-    client = _get_client()
-    response = client.get_object(
-        bucket_name=settings.MINIO_BUCKET_DOCUMENTS,
-        object_name=object_key,
-    )
-    file_bytes = response.read()
-    response.close()
-    response.release_conn()
+        # 1. Fetch raw bytes from MinIO
+        client = _get_client()
+        response = client.get_object(
+            bucket_name=settings.MINIO_BUCKET_DOCUMENTS,
+            object_name=object_key,
+        )
+        file_bytes = response.read()
+        response.close()
+        response.release_conn()
 
-    # 2. Extract text
-    extracted_text = _extract_text(file_bytes, content_type)
-    extracted_chars = len(extracted_text)
-    logger.info("Extracted %d characters from document_id=%s", extracted_chars, document_id)
+        # 2. Extract text
+        extracted_text = _extract_text(file_bytes, content_type)
+        extracted_chars = len(extracted_text)
+        logger.info("Extracted %d characters from document_id=%s", extracted_chars, document_id)
 
-    # 3. Store parsed text as a sidecar .txt file in MinIO
-    sidecar_key = object_key.rsplit(".", 1)[0] + "_parsed.txt"
-    upload_file(
-        file_bytes=extracted_text.encode("utf-8"),
-        filename=sidecar_key.split("/")[-1],
-        content_type="text/plain",
-        workspace_id=workspace_id,
-    )
-    logger.info("Sidecar text stored at %s", sidecar_key)
+        # 3. Store parsed text as a sidecar .txt file in MinIO
+        sidecar_key = object_key.rsplit(".", 1)[0] + "_parsed.txt"
+        upload_file(
+            file_bytes=extracted_text.encode("utf-8"),
+            filename=sidecar_key.split("/")[-1],
+            content_type="text/plain",
+            workspace_id=workspace_id,
+        )
+        logger.info("Sidecar text stored at %s", sidecar_key)
 
-    # 4. Semantic chunking
-    chunks = chunk_text(
-        extracted_text,
-        metadata={"document_id": document_id, "workspace_id": workspace_id},
-    )
-    logger.info("Split document_id=%s into %d chunks", document_id, len(chunks))
+        # 4. Semantic chunking
+        chunks = chunk_text(
+            extracted_text,
+            metadata={"document_id": document_id, "workspace_id": workspace_id},
+        )
+        logger.info("Split document_id=%s into %d chunks", document_id, len(chunks))
 
-    # 5. Generate embeddings for all chunks
-    # NOTE: If OPENAI_API_KEY is empty and EMBEDDING_MODEL requires it,
-    #       this step will raise RuntimeError → Celery will retry up to 3×.
-    chunk_texts = [c.text for c in chunks]
-    vectors = generate_embeddings(chunk_texts)
-    logger.info(
-        "Generated %d embedding vectors for document_id=%s", len(vectors), document_id
-    )
+        # 5. Generate embeddings for all chunks
+        # NOTE: If OPENAI_API_KEY is empty and EMBEDDING_MODEL requires it,
+        #       this step will raise RuntimeError → Celery will retry up to 3×.
+        chunk_texts = [c.text for c in chunks]
+        vectors = generate_embeddings(chunk_texts)
+        logger.info(
+            "Generated %d embedding vectors for document_id=%s", len(vectors), document_id
+        )
 
-    # 6. Build chunk manifest and store as JSON sidecar in MinIO
-    # Phase P4 T6 (Milvus integration) will read this sidecar to insert vectors.
-    manifest = [
-        {
-            "chunk_index": chunk.chunk_index,
-            "text": chunk.text,
-            "char_start": chunk.char_start,
-            "char_end": chunk.char_end,
-            "token_estimate": chunk.token_estimate,
-            "embedding": vector,
+        # 6. Build chunk manifest and store as JSON sidecar in MinIO
+        # Phase P4 T6 (Milvus integration) will read this sidecar to insert vectors.
+        manifest = [
+            {
+                "chunk_index": chunk.chunk_index,
+                "text": chunk.text,
+                "char_start": chunk.char_start,
+                "char_end": chunk.char_end,
+                "token_estimate": chunk.token_estimate,
+                "embedding": vector,
+            }
+            for chunk, vector in zip(chunks, vectors)
+        ]
+        manifest_bytes = json.dumps(manifest, ensure_ascii=False).encode("utf-8")
+        manifest_key_prefix = object_key.rsplit(".", 1)[0]
+        upload_file(
+            file_bytes=manifest_bytes,
+            filename=f"{manifest_key_prefix.split('/')[-1]}_chunks.json",
+            content_type="application/json",
+            workspace_id=workspace_id,
+        )
+        logger.info(
+            "Chunk manifest stored for document_id=%s (%d chunks)", document_id, len(chunks)
+        )
+
+        # 7. Insert chunk vectors into Milvus
+        # If Milvus is unreachable the Celery retry mechanism will handle it (max 3×).
+        inserted = insert_vectors(
+            document_id=document_id,
+            workspace_id=workspace_id,
+            chunk_manifest=manifest,
+        )
+        logger.info(
+            "Indexed %d vectors in Milvus for document_id=%s", inserted, document_id
+        )
+
+        return {
+            "document_id": document_id,
+            "status": "indexed",
+            "extracted_chars": extracted_chars,
+            "sidecar_key": sidecar_key,
+            "chunk_count": len(chunks),
+            "inserted_vectors": inserted,
+            "embedding_dim": len(vectors[0]) if vectors else 0,
         }
-        for chunk, vector in zip(chunks, vectors)
-    ]
-    manifest_bytes = json.dumps(manifest, ensure_ascii=False).encode("utf-8")
-    manifest_key_prefix = object_key.rsplit(".", 1)[0]
-    upload_file(
-        file_bytes=manifest_bytes,
-        filename=f"{manifest_key_prefix.split('/')[-1]}_chunks.json",
-        content_type="application/json",
-        workspace_id=workspace_id,
-    )
-    logger.info(
-        "Chunk manifest stored for document_id=%s (%d chunks)", document_id, len(chunks)
-    )
 
-    # 7. Insert chunk vectors into Milvus
-    # If Milvus is unreachable the Celery retry mechanism will handle it (max 3×).
-    inserted = insert_vectors(
-        document_id=document_id,
-        workspace_id=workspace_id,
-        chunk_manifest=manifest,
-    )
-    logger.info(
-        "Indexed %d vectors in Milvus for document_id=%s", inserted, document_id
-    )
+    except Exception as exc:
+        # Log error asynchronously (FR029)
+        asyncio.run(
+            _log_celery_error(
+                task_name="insurai.ingest_document",
+                task_id=self.request.id,
+                error=exc,
+                document_id=document_id,
+                workspace_id=workspace_id,
+            )
+        )
 
-    return {
-        "document_id": document_id,
-        "status": "indexed",
-        "extracted_chars": extracted_chars,
-        "sidecar_key": sidecar_key,
-        "chunk_count": len(chunks),
-        "inserted_vectors": inserted,
-        "embedding_dim": len(vectors[0]) if vectors else 0,
-    }
+        # Re-raise to trigger Celery retry mechanism
+        logger.error(
+            "Ingestion failed for document_id=%s: %s",
+            document_id,
+            exc,
+            exc_info=True,
+        )
+        raise
