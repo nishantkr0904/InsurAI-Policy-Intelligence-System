@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.database import init_db, close_db
+from app.middleware import ActivityLoggingMiddleware
 from app.ingestion.router import router as ingestion_router
 from app.rag.router import router as rag_router
 from app.rag.retrieve_router import router as retrieve_router
@@ -102,6 +103,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Activity Logging – log all API requests/responses (FR028)
+# ---------------------------------------------------------------------------
+app.add_middleware(ActivityLoggingMiddleware)
 
 # ---------------------------------------------------------------------------
 # Routers
