@@ -26,6 +26,7 @@ from sqlalchemy import (
     Column,
     String,
     Integer,
+    BigInteger,
     Float,
     DateTime,
     Text,
@@ -153,7 +154,7 @@ class Workspace(Base):
 
     # Resource limits
     max_documents = Column(Integer, nullable=True, default=10000)
-    max_storage_bytes = Column(Integer, nullable=True, default=10737418240)  # 10 GB
+    max_storage_bytes = Column(BigInteger, nullable=True, default=10737418240)  # 10 GB
     max_users = Column(Integer, nullable=True, default=50)
 
     # Status
