@@ -8,5 +8,6 @@ Contains middleware for:
 """
 
 from app.middleware.activity_logger import ActivityLoggingMiddleware
+from app.middleware.error_monitor import ErrorMonitoringMiddleware
 
-__all__ = ["ActivityLoggingMiddleware"]
+__all__ = ["ActivityLoggingMiddleware", "ErrorMonitoringMiddleware"]
