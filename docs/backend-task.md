@@ -180,16 +180,23 @@
 
 ---
 
-#### 7. **FR029 – Error Monitoring**
+#### 7. **FR029 – Error Monitoring** ✅ COMPLETED
 
-**Status**: ❌ NOT STARTED
+**Status**: ✅ COMPLETED
 **Description**: Capture and report errors in ingestion/indexing pipelines
-**Breaking Down**:
+**Implementation**:
 
-- [ ] Create ErrorLog model
-- [ ] Add try-catch with logging to Celery tasks
-- [ ] Store errors in PostgreSQL
-- [ ] Expose via admin endpoint
+- [x] Created ErrorLog model in `app/models.py` to track system errors
+- [x] Built ErrorMonitoringMiddleware in `app/middleware/error_monitor.py`
+- [x] Created error service: query, filter, manage error logs
+- [x] Created error router with 3 API endpoints:
+  - [x] `GET /api/v1/errors` – List with filtering, pagination
+  - [x] `GET /api/v1/errors/stats` – Statistics summary
+  - [x] `PUT /api/v1/errors/{error_id}/status` – Update error status
+- [x] Added error logging to Celery ingestion tasks
+- [x] Captures error type, message, stack trace, context
+- [x] Non-blocking async logging to ErrorLog table
+- [x] Integrated into main.py
 
 ---
 
