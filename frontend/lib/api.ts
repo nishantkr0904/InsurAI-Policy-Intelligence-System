@@ -216,23 +216,39 @@ export function uploadDocumentWithProgress(
   });
 }
 
-/** Shape of claim validation request. */
+/** Shape of claim validation request matching backend schema. */
 export interface ClaimValidationRequest {
   claim_id: string;
   policy_number: string;
-  claim_type: string;
-  incident_date: string;
-  amount: number;
+  claim_type: "health" | "auto" | "home" | "life" | "disability" | "property" | "liability" | "other";
+  claim_amount: number;
   description: string;
+  claim_date?: string;
   workspace_id: string;
+  user_id?: string;
 }
 
-/** Shape of claim validation response. */
+/** Shape of a referenced clause in claim validation. */
+export interface ReferencedClause {
+  document_id: string;
+  chunk_index: number;
+  clause_text: string;
+  relevance_score: number;
+  violation_detected: boolean;
+}
+
+/** Shape of claim validation response from backend. */
 export interface ClaimValidationResponse {
-  status: "approved" | "denied" | "pending";
-  reasoning: string;
-  clauses: { ref: string; text: string }[];
+  claim_id: string;
+  policy_number: string;
+  approval_status: "approved" | "denied" | "pending" | "needs_review";
   risk_score: number;
+  severity: "low" | "medium" | "high" | "critical";
+  reasoning: string;
+  referenced_clauses: ReferencedClause[];
+  confidence_score: number;
+  next_steps: string[];
+  processed_at: string;
 }
 
 /** Validate a claim against policy rules. */
@@ -248,49 +264,171 @@ export async function validateClaim(
   return res.json() as Promise<ClaimValidationResponse>;
 }
 
-/** Shape of a fraud alert. */
+/** Shape of a fraud alert from the backend. */
 export interface FraudAlert {
-  id: string;
+  alert_id: string;
   claim_id: string;
-  policy_id: string;
-  type: string;
+  policy_number: string;
   risk_score: number;
-  severity: "high" | "medium" | "low";
-  date: string;
-  description: string;
-  status: "under_review" | "resolved" | "dismissed";
+  severity: "low" | "medium" | "high" | "critical";
+  anomaly_types: string[];
+  status: "new" | "under_review" | "escalated" | "resolved" | "false_positive";
+  reasoning: string;
+  claim_amount: number;
+  submit_date: string;
+  detected_date: string;
+  related_claims: {
+    claim_id: string;
+    similarity_score: number;
+    claim_amount: number;
+    submit_date: string;
+  }[];
+  confidence_score: number;
+}
+
+/** Shape of fraud alerts response. */
+export interface FraudAlertsResponse {
+  alerts: FraudAlert[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
 }
 
 /** Fetch fraud alerts for a workspace. */
 export async function fetchFraudAlerts(
   workspaceId: string,
-): Promise<FraudAlert[]> {
-  const res = await fetch(
-    `${BASE}/fraud/alerts?workspace_id=${encodeURIComponent(workspaceId)}`,
-  );
+  options?: {
+    status?: string;
+    severity?: string;
+    minRiskScore?: number;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<FraudAlertsResponse> {
+  const params = new URLSearchParams({
+    workspace_id: workspaceId,
+  });
+  if (options?.status) params.append("status", options.status);
+  if (options?.severity) params.append("severity", options.severity);
+  if (options?.minRiskScore !== undefined)
+    params.append("min_risk_score", String(options.minRiskScore));
+  if (options?.limit) params.append("limit", String(options.limit));
+  if (options?.offset) params.append("offset", String(options.offset));
+
+  const res = await fetch(`${BASE}/fraud/alerts?${params.toString()}`);
   if (!res.ok) throw new Error(`Failed to fetch fraud alerts: ${res.status}`);
-  return res.json() as Promise<FraudAlert[]>;
+  return res.json() as Promise<FraudAlertsResponse>;
 }
 
-/** Shape of a compliance issue. */
+/** Shape of a compliance issue from the backend. */
 export interface ComplianceIssue {
-  id: string;
-  severity: "critical" | "warning" | "info";
-  rule: string;
+  issue_id: string;
+  rule_name: string;
+  rule_category: string;
   description: string;
-  status: "open" | "acknowledged" | "resolved";
+  severity: "low" | "medium" | "high" | "critical";
+  status: "open" | "acknowledged" | "in_progress" | "resolved" | "waived";
+  policy_id?: string;
+  document_section?: string;
+  detected_date: string;
+  due_date?: string;
+  remediation_steps: string[];
+  affected_records: number;
+}
+
+/** Shape of compliance issues response. */
+export interface ComplianceIssuesResponse {
+  issues: ComplianceIssue[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+  summary: {
+    total_count?: number;
+    by_severity?: Record<string, number>;
+    by_status?: Record<string, number>;
+    by_category?: Record<string, number>;
+  };
 }
 
 /** Fetch compliance issues for a workspace. */
 export async function fetchComplianceIssues(
   workspaceId: string,
-): Promise<ComplianceIssue[]> {
-  const res = await fetch(
-    `${BASE}/compliance/issues?workspace_id=${encodeURIComponent(workspaceId)}`,
-  );
+  options?: {
+    statusFilter?: string;
+    severityFilter?: string;
+    categoryFilter?: string;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<ComplianceIssuesResponse> {
+  const params = new URLSearchParams({
+    workspace_id: workspaceId,
+  });
+  if (options?.statusFilter) params.append("status_filter", options.statusFilter);
+  if (options?.severityFilter) params.append("severity_filter", options.severityFilter);
+  if (options?.categoryFilter) params.append("category_filter", options.categoryFilter);
+  if (options?.limit) params.append("limit", String(options.limit));
+  if (options?.offset) params.append("offset", String(options.offset));
+
+  const res = await fetch(`${BASE}/compliance/issues?${params.toString()}`);
   if (!res.ok)
     throw new Error(`Failed to fetch compliance issues: ${res.status}`);
-  return res.json() as Promise<ComplianceIssue[]>;
+  return res.json() as Promise<ComplianceIssuesResponse>;
+}
+
+/** Shape of executive summary in compliance report. */
+export interface ExecutiveSummary {
+  compliance_score: number;
+  total_issues: number;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+  low_count: number;
+  remediation_rate: number;
+  last_audit_date: string;
+}
+
+/** Shape of compliance report from the backend. */
+export interface ComplianceReport {
+  report_id: string;
+  workspace_id: string;
+  generated_date: string;
+  executive_summary: ExecutiveSummary;
+  category_breakdown: {
+    category: string;
+    issue_count: number;
+    critical_count: number;
+    high_count: number;
+    average_days_open: number;
+  }[];
+  top_issues: ComplianceIssue[];
+  recommendations: {
+    priority: number;
+    action: string;
+    impact: string;
+    timeline: string;
+  }[];
+  detailed_issues: ComplianceIssue[];
+}
+
+/** Fetch compliance report for a workspace. */
+export async function fetchComplianceReport(
+  workspaceId: string,
+  options?: {
+    includeResolved?: boolean;
+  },
+): Promise<ComplianceReport> {
+  const params = new URLSearchParams({
+    workspace_id: workspaceId,
+  });
+  if (options?.includeResolved) params.append("include_resolved", "true");
+
+  const res = await fetch(`${BASE}/compliance/report?${params.toString()}`);
+  if (!res.ok)
+    throw new Error(`Failed to fetch compliance report: ${res.status}`);
+  return res.json() as Promise<ComplianceReport>;
 }
 
 /** Shape of a single query log entry. */
@@ -379,50 +517,115 @@ export async function performRiskAssessment(
   return res.json() as Promise<RiskAssessmentResponse>;
 }
 
-/** Shape of an audit log entry. */
+/** Shape of an audit log entry from the backend. */
 export interface AuditLogEntry {
-  id: string;
+  audit_id: string;
   timestamp: string;
+  workspace_id: string;
   user_id: string;
-  user_name: string;
-  action_type: "policy_upload" | "policy_update" | "claim_decision" | "risk_assessment" | "compliance_check" | "fraud_alert" | "login" | "logout" | "settings_change";
-  resource_type: "policy" | "claim" | "compliance" | "fraud" | "user" | "workspace";
-  resource_id: string;
-  resource_name: string;
+  user_email?: string;
+  action: string;
+  status: "success" | "failure" | "partial" | "error";
+  severity: "info" | "warning" | "error" | "critical";
+  resource_type?: string;
+  resource_id?: string;
   description: string;
-  status: "success" | "failure";
-  ip_address?: string;
-  changes?: Record<string, { old: string; new: string }>;
+  metadata: {
+    document_id?: string;
+    claim_id?: string;
+    alert_id?: string;
+    query_text?: string;
+    ip_address?: string;
+    user_agent?: string;
+    duration_ms?: number;
+    error_message?: string;
+    additional_context?: Record<string, unknown>;
+  };
+}
+
+/** Shape of audit logs response. */
+export interface AuditLogsResponse {
+  logs: AuditLogEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+  summary: Record<string, unknown>;
 }
 
 /** Fetch audit logs for a workspace. */
 export async function fetchAuditLogs(
   workspaceId: string,
-  limit = 100,
-): Promise<AuditLogEntry[]> {
-  const res = await fetch(
-    `${BASE}/audit/logs?workspace_id=${encodeURIComponent(workspaceId)}&limit=${limit}`,
-  );
+  options?: {
+    userId?: string;
+    action?: string;
+    status?: string;
+    severity?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<AuditLogsResponse> {
+  const params = new URLSearchParams({
+    workspace_id: workspaceId,
+  });
+  if (options?.userId) params.append("user_id_filter", options.userId);
+  if (options?.action) params.append("action_filter", options.action);
+  if (options?.status) params.append("status_filter", options.status);
+  if (options?.severity) params.append("severity_filter", options.severity);
+  if (options?.startDate) params.append("start_date", options.startDate);
+  if (options?.endDate) params.append("end_date", options.endDate);
+  if (options?.limit) params.append("limit", String(options.limit));
+  if (options?.offset) params.append("offset", String(options.offset));
+
+  const res = await fetch(`${BASE}/audit?${params.toString()}`);
   if (!res.ok) throw new Error(`Failed to fetch audit logs: ${res.status}`);
-  return res.json() as Promise<AuditLogEntry[]>;
+  return res.json() as Promise<AuditLogsResponse>;
 }
 
-/** Shape of audit summary statistics. */
-export interface AuditSummary {
-  total_actions: number;
-  total_users: number;
+/** Shape of audit analytics from the backend. */
+export interface AuditAnalytics {
+  workspace_id: string;
+  total_events: number;
   success_rate: number;
-  critical_actions: number;
-  date_range: { start: string; end: string };
+  top_actions: {
+    action: string;
+    count: number;
+    success_rate: number;
+    avg_duration_ms?: number;
+  }[];
+  most_active_users: {
+    user_id: string;
+    user_email?: string;
+    action_count: number;
+    last_activity: string;
+  }[];
+  error_count: number;
+  critical_count: number;
+  avg_response_time_ms?: number;
+  period_start: string;
+  period_end: string;
 }
 
-/** Fetch audit summary for a workspace. */
-export async function fetchAuditSummary(
+/** Fetch audit analytics for a workspace. */
+export async function fetchAuditAnalytics(
   workspaceId: string,
-): Promise<AuditSummary> {
-  const res = await fetch(
-    `${BASE}/audit/summary?workspace_id=${encodeURIComponent(workspaceId)}`,
-  );
-  if (!res.ok) throw new Error(`Failed to fetch audit summary: ${res.status}`);
-  return res.json() as Promise<AuditSummary>;
+  options?: {
+    startDate?: string;
+    endDate?: string;
+    topN?: number;
+  },
+): Promise<AuditAnalytics> {
+  const params = new URLSearchParams({
+    workspace_id: workspaceId,
+  });
+  if (options?.startDate) params.append("start_date", options.startDate);
+  if (options?.endDate) params.append("end_date", options.endDate);
+  if (options?.topN) params.append("top_n", String(options.topN));
+
+  const res = await fetch(`${BASE}/audit/analytics?${params.toString()}`);
+  if (!res.ok)
+    throw new Error(`Failed to fetch audit analytics: ${res.status}`);
+  return res.json() as Promise<AuditAnalytics>;
 }

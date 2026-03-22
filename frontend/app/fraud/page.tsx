@@ -12,28 +12,32 @@ import { useFraudAlerts } from "@/hooks/useQueries";
  */
 
 const SEVERITY_STYLES: Record<string, { color: string; bg: string }> = {
+  critical: { color: "var(--danger)", bg: "rgba(239,68,68,0.12)" },
   high: { color: "var(--danger)", bg: "rgba(239,68,68,0.12)" },
   medium: { color: "var(--warning)", bg: "rgba(245,158,11,0.12)" },
   low: { color: "var(--success)", bg: "rgba(34,197,94,0.12)" },
 };
 
 const STATUS_LABELS: Record<string, string> = {
+  new: "New",
   under_review: "Under Review",
+  escalated: "Escalated",
   resolved: "Resolved",
-  dismissed: "Dismissed",
+  false_positive: "False Positive",
 };
 
 export default function FraudPage() {
   const workspaceId = getWorkspaceId();
-  const { data: alerts = [], isLoading: loading, error } = useFraudAlerts(workspaceId);
-  
-  const [filter, setFilter] = useState<"all" | "high" | "medium" | "low">("all");
+  const { data, isLoading: loading, error } = useFraudAlerts(workspaceId);
+
+  const [filter, setFilter] = useState<"all" | "high" | "medium" | "low" | "critical">("all");
   const [selected, setSelected] = useState<FraudAlert | null>(null);
 
+  const alerts = data?.alerts || [];
   const filtered = filter === "all" ? alerts : alerts.filter((a) => a.severity === filter);
 
   const total = alerts.length;
-  const highCount = alerts.filter((a) => a.severity === "high").length;
+  const highCount = alerts.filter((a) => a.severity === "high" || a.severity === "critical").length;
   const underReview = alerts.filter((a) => a.status === "under_review").length;
   const resolved = alerts.filter((a) => a.status === "resolved").length;
 
@@ -86,7 +90,7 @@ export default function FraudPage() {
 
           {/* Filter */}
           <div className="flex gap-2 flex-wrap">
-            {(["all", "high", "medium", "low"] as const).map((s) => (
+            {(["all", "critical", "high", "medium", "low"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setFilter(s)}
@@ -117,14 +121,16 @@ export default function FraudPage() {
                 {filtered.map((alert) => {
                   const sev = SEVERITY_STYLES[alert.severity];
                   return (
-                    <tr key={alert.id}>
+                    <tr key={alert.alert_id}>
                       <td>
                         <span className="font-mono font-semibold text-sm" style={{ color: "var(--accent)" }}>
-                          {alert.id}
+                          {alert.alert_id}
                         </span>
                       </td>
                       <td className="font-medium">{alert.claim_id}</td>
-                      <td style={{ color: "var(--text-secondary)" }}>{alert.type}</td>
+                      <td style={{ color: "var(--text-secondary)" }}>
+                        {alert.anomaly_types.length > 0 ? alert.anomaly_types[0].replace(/_/g, ' ') : 'N/A'}
+                      </td>
                       <td>
                         <span
                           className="font-bold text-sm"
@@ -137,7 +143,7 @@ export default function FraudPage() {
                                 : "var(--success)",
                           }}
                         >
-                          {alert.risk_score}
+                          {Math.round(alert.risk_score)}
                         </span>
                         <span className="text-xs ml-0.5" style={{ color: "var(--text-muted)" }}>/100</span>
                       </td>
@@ -146,7 +152,9 @@ export default function FraudPage() {
                           {alert.severity}
                         </span>
                       </td>
-                      <td className="text-xs" style={{ color: "var(--text-secondary)" }}>{alert.date}</td>
+                      <td className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                        {new Date(alert.detected_date).toLocaleDateString()}
+                      </td>
                       <td className="text-xs" style={{ color: "var(--text-secondary)" }}>
                         {STATUS_LABELS[alert.status]}
                       </td>

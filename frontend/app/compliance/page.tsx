@@ -13,23 +13,27 @@ import { useComplianceIssues } from "@/hooks/useQueries";
 
 const SEV_STYLES: Record<string, { color: string; bg: string; label: string }> = {
   critical: { color: "var(--danger)", bg: "rgba(239,68,68,0.12)", label: "Critical" },
-  warning: { color: "var(--warning)", bg: "rgba(245,158,11,0.12)", label: "Warning" },
-  info: { color: "var(--accent)", bg: "rgba(37,99,235,0.12)", label: "Info" },
+  high: { color: "var(--danger)", bg: "rgba(239,68,68,0.12)", label: "High" },
+  medium: { color: "var(--warning)", bg: "rgba(245,158,11,0.12)", label: "Medium" },
+  low: { color: "var(--accent)", bg: "rgba(37,99,235,0.12)", label: "Low" },
 };
 
 const STATUS_STYLES: Record<string, { color: string }> = {
   open: { color: "var(--danger)" },
   acknowledged: { color: "var(--warning)" },
+  in_progress: { color: "var(--warning)" },
   resolved: { color: "var(--success)" },
+  waived: { color: "var(--text-muted)" },
 };
 
-// Score: start at 100, critical = -20, warning = -8, info = -2
+// Score: start at 100, critical = -20, high = -15, medium = -8, low = -2
 function calcScore(issues: ComplianceIssue[]) {
   let score = 100;
   for (const issue of issues) {
-    if (issue.status === "resolved") continue;
+    if (issue.status === "resolved" || issue.status === "waived") continue;
     if (issue.severity === "critical") score -= 20;
-    else if (issue.severity === "warning") score -= 8;
+    else if (issue.severity === "high") score -= 15;
+    else if (issue.severity === "medium") score -= 8;
     else score -= 2;
   }
   return Math.max(0, score);
@@ -37,7 +41,7 @@ function calcScore(issues: ComplianceIssue[]) {
 
 export default function CompliancePage() {
   const workspaceId = getWorkspaceId();
-  const { data: issues = [], isLoading: loading, error, refetch } = useComplianceIssues(workspaceId);
+  const { data, isLoading: loading, error, refetch } = useComplianceIssues(workspaceId);
 
   const [running, setRunning] = useState(false);
   const [ran, setRan] = useState(false);
@@ -45,6 +49,7 @@ export default function CompliancePage() {
   const [generating, setGenerating] = useState(false);
   const [showReport, setShowReport] = useState(false);
 
+  const issues = data?.issues || [];
   const score = calcScore(issues);
   const openCritical = issues.filter((i) => i.severity === "critical" && i.status !== "resolved").length;
 
@@ -183,7 +188,7 @@ export default function CompliancePage() {
                 const statusStyle = STATUS_STYLES[issue.status];
                 return (
                   <div
-                    key={issue.id}
+                    key={issue.issue_id}
                     className="card flex items-start gap-4"
                     style={{ borderLeft: `3px solid ${sev.color}` }}
                   >
@@ -197,10 +202,10 @@ export default function CompliancePage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-xs font-bold px-1.5 py-0.5 rounded"
                           style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
-                          {issue.id}
+                          {issue.issue_id}
                         </span>
                         <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                          {issue.rule}
+                          {issue.rule_name}
                         </span>
                       </div>
                       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -214,7 +219,7 @@ export default function CompliancePage() {
                         background: `${statusStyle.color}1a`,
                       }}
                     >
-                      {issue.status}
+                      {issue.status.replace(/_/g, ' ')}
                     </span>
                   </div>
                 );
