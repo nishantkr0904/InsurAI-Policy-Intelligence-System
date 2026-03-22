@@ -120,3 +120,12 @@ export function getWorkspaceId(): string | null {
   const user = getUser();
   return user?.workspace || null;
 }
+
+/**
+ * Check if the current user is a demo user.
+ * Demo users (demo@insurai.ai) use mock data instead of real API calls.
+ */
+export function isDemoUser(): boolean {
+  const user = getUser();
+  return user?.email === "demo@insurai.ai";
+}

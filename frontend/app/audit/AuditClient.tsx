@@ -2,76 +2,80 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, getUser } from "@/lib/auth";
+import { isAuthenticated, getUser, isDemoUser, getWorkspaceId } from "@/lib/auth";
+import { useAuditLogs, useAuditAnalytics } from "@/hooks/useQueries";
 import AuditLogTable from "@/components/AuditLogTable";
 import AuditAnalytics from "@/components/AuditAnalytics";
 import type { AuditLogEntry } from "@/lib/api";
 
-// Mock audit log generator
+/**
+ * Mock audit log generator for demo users.
+ * Generates fake audit logs matching the real API schema.
+ */
 function generateMockAuditLogs(count: number): AuditLogEntry[] {
   const users = [
-    { id: "usr-001", name: "Alice Johnson" },
-    { id: "usr-002", name: "Bob Smith" },
-    { id: "usr-003", name: "Carol Davis" },
-    { id: "usr-004", name: "David Wilson" },
-    { id: "usr-005", name: "Eve Martinez" },
+    { id: "usr-001", email: "alice@demo.com", name: "Alice Johnson" },
+    { id: "usr-002", email: "bob@demo.com", name: "Bob Smith" },
+    { id: "usr-003", email: "carol@demo.com", name: "Carol Davis" },
+    { id: "usr-004", email: "david@demo.com", name: "David Wilson" },
+    { id: "usr-005", email: "eve@demo.com", name: "Eve Martinez" },
   ];
 
-  const actionTypes: AuditLogEntry["action_type"][] = [
-    "policy_upload",
-    "policy_update",
-    "claim_decision",
-    "risk_assessment",
-    "compliance_check",
-    "fraud_alert",
-    "login",
+  const actions = [
+    "document_upload",
+    "document_view",
+    "chat_query",
+    "claim_validate",
+    "fraud_alert_view",
+    "compliance_scan",
+    "user_login",
     "settings_change",
   ];
 
-  const resourceTypes: AuditLogEntry["resource_type"][] = [
-    "policy",
-    "claim",
-    "compliance",
-    "fraud",
-    "workspace",
+  const severities: Array<"info" | "warning" | "error" | "critical"> = [
+    "info",
+    "info",
+    "info",
+    "warning",
+    "error",
   ];
 
   const descriptions: Record<string, string[]> = {
-    policy_upload: [
-      "Uploaded policy AUTO-2024-001",
-      "Uploaded policy HOME-2024-042",
-      "Uploaded policy COMM-2024-087",
+    document_upload: [
+      "Uploaded policy document AUTO-2024-001.pdf",
+      "Uploaded policy document HOME-2024-042.pdf",
+      "Uploaded policy document COMM-2024-087.pdf",
     ],
-    policy_update: [
-      "Updated coverage limits",
-      "Modified deductible",
-      "Changed effective date",
+    document_view: [
+      "Viewed policy document POL-123",
+      "Accessed document DOC-456",
+      "Opened policy file POL-789",
     ],
-    claim_decision: [
-      "Approved claim CLM-8820",
-      "Denied claim CLM-8821",
-      "Pending manual review CLM-8822",
+    chat_query: [
+      "Asked: What is the coverage limit?",
+      "Query: Does this policy cover flood damage?",
+      "Question: What are the exclusions?",
     ],
-    risk_assessment: [
-      "Completed risk assessment for POL-001",
-      "Updated risk profile",
-      "Generated risk report",
+    claim_validate: [
+      "Validated claim CLM-8820",
+      "Processed claim CLM-8821",
+      "Reviewed claim CLM-8822",
     ],
-    compliance_check: [
-      "Ran compliance check",
-      "Compliance check passed",
-      "Found 3 compliance issues",
+    fraud_alert_view: [
+      "Viewed fraud alert FRD-001",
+      "Investigated fraud case FRD-002",
+      "Escalated fraud alert FRD-003",
     ],
-    fraud_alert: [
-      "Manual fraud alert created",
-      "Fraud pattern detected",
-      "Escalated suspicious claim",
+    compliance_scan: [
+      "Ran compliance check on workspace",
+      "Generated compliance report",
+      "Reviewed compliance issues",
     ],
-    login: ["User logged in", "Login successful"],
+    user_login: ["User logged in successfully", "Login from new device"],
     settings_change: [
       "Updated user profile",
-      "Changed password",
-      "Updated workspace settings",
+      "Changed notification preferences",
+      "Modified workspace settings",
     ],
   };
 
@@ -79,27 +83,31 @@ function generateMockAuditLogs(count: number): AuditLogEntry[] {
 
   for (let i = 0; i < count; i++) {
     const user = users[Math.floor(Math.random() * users.length)];
-    const actionType = actionTypes[Math.floor(Math.random() * actionTypes.length)];
-    const resourceType = resourceTypes[Math.floor(Math.random() * resourceTypes.length)];
+    const action = actions[Math.floor(Math.random() * actions.length)];
+    const severity = severities[Math.floor(Math.random() * severities.length)];
 
     const timestamp = new Date();
     timestamp.setMinutes(timestamp.getMinutes() - Math.floor(Math.random() * 1440 * 7)); // Last 7 days
 
-    const descList = descriptions[actionType] || ["Action completed"];
+    const descList = descriptions[action] || ["Action completed"];
     const description = descList[Math.floor(Math.random() * descList.length)];
 
     logs.push({
-      id: `AUDIT-${String(i + 1).padStart(6, "0")}`,
+      audit_id: `AUDIT-${String(i + 1).padStart(6, "0")}`,
       timestamp: timestamp.toISOString(),
+      workspace_id: "demo-workspace",
       user_id: user.id,
-      user_name: user.name,
-      action_type: actionType,
-      resource_type: resourceType,
-      resource_id: `${resourceType.toUpperCase()}-${String(Math.floor(Math.random() * 10000)).padStart(5, "0")}`,
-      resource_name: description,
-      description: description,
+      user_email: user.email,
+      action: action,
       status: Math.random() > 0.05 ? "success" : "failure",
-      ip_address: `192.168.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`,
+      severity: severity,
+      resource_type: "policy",
+      resource_id: `RES-${String(Math.floor(Math.random() * 10000)).padStart(5, "0")}`,
+      description: description,
+      metadata: {
+        ip_address: `192.168.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`,
+        duration_ms: Math.floor(Math.random() * 500) + 50,
+      },
     });
   }
 
@@ -109,10 +117,27 @@ function generateMockAuditLogs(count: number): AuditLogEntry[] {
 export default function AuditClient() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "logs" | "failures">("overview");
+  const [isDemo, setIsDemo] = useState(false);
 
+  // For demo users: use mock data with local state
+  const [mockLogs, setMockLogs] = useState<AuditLogEntry[]>([]);
+  const [mockLoading, setMockLoading] = useState(true);
+
+  // For real users: use TanStack Query hooks
+  const workspaceId = getWorkspaceId();
+  const {
+    data: realLogsData,
+    isLoading: realLogsLoading,
+    error: realLogsError,
+  } = useAuditLogs(workspaceId, { enabled: !isDemo });
+
+  const {
+    data: analyticsData,
+    isLoading: analyticsLoading,
+  } = useAuditAnalytics(workspaceId, { enabled: !isDemo });
+
+  // Initialize user and demo mode
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace("/login");
@@ -120,20 +145,26 @@ export default function AuditClient() {
     }
     const u = getUser();
     setUser(u);
+    const demoMode = isDemoUser();
+    setIsDemo(demoMode);
 
-    // Simulate loading audit logs
-    setIsLoading(true);
-    const timer = setTimeout(() => {
-      const mockLogs = generateMockAuditLogs(150);
-      setAuditLogs(mockLogs);
-      setIsLoading(false);
-    }, 500);
-
-    return () => clearTimeout(timer);
+    // If demo user, load mock data
+    if (demoMode) {
+      setMockLoading(true);
+      const timer = setTimeout(() => {
+        const mockData = generateMockAuditLogs(150);
+        setMockLogs(mockData);
+        setMockLoading(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
   }, [router]);
 
+  // Determine which data source to use
+  const auditLogs = isDemo ? mockLogs : (realLogsData?.logs || []);
+  const isLoading = isDemo ? mockLoading : realLogsLoading;
   const workspace = user?.workspace ?? "default";
-  const failureLogs = auditLogs.filter((log) => log.status === "failure");
+  const failureLogs = auditLogs.filter((log) => log.status === "failure" || log.status === "error");
 
   return (
     <div className="px-6 py-6 max-w-7xl mx-auto w-full space-y-8">
@@ -144,11 +175,29 @@ export default function AuditClient() {
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
           Workspace: <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{workspace}</span>
+          {isDemo && (
+            <span
+              className="ml-2 px-2 py-0.5 rounded text-xs font-semibold"
+              style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+            >
+              DEMO MODE
+            </span>
+          )}
         </p>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
           Historical record of policy modifications, claims decisions, compliance checks, and user activity logs
         </p>
       </div>
+
+      {/* Error Banner for Real API */}
+      {!isDemo && realLogsError && (
+        <div
+          className="rounded-lg px-4 py-3 text-sm"
+          style={{ background: "rgba(239,68,68,0.12)", color: "var(--danger)", border: "1px solid var(--danger)" }}
+        >
+          <strong>Error:</strong> {realLogsError?.message || "Failed to load audit logs"}
+        </div>
+      )}
 
       {/* ── Navigation Tabs ─────────────────────────────────– */}
       <div className="flex gap-2 border-b" style={{ borderColor: "var(--border)" }}>
