@@ -4,6 +4,7 @@ import "@/app/globals.css";
 import Navbar from "@/components/Navbar";
 import ClientLayoutWrapper from "@/components/ClientLayoutWrapper";
 import QueryProvider from "@/components/QueryProvider";
+import { Toaster } from "sonner";
 
 /**
  * Root layout – wraps every page in the InsurAI application.
@@ -66,6 +67,15 @@ export default function RootLayout({
               {" "}· AI responses are for informational purposes only.
             </footer>
           </ClientLayoutWrapper>
+
+          {/* ── Toast Notifications ── */}
+          <Toaster
+            position="top-right"
+            expand={true}
+            richColors
+            closeButton
+            duration={4000}
+          />
         </QueryProvider>
       </body>
     </html>
