@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { login, isAuthenticated, validateCredentials } from "@/lib/auth";
+import { login, isAuthenticated, validateCredentials, isOnboarded } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -50,8 +50,7 @@ export default function LoginPage() {
     });
 
     // If never onboarded, go through workspace setup
-    const onboarded = localStorage.getItem("insurai_onboarded") === "true";
-    router.push(onboarded ? "/dashboard" : "/onboarding");
+    router.push(isOnboarded() ? "/dashboard" : "/onboarding");
   }
 
   return (

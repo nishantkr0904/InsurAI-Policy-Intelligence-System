@@ -42,7 +42,14 @@ export function logout(): void {
 
 export function isOnboarded(): boolean {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem("insurai_onboarded") === "true";
+  // First check global flag (updated on login for returning users)
+  if (localStorage.getItem("insurai_onboarded") === "true") return true;
+  // Fallback: check the current user's stored onboarding status
+  const user = getUser();
+  if (user?.email) {
+    return isUserOnboarded(user.email);
+  }
+  return false;
 }
 
 /** Mark onboarding as complete and clean up step state. */
@@ -110,6 +117,8 @@ export function saveWorkspace(company: string, workspaceName: string): void {
     const selectedRole = getSelectedRole();
     if (selectedRole) user.role = selectedRole;
     localStorage.setItem("insurai_user", JSON.stringify(user));
+    // Mark user as onboarded in their registration record (per-user tracking)
+    markUserOnboarded(user.email, workspaceName, selectedRole || undefined);
   }
   completeOnboarding(workspaceName);
 }
@@ -140,6 +149,9 @@ interface RegisteredUser {
   passwordHash: string;
   name: string;
   createdAt: string;
+  onboarded: boolean;
+  workspace?: string;
+  role?: string;
 }
 
 const REGISTERED_USERS_KEY = "insurai_registered_users";
@@ -180,6 +192,45 @@ function saveRegisteredUsers(users: RegisteredUser[]): void {
 }
 
 /**
+ * Mark a registered user as onboarded.
+ * Stores the onboarding status in the user's registration record.
+ */
+export function markUserOnboarded(email: string, workspace?: string, role?: string): void {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (normalizedEmail === DEMO_EMAIL) {
+    // Demo user uses global flag
+    localStorage.setItem("insurai_onboarded", "true");
+    return;
+  }
+
+  const users = getRegisteredUsers();
+  const userIndex = users.findIndex((u) => u.email === normalizedEmail);
+  if (userIndex !== -1) {
+    users[userIndex].onboarded = true;
+    if (workspace) users[userIndex].workspace = workspace;
+    if (role) users[userIndex].role = role;
+    saveRegisteredUsers(users);
+  }
+  // Also set global flag for current session
+  localStorage.setItem("insurai_onboarded", "true");
+}
+
+/**
+ * Check if a registered user has completed onboarding.
+ */
+export function isUserOnboarded(email: string): boolean {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (normalizedEmail === DEMO_EMAIL) {
+    // Demo user checks global flag
+    return localStorage.getItem("insurai_onboarded") === "true";
+  }
+
+  const users = getRegisteredUsers();
+  const foundUser = users.find((u) => u.email === normalizedEmail);
+  return foundUser?.onboarded === true;
+}
+
+/**
  * Register a new user with email and password.
  * Returns { success, error } object.
  */
@@ -207,6 +258,7 @@ export function registerUser(
     passwordHash: simpleHash(password),
     name,
     createdAt: new Date().toISOString(),
+    onboarded: false,
   };
 
   users.push(newUser);
@@ -218,6 +270,7 @@ export function registerUser(
 /**
  * Validate login credentials against registered users.
  * Returns { success, user, error } object.
+ * Also restores onboarding status for returning users.
  */
 export function validateCredentials(
   email: string,
@@ -252,14 +305,25 @@ export function validateCredentials(
     return { success: false, error: "Invalid password." };
   }
 
+  // Restore onboarding status for returning users
+  if (foundUser.onboarded) {
+    localStorage.setItem("insurai_onboarded", "true");
+    if (foundUser.workspace) {
+      localStorage.setItem("insurai_workspace", foundUser.workspace);
+    }
+    if (foundUser.role) {
+      localStorage.setItem("insurai_user_role", foundUser.role);
+    }
+  }
+
   // Return user data
   return {
     success: true,
     user: {
       name: foundUser.name || normalizedEmail.split("@")[0],
       email: foundUser.email,
-      role: localStorage.getItem("insurai_user_role") || "",
-      workspace: localStorage.getItem("insurai_workspace") ?? "default",
+      role: foundUser.role || localStorage.getItem("insurai_user_role") || "",
+      workspace: foundUser.workspace || localStorage.getItem("insurai_workspace") ?? "default",
       initials: getInitials(foundUser.name || normalizedEmail.split("@")[0]),
     },
   };
