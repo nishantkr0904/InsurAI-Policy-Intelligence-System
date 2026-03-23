@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import { login, isAuthenticated, getInitials } from "@/lib/auth";
 
 const DEMO_EMAIL = "demo@insurai.ai";
@@ -25,6 +26,7 @@ export default function LoginPage() {
     setError("");
     if (!email.trim() || !password.trim()) {
       setError("Please enter your email and password.");
+      toast.error("Please enter your email and password");
       return;
     }
 
@@ -37,6 +39,9 @@ export default function LoginPage() {
       password !== DEMO_PASSWORD
     ) {
       setError("Invalid email or password. Please try again.");
+      toast.error("Invalid credentials", {
+        description: "Please check your email and password",
+      });
       setLoading(false);
       return;
     }
@@ -48,6 +53,10 @@ export default function LoginPage() {
       role: "admin",
       workspace: localStorage.getItem("insurai_workspace") ?? "default",
       initials: getInitials(name),
+    });
+
+    toast.success("Welcome back!", {
+      description: "Redirecting to your dashboard...",
     });
 
     // If never onboarded, go through workspace setup

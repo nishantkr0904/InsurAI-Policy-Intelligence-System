@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { toast } from "sonner";
 import AuthGuard from "@/components/AuthGuard";
 import ComplianceReport from "@/components/ComplianceReport";
 import { type ComplianceIssue } from "@/lib/api";
@@ -56,9 +57,19 @@ export default function CompliancePage() {
   async function runCheck() {
     setRunning(true);
     setRan(false);
+    const toastId = toast.loading("Running compliance check...");
     try {
       await refetch();
       setRan(true);
+      toast.success("Compliance check complete", {
+        id: toastId,
+        description: `Found ${issues.length} issue${issues.length !== 1 ? 's' : ''}`,
+      });
+    } catch (e) {
+      toast.error("Compliance check failed", {
+        id: toastId,
+        description: (e as Error).message,
+      });
     } finally {
       setRunning(false);
     }
@@ -66,10 +77,15 @@ export default function CompliancePage() {
 
   async function generateReport() {
     setGenerating(true);
+    const toastId = toast.loading("Generating compliance report...");
     // Simulate report generation processing
     await new Promise((r) => setTimeout(r, 1200));
     setGenerating(false);
     setShowReport(true);
+    toast.success("Report generated", {
+      id: toastId,
+      description: "Your compliance report is ready to view",
+    });
   }
 
   const scoreColor =

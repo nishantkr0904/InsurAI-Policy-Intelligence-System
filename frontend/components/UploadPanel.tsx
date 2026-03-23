@@ -9,6 +9,7 @@
  */
 
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { uploadDocumentWithProgress } from "@/lib/api";
 
 interface UploadPanelProps {
@@ -27,12 +28,29 @@ export default function UploadPanel({ workspaceId, onUploaded }: UploadPanelProp
   async function handleFile(file: File) {
     setProgress(0);
     setStatus(null);
+
+    // Show upload started toast
+    const toastId = toast.loading(`Uploading ${file.name}...`);
+
     try {
       const res = await uploadDocumentWithProgress(file, workspaceId, setProgress);
       setStatus({ ok: true, msg: `✓ ${file.name} queued (${res.document_id.slice(0, 8)}…)` });
       onUploaded?.(res.document_id);
+
+      // Success toast
+      toast.success(`Document uploaded successfully`, {
+        id: toastId,
+        description: `${file.name} is now being processed`,
+      });
     } catch (e) {
-      setStatus({ ok: false, msg: `✗ Upload failed: ${(e as Error).message}` });
+      const errorMsg = (e as Error).message;
+      setStatus({ ok: false, msg: `✗ Upload failed: ${errorMsg}` });
+
+      // Error toast
+      toast.error(`Upload failed`, {
+        id: toastId,
+        description: errorMsg,
+      });
     } finally {
       setProgress(null);
     }
