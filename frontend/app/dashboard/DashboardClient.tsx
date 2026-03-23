@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { isAuthenticated, getUser, type InsurAIUser } from "@/lib/auth";
-import { getSelectedRole } from "@/lib/auth";
+import { getSelectedRole, isFirstLogin, markFirstLoginShown } from "@/lib/auth";
 
 const STATS = [
   {
@@ -124,6 +124,7 @@ export default function DashboardClient() {
   const [user, setUser] = useState<InsurAIUser | null>(null);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [showFirstLoginMessage, setShowFirstLoginMessage] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -136,6 +137,13 @@ export default function DashboardClient() {
     // Show getting-started if documents haven't been uploaded yet
     const hasUploaded = localStorage.getItem("insurai_has_documents") === "true";
     setIsFirstVisit(!hasUploaded);
+    // Check if this is the user's first login (after onboarding)
+    const firstLogin = isFirstLogin(u?.email);
+    setShowFirstLoginMessage(firstLogin);
+    // Mark first login as shown after a short delay (to ensure message is displayed)
+    if (firstLogin) {
+      setTimeout(() => markFirstLoginShown(u?.email), 1000);
+    }
   }, [router]);
 
   function dismissOnboarding() {
@@ -152,7 +160,11 @@ export default function DashboardClient() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-            {user ? `Welcome back, ${user.name.split(" ")[0]}` : "Dashboard"}
+            {user
+              ? showFirstLoginMessage
+                ? `Welcome, ${user.name.split(" ")[0]}`
+                : `Welcome back, ${user.name.split(" ")[0]}`
+              : "Dashboard"}
           </h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
             Workspace:{" "}

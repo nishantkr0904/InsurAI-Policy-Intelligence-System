@@ -152,6 +152,7 @@ interface RegisteredUser {
   onboarded: boolean;
   workspace?: string;
   role?: string;
+  firstLoginShown?: boolean;
 }
 
 const REGISTERED_USERS_KEY = "insurai_registered_users";
@@ -343,4 +344,50 @@ export function isUserRegistered(email: string): boolean {
   const normalizedEmail = email.trim().toLowerCase();
   if (normalizedEmail === DEMO_EMAIL) return true;
   return getRegisteredUsers().some((u) => u.email === normalizedEmail);
+}
+
+/**
+ * Check if this is the user's first login (after onboarding).
+ * Returns true if the user has never seen the welcome message before.
+ */
+export function isFirstLogin(email?: string): boolean {
+  const targetEmail = email || getUser()?.email;
+  if (!targetEmail) return false;
+
+  const normalizedEmail = targetEmail.trim().toLowerCase();
+
+  // Demo user: check session flag
+  if (normalizedEmail === DEMO_EMAIL) {
+    return localStorage.getItem("insurai_first_login_shown") !== "true";
+  }
+
+  // Registered users: check their record
+  const users = getRegisteredUsers();
+  const foundUser = users.find((u) => u.email === normalizedEmail);
+  return foundUser?.firstLoginShown !== true;
+}
+
+/**
+ * Mark the first login welcome message as shown.
+ * After this, isFirstLogin() will return false.
+ */
+export function markFirstLoginShown(email?: string): void {
+  const targetEmail = email || getUser()?.email;
+  if (!targetEmail) return;
+
+  const normalizedEmail = targetEmail.trim().toLowerCase();
+
+  // Demo user: use session flag
+  if (normalizedEmail === DEMO_EMAIL) {
+    localStorage.setItem("insurai_first_login_shown", "true");
+    return;
+  }
+
+  // Registered users: update their record
+  const users = getRegisteredUsers();
+  const userIndex = users.findIndex((u) => u.email === normalizedEmail);
+  if (userIndex !== -1) {
+    users[userIndex].firstLoginShown = true;
+    saveRegisteredUsers(users);
+  }
 }
