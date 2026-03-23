@@ -4,10 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { login, isAuthenticated, getInitials } from "@/lib/auth";
-
-const DEMO_EMAIL = "demo@insurai.ai";
-const DEMO_PASSWORD = "demo1234";
+import { login, isAuthenticated, validateCredentials } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,26 +31,19 @@ export default function LoginPage() {
     // Simulate network latency
     await new Promise((r) => setTimeout(r, 800));
 
-    if (
-      email.trim().toLowerCase() !== DEMO_EMAIL ||
-      password !== DEMO_PASSWORD
-    ) {
-      setError("Invalid email or password. Please try again.");
+    // Validate credentials against registered users and demo account
+    const result = validateCredentials(email, password);
+    if (!result.success) {
+      setError(result.error || "Invalid email or password. Please try again.");
       toast.error("Invalid credentials", {
-        description: "Please check your email and password",
+        description: result.error || "Please check your email and password",
       });
       setLoading(false);
       return;
     }
 
-    const name = "Demo User";
-    login({
-      name,
-      email: DEMO_EMAIL,
-      role: "admin",
-      workspace: localStorage.getItem("insurai_workspace") ?? "default",
-      initials: getInitials(name),
-    });
+    // Log in the validated user
+    login(result.user!);
 
     toast.success("Welcome back!", {
       description: "Redirecting to your dashboard...",

@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { login, isAuthenticated } from "@/lib/auth";
+import { toast } from "sonner";
+import { login, isAuthenticated, registerUser } from "@/lib/auth";
 
 function FieldError({ msg, testId, id }: { msg: string; testId: string; id: string }) {
   if (!msg) return null;
@@ -110,6 +111,18 @@ export default function SignupPage() {
     setLoading(true);
     await new Promise((r) => setTimeout(r, 900));
 
+    // Register the user
+    const result = registerUser(form.email, form.password);
+
+    if (!result.success) {
+      toast.error("Registration failed", {
+        description: result.error || "Please try again.",
+      });
+      setLoading(false);
+      return;
+    }
+
+    // Log in the newly registered user
     const workspace = "default";
     login({
       name: "",
@@ -121,6 +134,10 @@ export default function SignupPage() {
 
     localStorage.setItem("insurai_workspace", workspace);
     localStorage.removeItem("insurai_onboarded");
+
+    toast.success("Account created!", {
+      description: "Redirecting to setup...",
+    });
 
     router.push("/onboarding");
   }

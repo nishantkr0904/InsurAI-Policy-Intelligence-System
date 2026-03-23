@@ -129,3 +129,154 @@ export function isDemoUser(): boolean {
   const user = getUser();
   return user?.email === "demo@insurai.ai";
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User Registration & Credential Storage (localStorage-based for demo/dev)
+// In production, this would be replaced by Keycloak or backend auth.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface RegisteredUser {
+  email: string;
+  passwordHash: string;
+  name: string;
+  createdAt: string;
+}
+
+const REGISTERED_USERS_KEY = "insurai_registered_users";
+const DEMO_EMAIL = "demo@insurai.ai";
+const DEMO_PASSWORD = "demo1234";
+
+/**
+ * Simple hash function for password storage (NOT cryptographically secure).
+ * For production, use proper backend authentication with bcrypt/argon2.
+ */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  // Add salt-like prefix for basic obfuscation
+  return `sh_${Math.abs(hash).toString(36)}_${str.length}`;
+}
+
+/** Get all registered users from localStorage. */
+function getRegisteredUsers(): RegisteredUser[] {
+  if (typeof window === "undefined") return [];
+  const raw = localStorage.getItem(REGISTERED_USERS_KEY);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as RegisteredUser[];
+  } catch {
+    return [];
+  }
+}
+
+/** Save registered users to localStorage. */
+function saveRegisteredUsers(users: RegisteredUser[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
+}
+
+/**
+ * Register a new user with email and password.
+ * Returns { success, error } object.
+ */
+export function registerUser(
+  email: string,
+  password: string,
+  name = ""
+): { success: boolean; error?: string } {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  // Check if email is demo email
+  if (normalizedEmail === DEMO_EMAIL) {
+    return { success: false, error: "This email is reserved for demo purposes." };
+  }
+
+  // Check if user already exists
+  const users = getRegisteredUsers();
+  if (users.some((u) => u.email === normalizedEmail)) {
+    return { success: false, error: "An account with this email already exists." };
+  }
+
+  // Register new user
+  const newUser: RegisteredUser = {
+    email: normalizedEmail,
+    passwordHash: simpleHash(password),
+    name,
+    createdAt: new Date().toISOString(),
+  };
+
+  users.push(newUser);
+  saveRegisteredUsers(users);
+
+  return { success: true };
+}
+
+/**
+ * Validate login credentials against registered users.
+ * Returns { success, user, error } object.
+ */
+export function validateCredentials(
+  email: string,
+  password: string
+): { success: boolean; user?: InsurAIUser; error?: string } {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  // Check demo credentials first
+  if (normalizedEmail === DEMO_EMAIL && password === DEMO_PASSWORD) {
+    return {
+      success: true,
+      user: {
+        name: "Demo User",
+        email: DEMO_EMAIL,
+        role: "admin",
+        workspace: localStorage.getItem("insurai_workspace") ?? "default",
+        initials: "DU",
+      },
+    };
+  }
+
+  // Check registered users
+  const users = getRegisteredUsers();
+  const foundUser = users.find((u) => u.email === normalizedEmail);
+
+  if (!foundUser) {
+    return { success: false, error: "No account found with this email." };
+  }
+
+  // Validate password
+  if (foundUser.passwordHash !== simpleHash(password)) {
+    return { success: false, error: "Invalid password." };
+  }
+
+  // Return user data
+  return {
+    success: true,
+    user: {
+      name: foundUser.name || normalizedEmail.split("@")[0],
+      email: foundUser.email,
+      role: localStorage.getItem("insurai_user_role") || "",
+      workspace: localStorage.getItem("insurai_workspace") ?? "default",
+      initials: getInitials(foundUser.name || normalizedEmail.split("@")[0]),
+    },
+  };
+}
+
+/**
+ * Check if any users are registered (for debugging/verification).
+ */
+export function getRegisteredUserCount(): number {
+  return getRegisteredUsers().length;
+}
+
+/**
+ * Check if a user with given email exists.
+ */
+export function isUserRegistered(email: string): boolean {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (normalizedEmail === DEMO_EMAIL) return true;
+  return getRegisteredUsers().some((u) => u.email === normalizedEmail);
+}
