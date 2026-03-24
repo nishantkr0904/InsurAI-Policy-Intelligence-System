@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isAuthenticated, getUser, isDemoUser } from "@/lib/auth";
+import { fetchDocuments, fetchPerformanceStats, fetchAuditAnalytics, type DocumentRecord } from "@/lib/api";
 import DocumentProcessing from "@/components/underwriter/DocumentProcessing";
 import PolicyChat from "@/components/underwriter/PolicyChat";
 import RiskAssessmentPanel from "@/components/underwriter/RiskAssessmentPanel";
@@ -113,16 +114,73 @@ function OverviewTab({
   isDemo: boolean;
   setActiveTab: (tab: TabView) => void;
 }) {
+  const [stats, setStats] = useState({
+    documentsIndexed: isDemo ? "24" : "—",
+    avgRiskScore: isDemo ? "42" : "—",
+    policiesReviewed: isDemo ? "156" : "—",
+    highRisk: isDemo ? "8" : "—",
+  });
+  const [activity, setActivity] = useState<Array<{ action: string; policy: string; time: string }>>([]);
+  const [loading, setLoading] = useState(!isDemo);
+
+  useEffect(() => {
+    if (!isDemo) {
+      loadRealData();
+    } else {
+      setActivity([
+        { action: "Risk assessment completed", policy: "HOME-2024-001", time: "2 min ago" },
+        { action: "Document indexed", policy: "AUTO-2024-087", time: "15 min ago" },
+        { action: "Policy query answered", policy: "COMM-2024-045", time: "1 hour ago" },
+      ]);
+    }
+  }, [workspaceId, isDemo]);
+
+  async function loadRealData() {
+    setLoading(true);
+    try {
+      const [docs, perfStats, auditStats] = await Promise.all([
+        fetchDocuments(workspaceId).catch(() => [] as DocumentRecord[]),
+        fetchPerformanceStats(workspaceId).catch(() => null),
+        fetchAuditAnalytics(workspaceId).catch(() => null),
+      ]);
+
+      const indexedDocs = docs.filter((d) => d.status === "indexed").length;
+
+      setStats({
+        documentsIndexed: String(indexedDocs),
+        avgRiskScore: perfStats?.quality_score_avg ? String(Math.round(perfStats.quality_score_avg * 100)) : "—",
+        policiesReviewed: auditStats ? String(auditStats.total_events) : "—",
+        highRisk: "—", // Would need specific endpoint
+      });
+
+      // Transform audit data to recent activity
+      if (auditStats?.top_actions) {
+        const recentActivity = auditStats.top_actions.slice(0, 3).map((a) => ({
+          action: a.action.replace(/_/g, " "),
+          policy: `${a.count} actions`,
+          time: `${a.avg_duration_ms ? Math.round(a.avg_duration_ms) + "ms avg" : ""}`,
+        }));
+        setActivity(recentActivity);
+      }
+    } catch (error) {
+      console.error("Failed to load overview data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const statCards = [
+    { label: "Documents Indexed", value: stats.documentsIndexed, icon: "📄", color: "var(--accent)" },
+    { label: "Avg Risk Score", value: stats.avgRiskScore, icon: "⚖️", color: "var(--warning)" },
+    { label: "Policies Reviewed", value: stats.policiesReviewed, icon: "📋", color: "var(--success)" },
+    { label: "High Risk", value: stats.highRisk, icon: "⚠️", color: "var(--danger)" },
+  ];
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-4 gap-4">
-        {[
-          { label: "Documents Indexed", value: isDemo ? "24" : "—", icon: "📄", color: "var(--accent)" },
-          { label: "Avg Risk Score", value: isDemo ? "42" : "—", icon: "⚖️", color: "var(--warning)" },
-          { label: "Policies Reviewed", value: isDemo ? "156" : "—", icon: "📋", color: "var(--success)" },
-          { label: "High Risk", value: isDemo ? "8" : "—", icon: "⚠️", color: "var(--danger)" },
-        ].map(({ label, value, icon, color }) => (
+        {statCards.map(({ label, value, icon, color }) => (
           <div
             key={label}
             className="rounded-lg p-4"
@@ -131,7 +189,7 @@ function OverviewTab({
             <div className="flex items-center justify-between mb-2">
               <span className="text-2xl">{icon}</span>
               <span className="text-2xl font-bold" style={{ color }}>
-                {value}
+                {loading ? "..." : value}
               </span>
             </div>
             <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
@@ -152,12 +210,12 @@ function OverviewTab({
             Recent Activity
           </h3>
           <div className="space-y-3">
-            {isDemo ? (
-              [
-                { action: "Risk assessment completed", policy: "HOME-2024-001", time: "2 min ago" },
-                { action: "Document indexed", policy: "AUTO-2024-087", time: "15 min ago" },
-                { action: "Policy query answered", policy: "COMM-2024-045", time: "1 hour ago" },
-              ].map((item, i) => (
+            {loading ? (
+              <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
+                Loading...
+              </p>
+            ) : activity.length > 0 ? (
+              activity.map((item, i) => (
                 <div key={i} className="flex items-start justify-between p-2 rounded" style={{ background: "var(--bg-surface)" }}>
                   <div>
                     <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{item.action}</p>
