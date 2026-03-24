@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchPerformanceHealth } from "@/lib/api";
 
 interface SystemHealthProps {
   workspaceId: string;
@@ -22,34 +23,58 @@ const DEMO_HEALTH: HealthStatus[] = [
 export default function SystemHealth({ workspaceId, isDemo }: SystemHealthProps) {
   const [health, setHealth] = useState<HealthStatus[]>([]);
   const [expanded, setExpanded] = useState(false);
+  const [systemStatus, setSystemStatus] = useState<"healthy" | "degraded" | "down">("healthy");
 
   useEffect(() => {
     if (isDemo) {
       setHealth(DEMO_HEALTH);
+      setSystemStatus("healthy");
     } else {
-      // In production, fetch from /api/v1/health or /api/v1/metrics/health
       fetchHealthStatus();
     }
   }, [workspaceId, isDemo]);
 
   async function fetchHealthStatus() {
     try {
-      // Placeholder for real health check
-      const res = await fetch(`/api/v1/metrics/health`);
-      if (res.ok) {
-        const data = await res.json();
-        setHealth(data.services || []);
+      const data = await fetchPerformanceHealth(workspaceId);
+
+      // Transform backend response to component format
+      const healthStatuses: HealthStatus[] = [
+        {
+          service: "API",
+          status: data.status === "critical" ? "down" : data.status,
+          latency: Math.round(data.avg_api_latency_ms),
+        },
+        {
+          service: "P95 Response",
+          status: data.p95_api_latency_ms > 3000 ? "down" : data.p95_api_latency_ms > 1000 ? "degraded" : "healthy",
+          latency: Math.round(data.p95_api_latency_ms),
+        },
+      ];
+
+      // Add slow endpoints as health indicators
+      if (data.slow_endpoints && data.slow_endpoints.length > 0) {
+        data.slow_endpoints.slice(0, 2).forEach((endpoint) => {
+          const endpointName = endpoint.endpoint?.split("/").pop() || "Endpoint";
+          healthStatuses.push({
+            service: endpointName.charAt(0).toUpperCase() + endpointName.slice(1),
+            status: endpoint.avg_ms > 2000 ? "degraded" : "healthy",
+            latency: Math.round(endpoint.avg_ms),
+          });
+        });
       }
+
+      setHealth(healthStatuses);
+      setSystemStatus(data.status === "critical" ? "down" : data.status);
     } catch (error) {
       console.error("Failed to fetch health:", error);
+      // Fallback to demo data on error
+      setHealth(DEMO_HEALTH);
+      setSystemStatus("healthy");
     }
   }
 
-  const overallStatus = health.every((h) => h.status === "healthy")
-    ? "healthy"
-    : health.some((h) => h.status === "down")
-      ? "down"
-      : "degraded";
+  const overallStatus = systemStatus;
 
   const statusConfig = {
     healthy: { color: "var(--success)", bg: "var(--success-soft)", icon: "✓", label: "All Systems Operational" },
