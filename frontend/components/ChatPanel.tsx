@@ -18,6 +18,8 @@ interface Message {
   role: "user" | "assistant";
   text: string;
   streaming?: boolean;
+  confidence?: number;
+  citationCount?: number;
 }
 
 interface ChatPanelProps {
@@ -81,6 +83,20 @@ export default function ChatPanel({ workspaceId, onCitations, documentIds }: Cha
         try {
           const full = await fetchChatResponse(query, workspaceId, 5, documentIds);
           onCitations(full.sources);
+          
+          // Update the message with confidence and citation count
+          setMessages((prev) => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            if (last?.role === "assistant") {
+              next[next.length - 1] = {
+                ...last,
+                confidence: full.confidence,
+                citationCount: full.sources.length,
+              };
+            }
+            return next;
+          });
         } catch { /* citations are non-critical; silently ignore */ }
       }
     } catch (e) {
@@ -147,7 +163,7 @@ export default function ChatPanel({ workspaceId, onCitations, documentIds }: Cha
         )}
 
         {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div key={i} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
             <div
               className="max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
               style={{
@@ -169,6 +185,27 @@ export default function ChatPanel({ workspaceId, onCitations, documentIds }: Cha
                   style={{ background: "var(--accent)", borderRadius: "2px" }} />
               )}
             </div>
+            
+            {/* Confidence & citations display for assistant messages */}
+            {m.role === "assistant" && !m.streaming && m.confidence !== undefined && (
+              <div className="flex items-center gap-3 mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                <div className="flex items-center gap-1">
+                  {m.confidence >= 0.7 ? (
+                    <span style={{ color: "#10b981" }}>✓ High confidence</span>
+                  ) : m.confidence >= 0.5 ? (
+                    <span style={{ color: "#f59e0b" }}>~ Medium confidence</span>
+                  ) : (
+                    <span style={{ color: "#ef4444" }}>! Low confidence</span>
+                  )}
+                  <span>({(m.confidence * 100).toFixed(0)}%)</span>
+                </div>
+                {m.citationCount !== undefined && (
+                  <span style={{ marginLeft: "0.5rem", paddingLeft: "0.5rem", borderLeft: "1px solid var(--border)" }}>
+                    {m.citationCount} {m.citationCount === 1 ? "source" : "sources"}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         ))}
         <div ref={bottomRef} />
