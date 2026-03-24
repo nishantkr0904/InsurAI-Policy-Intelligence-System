@@ -25,6 +25,7 @@ from app.rag.router import router as rag_router
 from app.rag.retrieve_router import router as retrieve_router
 from app.rag.stream_router import router as stream_router
 from app.claims.router import router as claims_router
+from app.underwriting.router import router as underwriting_router
 from app.fraud.router import router as fraud_router
 from app.compliance.router import router as compliance_router
 from app.audit.router import router as audit_router
@@ -33,6 +34,8 @@ from app.errors.router import router as errors_router
 from app.metrics.router import router as metrics_router
 from app.storage.minio_client import ensure_bucket_exists
 from app.processing.vector_store import ensure_collection_exists
+from app.reports.router import router as reports_router
+from app.health.router import router as health_router
 
 logger = logging.getLogger(__name__)
 
@@ -125,11 +128,14 @@ app.include_router(rag_router)
 app.include_router(retrieve_router)
 app.include_router(stream_router)
 app.include_router(claims_router)
+app.include_router(underwriting_router)
 app.include_router(fraud_router)
 app.include_router(compliance_router)
 app.include_router(audit_router)
 app.include_router(errors_router)
 app.include_router(metrics_router)
+app.include_router(reports_router)
+app.include_router(health_router)
 
 
 @app.get("/health", tags=["Health"])
