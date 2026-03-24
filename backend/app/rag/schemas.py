@@ -12,6 +12,30 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+class EdgeCaseWarning(BaseModel):
+    """Warning about a potential edge case or data quality issue."""
+    warning_type: str = Field(
+        ...,
+        description="low_confidence, conflicting_data, no_data, processing_failed",
+    )
+    severity: str = Field(
+        ...,
+        description="info, warning, error",
+    )
+    message: str = Field(
+        ...,
+        description="Human-readable warning message",
+    )
+    affected_documents: List[str] = Field(
+        default_factory=list,
+        description="Document IDs affected by this warning",
+    )
+    recommended_action: Optional[str] = Field(
+        None,
+        description="Suggested user action to resolve",
+    )
+
+
 class ChatRequest(BaseModel):
     """Request body for POST /api/v1/chat."""
     query: str = Field(
@@ -48,9 +72,23 @@ class ChatResponse(BaseModel):
     """Response body from POST /api/v1/chat."""
     answer: str
     sources: List[SourceCitation]
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score (0-1) based on retrieval quality.",
+    )
+    confidence_category: str = Field(
+        ...,
+        description="high (>0.8), medium (0.6-0.8), low (<0.6)",
+    )
     model: str
     token_usage: dict
     retrieved_chunks: int
+    warnings: List[EdgeCaseWarning] = Field(
+        default_factory=list,
+        description="Edge case warnings and data quality issues",
+    )
 
 
 class ChatStreamRequest(BaseModel):
