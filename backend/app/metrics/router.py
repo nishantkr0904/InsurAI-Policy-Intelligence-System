@@ -129,3 +129,81 @@ async def get_metrics_health(
       - recommendations: Optimization recommendations based on health
     """
     return await get_performance_health(workspace_id, session)
+
+
+@router.get(
+    "/risk-distribution",
+    response_model="RiskDistributionResponse",
+    summary="Risk distribution statistics",
+    description="Get risk assessment distribution across Low/Medium/High/Critical",
+)
+async def get_risk_dist(
+    workspace_id: Optional[str] = None,
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Get risk assessment distribution statistics.
+
+    Returns distribution of risk assessments across risk levels:
+      - Low: 0-30
+      - Medium: 31-50
+      - High: 51-75
+      - Critical: 76-100
+
+    Returns:
+      - total_assessments: Total number of assessments
+      - distribution: Distribution data for each risk level
+      - by_operation: Count by operation type
+    """
+    from app.metrics.service import get_risk_distribution
+
+    return await get_risk_distribution(workspace_id, session)
+
+
+@router.get(
+    "/documents",
+    response_model="DocumentProcessingStats",
+    summary="Document processing statistics",
+    description="Get document indexing and processing metrics",
+)
+async def get_doc_stats(
+    workspace_id: Optional[str] = None,
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Get document processing statistics.
+
+    Returns:
+      - indexed_today: Documents indexed in the last 24 hours
+      - total_indexed: Total indexed documents
+      - processing: Currently processing documents
+      - failed: Failed documents
+      - average_processing_time_ms: Average time to index a document
+    """
+    from app.metrics.service import get_document_processing_stats
+
+    return await get_document_processing_stats(workspace_id, session)
+
+
+@router.get(
+    "/queries",
+    response_model="QueryAnalytics",
+    summary="Query analytics",
+    description="Get top queries and hourly distribution",
+)
+async def get_query_stats(
+    workspace_id: Optional[str] = None,
+    top_n: int = 5,
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Get query analytics summary.
+
+    Returns:
+      - total_queries: Total number of queries
+      - most_common: Top N most common queries with percentages
+      - by_hour: Queries grouped by hour of day
+    """
+    from app.metrics.service import get_query_analytics
+
+    return await get_query_analytics(workspace_id, session, top_n)

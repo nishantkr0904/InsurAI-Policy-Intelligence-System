@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import List, Dict, Optional, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 
 from app.metrics.schemas import (
     PerformanceMetricLog as PerformanceMetricSchema,
@@ -388,6 +388,240 @@ async def get_performance_health(
         slow_endpoints=slow_endpoints[:5],
         slow_operations=slow_operations[:5],
         recommendations=recommendations,
+    )
+
+
+async def get_risk_distribution(
+    workspace_id: Optional[str],
+    session: AsyncSession,
+) -> "RiskDistributionResponse":
+    """
+    Get risk assessment distribution statistics.
+
+    Queries the database for risk assessments and calculates distribution
+    across Low, Medium, High, Critical categories.
+
+    Args:
+        workspace_id: Workspace to filter by (optional)
+        session: AsyncSession for database queries
+
+    Returns:
+        RiskDistributionResponse with distribution data
+    """
+    from app.metrics.schemas import RiskDistributionResponse, RiskDistributionItem
+    from collections import Counter
+
+    logger.info("Getting risk distribution for workspace=%s", workspace_id)
+
+    # Query all recent metrics with risk assessment data
+    query = select(PerformanceMetricORM).order_by(PerformanceMetricORM.created_at.desc()).limit(5000)
+
+    if workspace_id:
+        query = query.where(PerformanceMetricORM.workspace_id == workspace_id)
+
+    # Filter for risk assessment operations
+    query = query.where(PerformanceMetricORM.operation == "risk_assessment")
+
+    result = await session.execute(query)
+    db_metrics = result.scalars().all()
+
+    # Extract risk levels from metric_data
+    risk_levels = []
+    for m in db_metrics:
+        if m.metric_data and "risk_level" in m.metric_data:
+            risk_levels.append(m.metric_data["risk_level"])
+
+    if not risk_levels:
+        # Return demo distribution if no real data
+        return RiskDistributionResponse(
+            total_assessments=0,
+            distribution=[
+                RiskDistributionItem(level="Low", count=0, percentage=0.0),
+                RiskDistributionItem(level="Medium", count=0, percentage=0.0),
+                RiskDistributionItem(level="High", count=0, percentage=0.0),
+                RiskDistributionItem(level="Critical", count=0, percentage=0.0),
+            ],
+        )
+
+    # Count risk levels
+    risk_counts = Counter(risk_levels)
+    total = len(risk_levels)
+
+    distribution = [
+        RiskDistributionItem(
+            level=level,
+            count=risk_counts.get(level, 0),
+            percentage=round((risk_counts.get(level, 0) / total * 100), 1) if total > 0 else 0,
+        )
+        for level in ["Low", "Medium", "High", "Critical"]
+    ]
+
+    by_op = Counter(m.operation for m in db_metrics)
+
+    return RiskDistributionResponse(
+        total_assessments=total,
+        distribution=distribution,
+        by_operation=dict(by_op),
+    )
+
+
+async def get_document_processing_stats(
+    workspace_id: Optional[str],
+    session: AsyncSession,
+) -> "DocumentProcessingStats":
+    """
+    Get document processing statistics.
+
+    Queries PostgreSQL for document processing information including
+    documents indexed today, total indexed, processing, failed counts.
+
+    Args:
+        workspace_id: Workspace to filter by (optional)
+        session: AsyncSession for database queries
+
+    Returns:
+        DocumentProcessingStats with processing metrics
+    """
+    from app.metrics.schemas import DocumentProcessingStats
+    from datetime import datetime, timedelta
+
+    logger.info("Getting document processing stats for workspace=%s", workspace_id)
+
+    # Import Document model
+    try:
+        from app.models import Document
+    except ImportError:
+        logger.warning("Document model not found, returning empty stats")
+        return DocumentProcessingStats(
+            indexed_today=0,
+            total_indexed=0,
+            processing=0,
+            failed=0,
+            average_processing_time_ms=0.0,
+        )
+
+    # Query documents from the past 24 hours (indexed today)
+    now = datetime.utcnow()
+    yesterday = now - timedelta(days=1)
+
+    query_today = select(func.count()).select_from(Document)
+    if workspace_id:
+        query_today = query_today.where(Document.workspace_id == workspace_id)
+    query_today = query_today.where(
+        and_(
+            Document.status == "indexed",
+            Document.updated_at >= yesterday,
+        )
+    )
+    indexed_today = await session.scalar(query_today) or 0
+
+    # Total indexed
+    query_total = select(func.count()).select_from(Document)
+    if workspace_id:
+        query_total = query_total.where(Document.workspace_id == workspace_id)
+    query_total = query_total.where(Document.status == "indexed")
+    total_indexed = await session.scalar(query_total) or 0
+
+    # Processing
+    query_processing = select(func.count()).select_from(Document)
+    if workspace_id:
+        query_processing = query_processing.where(Document.workspace_id == workspace_id)
+    query_processing = query_processing.where(Document.status == "processing")
+    processing = await session.scalar(query_processing) or 0
+
+    # Failed
+    query_failed = select(func.count()).select_from(Document)
+    if workspace_id:
+        query_failed = query_failed.where(Document.workspace_id == workspace_id)
+    query_failed = query_failed.where(Document.status == "failed")
+    failed = await session.scalar(query_failed) or 0
+
+    # Average processing time (from metrics)
+    query_metrics = select(PerformanceMetricORM).where(
+        PerformanceMetricORM.operation == "document_ingest"
+    )
+    if workspace_id:
+        query_metrics = query_metrics.where(PerformanceMetricORM.workspace_id == workspace_id)
+    result = await session.execute(query_metrics.limit(100))
+    metrics = result.scalars().all()
+
+    avg_time = 0.0
+    if metrics:
+        durations = [m.duration_ms for m in metrics]
+        avg_time = sum(durations) / len(durations)
+
+    return DocumentProcessingStats(
+        indexed_today=indexed_today,
+        total_indexed=total_indexed,
+        processing=processing,
+        failed=failed,
+        average_processing_time_ms=avg_time,
+    )
+
+
+async def get_query_analytics(
+    workspace_id: Optional[str],
+    session: AsyncSession,
+    top_n: int = 5,
+) -> "QueryAnalytics":
+    """
+    Get query analytics summary.
+
+    Analyzes audit logs to extract top queries and hourly distribution.
+
+    Args:
+        workspace_id: Workspace to filter by (optional)
+        session: AsyncSession for database queries
+        top_n: Number of top queries to return (default 5)
+
+    Returns:
+        QueryAnalytics with top queries and hourly distribution
+    """
+    from app.metrics.schemas import QueryAnalytics, AnalyticsQuery
+    from app.models import AuditLog
+
+    logger.info("Getting query analytics for workspace=%s", workspace_id)
+
+    # Query audit logs for chat queries
+    query = select(AuditLog).where(AuditLog.action == "CHAT_QUERY")
+    if workspace_id:
+        query = query.where(AuditLog.workspace_id == workspace_id)
+
+    result = await session.execute(query.limit(1000))
+    audit_logs = result.scalars().all()
+
+    # Extract query texts and calculate frequencies
+    query_texts = []
+    for log in audit_logs:
+        if log.meta_data and isinstance(log.meta_data, dict):
+            if "query_text" in log.meta_data:
+                query_texts.append(log.meta_data["query_text"])
+        elif hasattr(log, "meta_data") and hasattr(log.meta_data, "query_text"):
+            query_texts.append(log.meta_data.query_text)
+
+    query_counts = Counter(query_texts) if query_texts else Counter()
+    total_queries = len(query_texts)
+
+    # Build top queries
+    most_common = [
+        AnalyticsQuery(
+            query_text=q,
+            count=count,
+            percentage=round((count / total_queries * 100), 1) if total_queries > 0 else 0,
+        )
+        for q, count in query_counts.most_common(top_n)
+    ]
+
+    # Calculate hourly distribution
+    by_hour = defaultdict(int)
+    for log in audit_logs:
+        created_hour = log.created_at.strftime("%H:00") if log.created_at else "00:00"
+        by_hour[created_hour] += 1
+
+    return QueryAnalytics(
+        total_queries=total_queries,
+        most_common=most_common,
+        by_hour=dict(sorted(by_hour.items())),
     )
 
 

@@ -115,3 +115,45 @@ class PerformanceHealthCheck(BaseModel):
     slow_endpoints: List[Dict[str, Any]] = Field(default_factory=list)
     slow_operations: List[Dict[str, Any]] = Field(default_factory=list)
     recommendations: List[str] = Field(default_factory=list)
+
+
+class RiskDistributionItem(BaseModel):
+    """Risk distribution data point."""
+
+    level: str = Field(..., description="Low, Medium, High, Critical")
+    count: int = Field(..., description="Number of policies at this risk level")
+    percentage: float = Field(..., description="Percentage of total")
+
+
+class RiskDistributionResponse(BaseModel):
+    """Risk distribution statistics."""
+
+    total_assessments: int
+    distribution: List[RiskDistributionItem]
+    by_operation: Dict[str, int] = Field(default_factory=dict)
+
+
+class DocumentProcessingStats(BaseModel):
+    """Document processing statistics."""
+
+    indexed_today: int = Field(..., description="Documents indexed in the last 24 hours")
+    total_indexed: int = Field(..., description="Total indexed documents")
+    processing: int = Field(..., description="Currently processing")
+    failed: int = Field(..., description="Failed documents")
+    average_processing_time_ms: float = Field(..., description="Average time to index a document")
+
+
+class AnalyticsQuery(BaseModel):
+    """Top query information."""
+
+    query_text: str
+    count: int
+    percentage: float
+
+
+class QueryAnalytics(BaseModel):
+    """Query analytics summary."""
+
+    total_queries: int
+    most_common: List[AnalyticsQuery]
+    by_hour: Dict[str, int] = Field(default_factory=dict)
