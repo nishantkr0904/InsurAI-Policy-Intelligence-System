@@ -48,8 +48,10 @@ Rules:
 class SynthesisResult:
     answer: str
     sources: List[dict]      # [{document_id, chunk_index, text_preview}]
+    confidence: float        # 0-1 confidence score
     model: str
     token_usage: dict
+
 
 
 def _build_context(chunks: List[RetrievedChunk], max_chars: int = 6000) -> str:
@@ -63,6 +65,50 @@ def _build_context(chunks: List[RetrievedChunk], max_chars: int = 6000) -> str:
         lines.append(excerpt)
         total += len(excerpt)
     return "\n".join(lines)
+
+
+def _calculate_confidence(chunks: List[RetrievedChunk]) -> float:
+    """
+    Calculate confidence score based on retrieval quality.
+    
+    Factors:
+    - Top chunk score (higher = more confident)
+    - Score consistency (variance in scores)
+    - Number of chunks (more chunks = higher confidence)
+    
+    Args:
+        chunks: Retrieved chunks with scores
+    
+    Returns:
+        Confidence score 0-1
+    """
+    if not chunks:
+        return 0.0
+    
+    # Top chunk score (normalize to 0-1)
+    top_score = min(chunks[0].final_score, 1.0)
+    
+    # Score consistency (lower variance = higher confidence)
+    if len(chunks) > 1:
+        scores = [min(c.final_score, 1.0) for c in chunks]
+        avg_score = sum(scores) / len(scores)
+        variance = sum((s - avg_score) ** 2 for s in scores) / len(scores)
+        # Higher variance = lower consistency score
+        consistency = max(0.0, 1.0 - (variance * 1.5))
+    else:
+        consistency = 0.7  # Single chunk has moderate consistency
+    
+    # Chunk count factor (more chunks = higher confidence, up to 5)
+    chunk_count_factor = min(len(chunks) / 5.0, 1.0)
+    
+    # Weighted confidence calculation
+    confidence = (
+        0.5 * top_score +           # Top chunk score is most important
+        0.3 * consistency +         # Score spread matters
+        0.2 * chunk_count_factor    # More chunks helps
+    )
+    
+    return round(min(confidence, 1.0), 3)  # Round to 3 decimals
 
 
 def synthesize(
@@ -90,6 +136,7 @@ def synthesize(
         return SynthesisResult(
             answer="I could not find relevant policy information to answer your question.",
             sources=[],
+            confidence=0.0,
             model=model,
             token_usage={},
         )
@@ -132,12 +179,16 @@ def synthesize(
         for c in chunks
     ]
 
+    # Calculate confidence based on retrieval quality
+    confidence = _calculate_confidence(chunks)
+
     logger.info(
-        "Synthesized answer (%d tokens) for query='%s...'",
+        "Synthesized answer (%d tokens, confidence=%.2f) for query='%s...'",
         usage.get("total_tokens", 0),
+        confidence,
         query[:40],
     )
-    return SynthesisResult(answer=answer, sources=sources, model=model, token_usage=usage)
+    return SynthesisResult(answer=answer, sources=sources, confidence=confidence, model=model, token_usage=usage)
 
 
 async def synthesize_stream(
