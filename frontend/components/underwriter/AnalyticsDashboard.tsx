@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchPerformanceStats, fetchAuditAnalytics, type PerformanceStats, type AuditAnalytics } from "@/lib/api";
+import {
+  fetchPerformanceStats,
+  fetchAuditAnalytics,
+  fetchRiskDistribution,
+  fetchDocumentProcessingStats,
+  fetchQueryAnalytics,
+  type PerformanceStats,
+  type AuditAnalytics,
+  type RiskDistribution,
+  type DocumentProcessingStats,
+  type QueryAnalytics,
+} from "@/lib/api";
 
 interface AnalyticsDashboardProps {
   workspaceId: string;
@@ -17,6 +28,9 @@ interface AnalyticsData {
     totalDocuments: number;
     indexedToday: number;
   };
+  mostCommonQuery?: string;
+  mostCommonPercentage?: number;
+  avgResponseTime?: number;
 }
 
 // Mock demo analytics data
@@ -42,6 +56,9 @@ const DEMO_ANALYTICS: AnalyticsData = {
     totalDocuments: 129,
     indexedToday: 8,
   },
+  mostCommonQuery: "Coverage exclusions",
+  mostCommonPercentage: 42,
+  avgResponseTime: 1.8,
 };
 
 // Generate 7-day query trends from audit analytics
@@ -83,22 +100,28 @@ export default function AnalyticsDashboard({ workspaceId, isDemo }: AnalyticsDas
       if (isDemo) {
         setAnalytics(DEMO_ANALYTICS);
       } else {
-        // Fetch real analytics from backend
-        const [perfStats, auditStats] = await Promise.all([
+        // Fetch all analytics data in parallel
+        const [perfStats, auditStats, riskDist, docStats, queryAnalytics] = await Promise.all([
           fetchPerformanceStats(workspaceId).catch(() => null),
           fetchAuditAnalytics(workspaceId).catch(() => null),
+          fetchRiskDistribution(workspaceId).catch(() => null),
+          fetchDocumentProcessingStats(workspaceId).catch(() => null),
+          fetchQueryAnalytics(workspaceId, 3).catch(() => null),
         ]);
 
         // Transform backend data to dashboard format
         const transformedData: AnalyticsData = {
-          riskDistribution: DEMO_ANALYTICS.riskDistribution, // Keep demo for now (no backend endpoint)
+          riskDistribution: riskDist?.distribution || DEMO_ANALYTICS.riskDistribution,
           queryTrends: generateQueryTrends(auditStats),
           processingMetrics: {
             avgProcessingTime: perfStats ? Math.round(perfStats.avg_duration_ms / 1000 * 10) / 10 : 0,
             successRate: auditStats ? Math.round(auditStats.success_rate * 10) / 10 : 0,
-            totalDocuments: perfStats?.total_requests || 0,
-            indexedToday: Math.floor(Math.random() * 10) + 1, // Would need real endpoint
+            totalDocuments: docStats?.total_indexed || perfStats?.total_requests || 0,
+            indexedToday: docStats?.indexed_today || 0,
           },
+          mostCommonQuery: queryAnalytics?.most_common?.[0]?.query_text || "Coverage exclusions",
+          mostCommonPercentage: queryAnalytics?.most_common?.[0]?.percentage || 0,
+          avgResponseTime: perfStats ? Math.round(perfStats.avg_duration_ms / 100) / 10 : 0,
         };
 
         setAnalytics(transformedData);
@@ -271,8 +294,8 @@ export default function AnalyticsDashboard({ workspaceId, isDemo }: AnalyticsDas
         {[
           {
             title: "Most Common Query",
-            value: "Coverage exclusions",
-            subtitle: "42% of all queries",
+            value: analytics.mostCommonQuery || "Coverage exclusions",
+            subtitle: `${analytics.mostCommonPercentage || 42}% of all queries`,
           },
           {
             title: "Peak Usage Time",
@@ -281,7 +304,7 @@ export default function AnalyticsDashboard({ workspaceId, isDemo }: AnalyticsDas
           },
           {
             title: "Average Response Time",
-            value: "1.8 seconds",
+            value: `${analytics.avgResponseTime || 1.8}s`,
             subtitle: "↓ 15% from last week",
           },
         ].map((stat, i) => (
