@@ -16,7 +16,84 @@ export type UserRole =
 export interface NavLink {
   href: string;
   label: string;
+  icon?: string;
 }
+
+/**
+ * Role-specific default routes (used after login/onboarding).
+ */
+export const ROLE_DEFAULT_ROUTES: Record<UserRole, string> = {
+  underwriter: "/dashboard/underwriter",
+  claims_adjuster: "/claims",
+  compliance_officer: "/compliance",
+  fraud_analyst: "/fraud",
+  broker: "/documents",
+  auditor: "/audit",
+  customer: "/chat",
+  admin: "/dashboard",
+};
+
+/**
+ * Role-specific sidebar links for dashboard.
+ */
+export const ROLE_SIDEBAR_LINKS: Record<UserRole, NavLink[]> = {
+  underwriter: [
+    { href: "/dashboard", label: "Overview", icon: "📊" },
+    { href: "/dashboard/underwriter", label: "Risk Assessment", icon: "📋" },
+    { href: "/documents", label: "Policies", icon: "📄" },
+    { href: "/chat", label: "Policy Chat", icon: "💬" },
+    { href: "/analytics", label: "Analytics", icon: "📈" },
+  ],
+  claims_adjuster: [
+    { href: "/dashboard", label: "Overview", icon: "📊" },
+    { href: "/claims", label: "Claims Validation", icon: "✅" },
+    { href: "/documents", label: "Policies", icon: "📄" },
+    { href: "/chat", label: "Policy Chat", icon: "💬" },
+  ],
+  compliance_officer: [
+    { href: "/dashboard", label: "Overview", icon: "📊" },
+    { href: "/compliance", label: "Compliance", icon: "🛡️" },
+    { href: "/dashboard/compliance", label: "Compliance Dashboard", icon: "📋" },
+    { href: "/audit", label: "Audit Trail", icon: "📜" },
+    { href: "/documents", label: "Policies", icon: "📄" },
+    { href: "/chat", label: "Policy Chat", icon: "💬" },
+  ],
+  fraud_analyst: [
+    { href: "/dashboard", label: "Overview", icon: "📊" },
+    { href: "/fraud", label: "Fraud Alerts", icon: "🔍" },
+    { href: "/claims", label: "Claims Review", icon: "✅" },
+    { href: "/audit", label: "Audit Trail", icon: "📜" },
+    { href: "/documents", label: "Policies", icon: "📄" },
+    { href: "/chat", label: "Policy Chat", icon: "💬" },
+  ],
+  broker: [
+    { href: "/dashboard", label: "Overview", icon: "📊" },
+    { href: "/documents", label: "Policies", icon: "📄" },
+    { href: "/chat", label: "Policy Chat", icon: "💬" },
+  ],
+  auditor: [
+    { href: "/dashboard", label: "Overview", icon: "📊" },
+    { href: "/audit", label: "Audit Trail", icon: "📜" },
+    { href: "/compliance", label: "Compliance", icon: "🛡️" },
+    { href: "/documents", label: "Policies", icon: "📄" },
+    { href: "/analytics", label: "Analytics", icon: "📈" },
+  ],
+  customer: [
+    { href: "/dashboard", label: "Overview", icon: "📊" },
+    { href: "/chat", label: "Policy Chat", icon: "💬" },
+    { href: "/documents", label: "My Policies", icon: "📄" },
+  ],
+  admin: [
+    { href: "/dashboard", label: "Overview", icon: "📊" },
+    { href: "/documents", label: "Policies", icon: "📄" },
+    { href: "/chat", label: "Policy Chat", icon: "💬" },
+    { href: "/claims", label: "Claims", icon: "✅" },
+    { href: "/fraud", label: "Fraud", icon: "🔍" },
+    { href: "/compliance", label: "Compliance", icon: "🛡️" },
+    { href: "/audit", label: "Audit", icon: "📜" },
+    { href: "/analytics", label: "Analytics", icon: "📈" },
+  ],
+};
 
 /**
  * Role-to-route mapping.
@@ -166,4 +243,30 @@ export function getUnauthorizedMessage(role: string | null): string {
 
   const roleLabel = role.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   return `Access denied. This page is not available for ${roleLabel} role.`;
+}
+
+/**
+ * Get the default route for a specific role (used after login/onboarding).
+ */
+export function getRoleDefaultRoute(role: string | null): string {
+  if (!role) return "/dashboard";
+  const normalizedRole = role as UserRole;
+  return ROLE_DEFAULT_ROUTES[normalizedRole] || "/dashboard";
+}
+
+/**
+ * Get sidebar links for a specific role.
+ */
+export function getRoleSidebarLinks(role: string | null): NavLink[] {
+  if (!role) return ROLE_SIDEBAR_LINKS.customer;
+  const normalizedRole = role as UserRole;
+  return ROLE_SIDEBAR_LINKS[normalizedRole] || ROLE_SIDEBAR_LINKS.customer;
+}
+
+/**
+ * Get a user-friendly role label.
+ */
+export function getRoleLabel(role: string | null): string {
+  if (!role) return "User";
+  return role.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 }
