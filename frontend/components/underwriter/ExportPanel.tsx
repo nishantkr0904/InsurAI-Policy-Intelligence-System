@@ -2,17 +2,19 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { exportReport, type ReportType, type ExportFormat } from "@/lib/api";
 
 interface ExportPanelProps {
   workspaceId: string;
+  policyId?: string;
   isDemo: boolean;
 }
 
-export default function ExportPanel({ workspaceId, isDemo }: ExportPanelProps) {
+export default function ExportPanel({ workspaceId, policyId = "policy_default", isDemo }: ExportPanelProps) {
   const [exporting, setExporting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
-  async function handleExport(format: "pdf" | "json" | "csv") {
+  async function handleExport(format: ExportFormat, reportType: ReportType = "summary") {
     setExporting(true);
     setShowMenu(false);
 
@@ -23,27 +25,27 @@ export default function ExportPanel({ workspaceId, isDemo }: ExportPanelProps) {
         toast.success(`Report exported as ${format.toUpperCase()} (demo mode)`);
       } else {
         // Real export
-        const res = await fetch(`/api/v1/reports/export`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            workspace_id: workspaceId,
-            format,
-            report_type: "underwriter_summary",
-          }),
+        const response = await exportReport({
+          policy_id: policyId,
+          report_type: reportType,
+          export_format: format,
+          workspace_id: workspaceId,
+          include_analytics: false,
         });
 
-        if (!res.ok) throw new Error("Export failed");
+        if (response.status !== "success") {
+          throw new Error(response.message || "Export failed");
+        }
 
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `underwriter_report_${new Date().toISOString().split("T")[0]}.${format}`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        // Download from presigned URL
+        if (response.download_url) {
+          const a = document.createElement("a");
+          a.href = response.download_url;
+          a.download = response.file_name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
 
         toast.success(`Report exported as ${format.toUpperCase()}`);
       }
