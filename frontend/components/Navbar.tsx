@@ -4,16 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { isAuthenticated, getUser, logout, type InsurAIUser } from "@/lib/auth";
-
-const APP_NAV = [
-  { href: "/dashboard",  label: "Dashboard" },
-  { href: "/documents",  label: "Policies" },
-  { href: "/chat",       label: "AI Assistant" },
-  { href: "/claims",     label: "Claims" },
-  { href: "/fraud",      label: "Fraud" },
-  { href: "/compliance", label: "Compliance" },
-  { href: "/analytics",  label: "Analytics" },
-];
+import { getVisibleNavLinks, getRoleLabel, type NavLink } from "@/lib/rbac";
 
 const ROLE_LABELS: Record<string, string> = {
   underwriter:       "Underwriter",
@@ -32,16 +23,20 @@ export default function Navbar() {
 
   const [authed, setAuthed]           = useState(false);
   const [user,   setUser]             = useState<InsurAIUser | null>(null);
+  const [navLinks, setNavLinks]       = useState<NavLink[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen,   setNotifOpen]   = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef   = useRef<HTMLDivElement>(null);
 
-  // Read auth state on every pathname change
+  // Read auth state and compute role-based nav links on every pathname change
   useEffect(() => {
     const auth = isAuthenticated();
     setAuthed(auth);
-    setUser(auth ? getUser() : null);
+    const currentUser = auth ? getUser() : null;
+    setUser(currentUser);
+    // Filter navigation links based on user role
+    setNavLinks(getVisibleNavLinks(currentUser?.role || null));
   }, [pathname]);
 
   // Close dropdowns on outside click
@@ -150,7 +145,7 @@ export default function Navbar() {
         {Logo}
 
         <nav className="flex items-center gap-0.5">
-          {APP_NAV.map(({ href, label }) => {
+          {navLinks.map(({ href, label }) => {
             const active = isActive(href);
             return (
               <Link
@@ -311,23 +306,46 @@ export default function Navbar() {
                   <span className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{workspace}</span>
                 </div>
               </div>
-              {/* Menu items */}
-              {[
-                { icon: "⚙️", label: "Settings", href: "/settings" },
-                { icon: "📊", label: "Analytics", href: "/dashboard" },
-                { icon: "🛡️", label: "Compliance", href: "/dashboard/compliance" },
-              ].map(({ icon, label, href }) => (
-                <Link
-                  key={label}
-                  href={href}
-                  onClick={() => setProfileOpen(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-white/5"
-                  style={{ color: "var(--text-secondary)", textDecoration: "none" }}
-                >
-                  <span>{icon}</span>
-                  <span>{label}</span>
-                </Link>
-              ))}
+              {/* Menu items - role-specific quick links */}
+              {(() => {
+                // Get role-specific quick links for profile menu
+                const roleQuickLinks: { icon: string; label: string; href: string }[] = [];
+                roleQuickLinks.push({ icon: "⚙️", label: "Settings", href: "/settings" });
+
+                // Add role-specific links
+                switch (user?.role) {
+                  case "underwriter":
+                    roleQuickLinks.push({ icon: "📋", label: "Risk Assessment", href: "/dashboard/underwriter" });
+                    roleQuickLinks.push({ icon: "📈", label: "Analytics", href: "/analytics" });
+                    break;
+                  case "claims_adjuster":
+                    roleQuickLinks.push({ icon: "✅", label: "Claims", href: "/claims" });
+                    break;
+                  case "compliance_officer":
+                    roleQuickLinks.push({ icon: "🛡️", label: "Compliance", href: "/compliance" });
+                    roleQuickLinks.push({ icon: "📜", label: "Audit Trail", href: "/audit" });
+                    break;
+                  case "fraud_analyst":
+                    roleQuickLinks.push({ icon: "🔍", label: "Fraud Alerts", href: "/fraud" });
+                    roleQuickLinks.push({ icon: "📜", label: "Audit Trail", href: "/audit" });
+                    break;
+                  default:
+                    roleQuickLinks.push({ icon: "📊", label: "Dashboard", href: "/dashboard" });
+                }
+
+                return roleQuickLinks.map(({ icon, label, href }) => (
+                  <Link
+                    key={label}
+                    href={href}
+                    onClick={() => setProfileOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-white/5"
+                    style={{ color: "var(--text-secondary)", textDecoration: "none" }}
+                  >
+                    <span>{icon}</span>
+                    <span>{label}</span>
+                  </Link>
+                ));
+              })()}
               <div style={{ borderTop: "1px solid var(--border)" }}>
                 <button
                   onClick={handleLogout}
