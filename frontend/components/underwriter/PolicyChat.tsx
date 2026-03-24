@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { streamChat, fetchChatResponse, fetchDocuments, type ChatResponse, type DocumentRecord, type SourceCitation } from "@/lib/api";
+import { streamChat, fetchChatResponse, fetchDocuments, type ChatResponse, type DocumentRecord, type SourceCitation, type EdgeCaseWarning } from "@/lib/api";
+import WarningPanel from "./WarningPanel";
 import { toast } from "sonner";
 
 interface PolicyChatProps {
@@ -19,11 +20,14 @@ const DEMO_RESPONSE: ChatResponse = {
   model: "claude-3-sonnet",
   token_usage: { total_tokens: 456 },
   retrieved_chunks: 5,
+  confidence: 0.92,
+  confidence_category: "high",
+  warnings: [],
 };
 
 export default function PolicyChat({ workspaceId, isDemo }: PolicyChatProps) {
   const [query, setQuery] = useState("");
-  const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string; sources?: SourceCitation[]; confidence?: number }>>([]);
+  const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string; sources?: SourceCitation[]; confidence?: number; warnings?: EdgeCaseWarning[]; confidence_category?: string }>>([]);
   const [streaming, setStreaming] = useState(false);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
@@ -81,11 +85,13 @@ export default function PolicyChat({ workspaceId, isDemo }: PolicyChatProps) {
         }
 
         // Add sources and confidence
-        const confidence = 0.89;
+        const confidence = DEMO_RESPONSE.confidence || 0.89;
         setMessages(prev => {
           const updated = [...prev];
           updated[updated.length - 1].sources = DEMO_RESPONSE.sources;
           updated[updated.length - 1].confidence = confidence;
+          updated[updated.length - 1].confidence_category = DEMO_RESPONSE.confidence_category;
+          updated[updated.length - 1].warnings = DEMO_RESPONSE.warnings || [];
           return updated;
         });
         setCurrentSources(DEMO_RESPONSE.sources);
@@ -104,14 +110,16 @@ export default function PolicyChat({ workspaceId, isDemo }: PolicyChatProps) {
           });
         }
 
-        // Fetch full response with sources
+        // Fetch full response with sources and warnings
         const response = await fetchChatResponse(userQuery, workspaceId, 5, selectedDocs.length > 0 ? selectedDocs : undefined);
-        const confidence = calculateConfidence(response.sources);
+        const confidence = response.confidence || calculateConfidence(response.sources);
 
         setMessages(prev => {
           const updated = [...prev];
           updated[updated.length - 1].sources = response.sources;
           updated[updated.length - 1].confidence = confidence;
+          updated[updated.length - 1].confidence_category = response.confidence_category;
+          updated[updated.length - 1].warnings = response.warnings || [];
           return updated;
         });
         setCurrentSources(response.sources);
@@ -240,12 +248,19 @@ export default function PolicyChat({ workspaceId, isDemo }: PolicyChatProps) {
                           );
                         })()}
 
-                        {/* Low confidence warning */}
+                                            {/* Low confidence warning */}
                         {msg.confidence < 0.6 && (
                           <span className="text-xs" style={{ color: "var(--warning)" }}>
                             ⚠️ Limited relevant context found
                           </span>
                         )}
+                      </div>
+                    )}
+
+                    {/* Warnings Panel */}
+                    {msg.warnings && msg.warnings.length > 0 && (
+                      <div className="mt-3">
+                        <WarningPanel warnings={msg.warnings} />
                       </div>
                     )}
 
