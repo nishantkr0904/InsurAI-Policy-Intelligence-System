@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { isAuthenticated, saveWorkspace, getSelectedRole, saveSelectedRole } from "@/lib/auth";
+import { getRoleDefaultRoute } from "@/lib/rbac";
 import OnboardingProgress from "@/components/OnboardingProgress";
 
 export default function WorkspaceSetupPage() {
@@ -42,7 +43,10 @@ export default function WorkspaceSetupPage() {
     await new Promise((r) => setTimeout(r, 600));
 
     saveWorkspace(company.trim(), workspaceName.trim());
-    router.push("/policies/upload");
+
+    // Redirect to role-specific dashboard after onboarding
+    const roleRoute = getRoleDefaultRoute(selectedRole);
+    router.push(roleRoute);
   }
 
   return (
