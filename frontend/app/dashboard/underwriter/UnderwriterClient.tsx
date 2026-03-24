@@ -2,16 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { isAuthenticated, getUser } from "@/lib/auth";
-import RiskAssessmentForm from "@/components/RiskAssessmentForm";
-import RiskAssessmentResults from "@/components/RiskAssessmentResults";
-import type { RiskAssessmentResponse } from "@/lib/api";
+import { isAuthenticated, getUser, isDemoUser } from "@/lib/auth";
+import DocumentProcessing from "@/components/underwriter/DocumentProcessing";
+import PolicyChat from "@/components/underwriter/PolicyChat";
+import RiskAssessmentPanel from "@/components/underwriter/RiskAssessmentPanel";
+import AnalyticsDashboard from "@/components/underwriter/AnalyticsDashboard";
+import SystemHealth from "@/components/underwriter/SystemHealth";
+import ExportPanel from "@/components/underwriter/ExportPanel";
+
+type TabView = "overview" | "documents" | "chat" | "risk" | "analytics";
 
 export default function UnderwriterClient() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [assessmentResult, setAssessmentResult] = useState<RiskAssessmentResponse | null>(null);
+  const [activeTab, setActiveTab] = useState<TabView>("overview");
+  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -20,180 +25,190 @@ export default function UnderwriterClient() {
     }
     const u = getUser();
     setUser(u);
+    setIsDemo(isDemoUser());
   }, [router]);
 
   const workspace = user?.workspace ?? "default";
 
-  const handleNewAssessment = () => {
-    setAssessmentResult(null);
-  };
+  const tabs: { id: TabView; label: string; icon: string }[] = [
+    { id: "overview", label: "Overview", icon: "📊" },
+    { id: "documents", label: "Documents", icon: "📄" },
+    { id: "chat", label: "Policy Chat", icon: "💬" },
+    { id: "risk", label: "Risk Assessment", icon: "⚖️" },
+    { id: "analytics", label: "Analytics", icon: "📈" },
+  ];
 
   return (
-    <div className="px-6 py-6 max-w-4xl mx-auto w-full space-y-8">
-      {/* ── Header ──────────────────────────────────────────── */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-            Underwriter Dashboard
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-            Workspace: <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{workspace}</span>{" "}
-            <span style={{ color: "var(--text-secondary)" }}>·</span> Risk Assessment & Coverage Analysis
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="badge badge-accent">Underwriter</span>
-        </div>
-      </div>
-
-      {/* ── Navigation Tabs ─────────────────────────────────– */}
-      <div className="flex gap-2 border-b" style={{ borderColor: "var(--border)" }}>
-        <button
-          onClick={() => setAssessmentResult(null)}
-          className="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
-          style={{
-            borderColor: !assessmentResult ? "var(--accent)" : "transparent",
-            color: !assessmentResult ? "var(--accent)" : "var(--text-secondary)",
-            background: "none",
-            cursor: "pointer",
-          }}
-        >
-          📊 Risk Assessment
-        </button>
-        <Link
-          href="/chat"
-          className="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
-          style={{
-            borderColor: "transparent",
-            color: "var(--text-secondary)",
-            textDecoration: "none",
-          }}
-        >
-          💬 Coverage Query
-        </Link>
-      </div>
-
-      {/* ── Main Content ────────────────────────────────────– */}
-      <div className="grid grid-cols-3 gap-6">
-        {/* Left: Form or Results */}
-        <div className="col-span-2">
-          {assessmentResult ? (
-            <RiskAssessmentResults result={assessmentResult} onNewAssessment={handleNewAssessment} />
-          ) : (
-            <div
-              className="rounded-lg p-6"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div
+        className="px-6 py-4 border-b shrink-0"
+        style={{ background: "var(--bg-surface)", borderColor: "var(--border)" }}
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <h1
+              className="text-2xl font-bold"
+              style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}
             >
-              <h2 className="text-lg font-semibold mb-6" style={{ color: "var(--text-primary)" }}>
-                Policy Risk Assessment
-              </h2>
-              <RiskAssessmentForm
-                workspaceId={workspace}
-                onAssessmentComplete={(result) => setAssessmentResult(result)}
-              />
-            </div>
-          )}
+              Underwriter Dashboard
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+              Workspace:{" "}
+              <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{workspace}</span>
+              {isDemo && (
+                <>
+                  {" · "}
+                  <span className="badge badge-accent" style={{ fontSize: "11px" }}>
+                    Demo Mode
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <SystemHealth workspaceId={workspace} isDemo={isDemo} />
+            <ExportPanel workspaceId={workspace} isDemo={isDemo} />
+          </div>
         </div>
 
-        {/* Right: Quick Info & Guidance */}
-        <div className="space-y-4">
-          {/* Quick Stats */}
+        {/* Tabs */}
+        <div className="flex gap-2 mt-4">
+          {tabs.map(({ id, label, icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{
+                background: activeTab === id ? "rgba(59,130,246,0.12)" : "transparent",
+                color: activeTab === id ? "var(--accent)" : "var(--text-secondary)",
+                border: activeTab === id ? "1px solid rgba(59,130,246,0.3)" : "1px solid transparent",
+              }}
+            >
+              {icon} {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === "overview" && <OverviewTab workspaceId={workspace} isDemo={isDemo} setActiveTab={setActiveTab} />}
+        {activeTab === "documents" && <DocumentProcessing workspaceId={workspace} isDemo={isDemo} />}
+        {activeTab === "chat" && <PolicyChat workspaceId={workspace} isDemo={isDemo} />}
+        {activeTab === "risk" && <RiskAssessmentPanel workspaceId={workspace} isDemo={isDemo} />}
+        {activeTab === "analytics" && <AnalyticsDashboard workspaceId={workspace} isDemo={isDemo} />}
+      </div>
+    </div>
+  );
+}
+
+/** Overview Tab - Dashboard summary */
+function OverviewTab({
+  workspaceId,
+  isDemo,
+  setActiveTab
+}: {
+  workspaceId: string;
+  isDemo: boolean;
+  setActiveTab: (tab: TabView) => void;
+}) {
+  return (
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Quick Stats Grid */}
+      <div className="grid grid-cols-4 gap-4">
+        {[
+          { label: "Documents Indexed", value: isDemo ? "24" : "—", icon: "📄", color: "var(--accent)" },
+          { label: "Avg Risk Score", value: isDemo ? "42" : "—", icon: "⚖️", color: "var(--warning)" },
+          { label: "Policies Reviewed", value: isDemo ? "156" : "—", icon: "📋", color: "var(--success)" },
+          { label: "High Risk", value: isDemo ? "8" : "—", icon: "⚠️", color: "var(--danger)" },
+        ].map(({ label, value, icon, color }) => (
           <div
+            key={label}
             className="rounded-lg p-4"
             style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
           >
-            <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
-              Recent Assessments
-            </h3>
-            <div className="space-y-3">
-              {[
-                { policy: "HOME-2024-001", level: "low", score: 28 },
-                { policy: "AUTO-2024-087", level: "medium", score: 52 },
-                { policy: "COMM-2024-045", level: "high", score: 74 },
-              ].map(({ policy, level, score }) => (
-                <div key={policy} className="p-2 rounded" style={{ background: "var(--bg-surface)" }}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-                      {policy}
-                    </span>
-                    <span
-                      className="text-xs font-bold px-2 py-0.5 rounded"
-                      style={{
-                        background:
-                          level === "low"
-                            ? "var(--success-soft)"
-                            : level === "medium"
-                              ? "var(--warning-soft)"
-                              : "var(--danger-soft)",
-                        color:
-                          level === "low"
-                            ? "var(--success)"
-                            : level === "medium"
-                              ? "var(--warning)"
-                              : "var(--danger)",
-                      }}
-                    >
-                      {score}
-                    </span>
-                  </div>
-                </div>
-              ))}
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-2xl">{icon}</span>
+              <span className="text-2xl font-bold" style={{ color }}>
+                {value}
+              </span>
             </div>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              {label}
+            </p>
           </div>
+        ))}
+      </div>
 
-          {/* Guidance */}
-          <div
-            className="rounded-lg p-4"
-            style={{
-              background: "linear-gradient(135deg, rgba(59,130,246,0.06) 0%, rgba(139,92,246,0.04) 100%)",
-              border: "1px solid rgba(59,130,246,0.2)",
-            }}
-          >
-            <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>
-              Assessment Tips
-            </h3>
-            <ul className="space-y-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-              <li>• Include all relevant claim history</li>
-              <li>• Verify location risk tier accuracy</li>
-              <li>• Consider seasonal risk variations</li>
-              <li>• Cross-check with policy documents</li>
-              <li>• Document mitigation steps taken</li>
-            </ul>
-          </div>
-
-          {/* Risk Score Scale */}
-          <div
-            className="rounded-lg p-4"
-            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
-          >
-            <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>
-              Risk Scale
-            </h3>
-            <div className="space-y-2">
-              {[
-                { label: "Low", range: "0-30", color: "var(--success)" },
-                { label: "Medium", range: "31-50", color: "var(--warning)" },
-                { label: "High", range: "51-75", color: "var(--danger)" },
-                { label: "Critical", range: "76-100", color: "var(--danger)" },
-              ].map(({ label, range, color }) => (
-                <div key={label} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ background: color }} />
-                    <span className="text-xs" style={{ color: "var(--text-primary)" }}>
-                      {label}
-                    </span>
+      {/* Two-column layout */}
+      <div className="grid grid-cols-2 gap-6">
+        {/* Recent Activity */}
+        <div
+          className="rounded-lg p-4"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+        >
+          <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+            Recent Activity
+          </h3>
+          <div className="space-y-3">
+            {isDemo ? (
+              [
+                { action: "Risk assessment completed", policy: "HOME-2024-001", time: "2 min ago" },
+                { action: "Document indexed", policy: "AUTO-2024-087", time: "15 min ago" },
+                { action: "Policy query answered", policy: "COMM-2024-045", time: "1 hour ago" },
+              ].map((item, i) => (
+                <div key={i} className="flex items-start justify-between p-2 rounded" style={{ background: "var(--bg-surface)" }}>
+                  <div>
+                    <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{item.action}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{item.policy}</p>
                   </div>
-                  <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                    {range}
-                  </span>
+                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>{item.time}</span>
                 </div>
-              ))}
-            </div>
+              ))
+            ) : (
+              <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
+                No recent activity
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div
+          className="rounded-lg p-4"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+        >
+          <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+            Quick Actions
+          </h3>
+          <div className="space-y-2">
+            {[
+              { label: "Upload Policy Document", icon: "📤", tab: "documents" as TabView },
+              { label: "Run Risk Assessment", icon: "⚖️", tab: "risk" as TabView },
+              { label: "Query Policy", icon: "💬", tab: "chat" as TabView },
+              { label: "View Analytics", icon: "📈", tab: "analytics" as TabView },
+            ].map(({ label, icon, tab }) => (
+              <button
+                key={label}
+                onClick={() => setActiveTab(tab)}
+                className="w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors hover:bg-white/5"
+                style={{
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-primary)",
+                  cursor: "pointer",
+                }}
+              >
+                <span>{icon}</span>
+                <span>{label}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* ── Info Banner ─────────────────────────────────────– */}
+      {/* Info Banner */}
       <div
         className="rounded-lg p-4"
         style={{
@@ -202,10 +217,7 @@ export default function UnderwriterClient() {
         }}
       >
         <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          <strong style={{ color: "var(--accent)" }}>📋 Compliance Note:</strong> Risk assessments generated by this
-          tool are AI-driven recommendations only and do not constitute formal underwriting decisions. Always supplement
-          with manual review, verify against original policy documents, and document all assessments for regulatory
-          compliance.
+          <strong style={{ color: "var(--accent)" }}>📋 Compliance Note:</strong> Risk assessments and AI-generated insights are recommendations only. Always verify against source documents and document all underwriting decisions for regulatory compliance.
         </p>
       </div>
     </div>
