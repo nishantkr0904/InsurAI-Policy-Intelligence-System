@@ -2,25 +2,28 @@
 Celery task: document ingestion pipeline.
 
 This task is dispatched immediately after a file is stored in MinIO.
-It represents Step 2 of the ingestion pipeline defined in the architecture:
+It represents the full ingestion pipeline:
 
-  Upload → [THIS TASK] → Parse → Chunk → Embed → Index
+  Upload → [THIS TASK] → Parse → Chunk → Embed → Index → Status Update
 
-Current implementation (Phase P3):
-  - Fetches the raw file bytes from MinIO.
-  - Extracts plain text using PyMuPDF (PDF) or python-docx (DOCX).
-  - Saves the extracted text back to MinIO as a .txt sidecar.
-  - Updates the document status in the in-memory status store
-    (PostgreSQL persistence will be wired in the DB migration sub-task).
+Implementation (Phase P4):
+  - Fetches the raw file bytes from MinIO
+  - Extracts plain text using PyMuPDF (PDF) or python-docx (DOCX)
+  - Saves the extracted text back to MinIO as a .txt sidecar
+  - Performs semantic chunking (512 tokens, 50-token overlap)
+  - Generates embeddings via LiteLLM (text-embedding-3-small)
+  - Stores vectors in Milvus with metadata
+  - Updates Document.status in PostgreSQL (pending → processing → indexed)
+  - On error: Updates Document.status to "failed" with error_message
 
-Phase P4 (Embedding & Indexing) will extend this task to:
-  - Semantic chunking
-  - Embedding generation
-  - Milvus vector storage
+Error Handling:
+  - Logs errors to ErrorLog table (FR029)
+  - Persists error_message to Document.error_message
+  - Implements Celery retry mechanism (max 3 retries, 30s delay)
 
 Architecture ref:
+  docs/Underwriter.md Step 4 – Monitor Document Processing Status
   docs/system-architecture.md §6 – Document Ingestion Pipeline
-  docs/roadmap.md Phase 3 – step 2 "Parsing (DeepDoc/OCR)"
 """
 
 import asyncio
@@ -29,6 +32,7 @@ import logging
 import traceback
 import uuid
 from io import BytesIO
+from datetime import datetime
 
 from app.workers.celery_app import celery_app
 from app.storage.minio_client import _get_client, upload_file
@@ -37,9 +41,68 @@ from app.processing.chunker import chunk_text
 from app.processing.embedder import generate_embeddings
 from app.processing.vector_store import insert_vectors
 from app.database import AsyncSessionLocal
-from app.models import ErrorLog
+from app.models import ErrorLog, Document
 
 logger = logging.getLogger(__name__)
+
+
+async def _update_document_status(
+    document_id: str,
+    status: str,
+    error_message: str = None,
+    chunk_count: int = None,
+) -> None:
+    """
+    Update document status in PostgreSQL.
+
+    Called by Celery task to track ingestion pipeline progress:
+      - pending: Document queued for processing
+      - processing: Celery worker actively parsing/chunking/embedding
+      - indexed: Successfully embedded and stored in Milvus
+      - failed: Error during ingestion (details in error_message)
+
+    Args:
+        document_id: UUID of document record
+        status: New status value
+        error_message: Error details (if status="failed")
+        chunk_count: Number of chunks created (if status="indexed")
+
+    Raises:
+        Exception: If database update fails (will trigger Celery retry)
+    """
+    try:
+        async with AsyncSessionLocal() as session:
+            # Fetch document by ID
+            doc = await session.get(Document, document_id)
+            if not doc:
+                logger.warning("Document not found for status update: %s", document_id)
+                return
+
+            # Update status fields
+            doc.status = status
+            if error_message:
+                doc.error_message = error_message
+            if chunk_count is not None:
+                doc.chunk_count = chunk_count
+            if status == "indexed":
+                doc.processed_at = datetime.utcnow()
+
+            await session.commit()
+            logger.info(
+                "Document status updated: document_id=%s status=%s",
+                document_id,
+                status,
+            )
+
+    except Exception as e:
+        logger.error(
+            "Failed to update document status: document_id=%s error=%s",
+            document_id,
+            e,
+            exc_info=True,
+        )
+        # Don't re-raise here - we want the main task to retry, not this update call
+        # The task will retry anyway due to Celery's autoretry_for=(Exception,)
 
 
 def _extract_text_from_pdf(file_bytes: bytes) -> str:
@@ -148,8 +211,20 @@ def ingest_document(
     workspace_id: str,
 ) -> dict:
     """
-    Celery task: fetch a document from MinIO, extract its text, and store
-    a parsed sidecar file back in MinIO.
+    Celery task: full document ingestion pipeline.
+
+    Stages:
+      1. Fetch raw file from MinIO
+      2. Extract text (parse PDF/DOCX/TXT)
+      3. Perform semantic chunking (512 tokens, 50-token overlap)
+      4. Generate embeddings (LiteLLM text-embedding-3-small)
+      5. Insert vectors into Milvus
+      6. Update Document.status to "indexed"
+
+    Status Transitions:
+      pending (from upload) → processing (when task starts)
+                            → indexed (on success)
+                            → failed (on error)
 
     Args:
         document_id:  UUID of the document record.
@@ -158,10 +233,12 @@ def ingest_document(
         workspace_id: Workspace namespace.
 
     Returns:
-        dict with keys: document_id, status, extracted_chars, sidecar_key.
+        dict with keys: document_id, status, extracted_chars, sidecar_key,
+                       chunk_count, inserted_vectors, embedding_dim.
 
     Errors:
-        Logs errors to ErrorLog table for monitoring (FR029).
+        Logs errors to ErrorLog table (FR029).
+        Updates Document.status to "failed" with error details.
         Re-raises exceptions to trigger Celery retry mechanism.
     """
     try:
@@ -169,6 +246,14 @@ def ingest_document(
             "Starting ingestion for document_id=%s object_key=%s",
             document_id,
             object_key,
+        )
+
+        # ✅ STEP 0: Update status to "processing"
+        asyncio.run(
+            _update_document_status(
+                document_id=document_id,
+                status="processing",
+            )
         )
 
         # 1. Fetch raw bytes from MinIO
@@ -213,7 +298,6 @@ def ingest_document(
         )
 
         # 6. Build chunk manifest and store as JSON sidecar in MinIO
-        # Phase P4 T6 (Milvus integration) will read this sidecar to insert vectors.
         manifest = [
             {
                 "chunk_index": chunk.chunk_index,
@@ -248,7 +332,16 @@ def ingest_document(
             "Indexed %d vectors in Milvus for document_id=%s", inserted, document_id
         )
 
-        return {
+        # ✅ STEP 8: Update status to "indexed" with chunk count
+        asyncio.run(
+            _update_document_status(
+                document_id=document_id,
+                status="indexed",
+                chunk_count=len(chunks),
+            )
+        )
+
+        result = {
             "document_id": document_id,
             "status": "indexed",
             "extracted_chars": extracted_chars,
@@ -258,7 +351,25 @@ def ingest_document(
             "embedding_dim": len(vectors[0]) if vectors else 0,
         }
 
+        logger.info(
+            "Ingestion complete for document_id=%s: %s",
+            document_id,
+            result,
+        )
+
+        return result
+
     except Exception as exc:
+        # ✅ NEW: Update status to "failed" with error message
+        error_msg = f"{type(exc).__name__}: {str(exc)}"
+        asyncio.run(
+            _update_document_status(
+                document_id=document_id,
+                status="failed",
+                error_message=error_msg,
+            )
+        )
+
         # Log error asynchronously (FR029)
         asyncio.run(
             _log_celery_error(
