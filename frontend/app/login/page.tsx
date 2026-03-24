@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { login, isAuthenticated, validateCredentials, isOnboarded } from "@/lib/auth";
+import { login, isAuthenticated, validateCredentials, isOnboarded, getUser } from "@/lib/auth";
+import { getRoleDefaultRoute } from "@/lib/rbac";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,7 +16,11 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated()) router.replace("/dashboard");
+    if (isAuthenticated()) {
+      // Redirect to role-specific route if already logged in
+      const user = getUser();
+      router.replace(getRoleDefaultRoute(user?.role || null));
+    }
   }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -50,7 +55,13 @@ export default function LoginPage() {
     });
 
     // If never onboarded, go through workspace setup
-    router.push(isOnboarded() ? "/dashboard" : "/onboarding");
+    // Otherwise, redirect to role-specific dashboard
+    if (!isOnboarded()) {
+      router.push("/onboarding");
+    } else {
+      const roleRoute = getRoleDefaultRoute(result.user!.role || null);
+      router.push(roleRoute);
+    }
   }
 
   return (
