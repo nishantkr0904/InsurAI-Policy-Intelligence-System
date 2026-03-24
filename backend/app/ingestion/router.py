@@ -150,3 +150,151 @@ async def upload_document(
         object_key=stored.object_name,
         uploaded_at=datetime.utcnow(),
     )
+
+
+# ---------------------------------------------------------------------------
+# Status Update and Retry Endpoints (Phase P4)
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/{document_id}/status",
+    summary="Update document processing status",
+    status_code=status.HTTP_200_OK,
+)
+async def update_document_status(
+    document_id: str,
+    workspace_id: str = Query(..., description="Workspace ID"),
+    status: str = Query(..., description="New status: pending, processing, indexed, failed"),
+    error_message: str = Query(None, description="Error details if status=failed"),
+    chunk_count: int = Query(None, description="Chunk count if status=indexed"),
+) -> dict:
+    """
+    Manual status update endpoint.
+
+    Used for:
+      1. Admin operations to override status
+      2. Testing status transitions
+      3. Updating document state after manual processing
+
+    Status values:
+      - pending: Document queued for processing
+      - processing: Celery worker actively processing
+      - indexed: Successfully embedded and indexed
+      - failed: Error during ingestion
+    """
+    from app.database import AsyncSessionLocal
+    from app.models import Document
+
+    try:
+        async with AsyncSessionLocal() as session:
+            doc = await session.get(Document, document_id)
+            if not doc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Document {document_id} not found",
+                )
+            if doc.workspace_id != workspace_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Workspace mismatch",
+                )
+
+            # Update status
+            doc.status = status
+            if error_message:
+                doc.error_message = error_message
+            if chunk_count is not None:
+                doc.chunk_count = chunk_count
+            if status == "indexed":
+                doc.processed_at = datetime.utcnow()
+
+            await session.commit()
+
+            return {
+                "document_id": document_id,
+                "status": status,
+                "updated_at": datetime.utcnow().isoformat(),
+            }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Status update failed: {exc}",
+        ) from exc
+
+
+@router.post(
+    "/{document_id}/retry",
+    summary="Retry failed document ingestion",
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def retry_document_ingestion(
+    document_id: str,
+    workspace_id: str = Query(..., description="Workspace ID"),
+) -> dict:
+    """
+    Retry failed document ingestion by re-queuing Celery task.
+
+    Conditions:
+      - Document must exist and be in the same workspace
+      - Document status must be "failed" or "pending"
+
+    Returns:
+      - Resets status to "pending"
+      - Clears error_message
+      - Re-dispatches Celery task
+      - Returns new task_id for tracking
+    """
+    from app.database import AsyncSessionLocal
+    from app.models import Document
+
+    try:
+        async with AsyncSessionLocal() as session:
+            doc = await session.get(Document, document_id)
+            if not doc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Document {document_id} not found",
+                )
+            if doc.workspace_id != workspace_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Workspace mismatch",
+                )
+            if doc.status not in ("failed", "pending"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cannot retry document with status={doc.status}. "
+                           "Only 'failed' or 'pending' documents can be retried.",
+                )
+
+            # Reset status
+            doc.status = "pending"
+            doc.error_message = None
+            await session.commit()
+
+            # Re-dispatch Celery task
+            task = ingest_document.delay(
+                document_id=document_id,
+                object_key=doc.object_key,
+                content_type=doc.content_type,
+                workspace_id=workspace_id,
+            )
+
+            return {
+                "document_id": document_id,
+                "task_id": task.id,
+                "status": "pending",
+                "message": "Document queued for re-processing",
+                "created_at": datetime.utcnow().isoformat(),
+            }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Retry failed: {exc}",
+        ) from exc
