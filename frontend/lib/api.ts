@@ -8,6 +8,15 @@
  *   docs/roadmap.md Phase 7 – "Frontend → Backend → AI Services"
  */
 
+/** Shape of a single edge case warning in a chat response. */
+export interface EdgeCaseWarning {
+  warning_type: "low_confidence" | "conflicting_data" | "no_data" | "processing_failed";
+  severity: "info" | "warning" | "error";
+  message: string;
+  affected_documents?: string[];
+  recommended_action?: string;
+}
+
 /** Shape of a single source citation in a chat response. */
 export interface SourceCitation {
   document_id: string;
@@ -24,9 +33,12 @@ export interface SourceCitation {
 export interface ChatResponse {
   answer: string;
   sources: SourceCitation[];
+  confidence: number;
+  confidence_category: "high" | "medium" | "low";
   model: string;
   token_usage: { total_tokens: number };
   retrieved_chunks: number;
+  warnings?: EdgeCaseWarning[];
 }
 
 /** Shape of POST /api/v1/documents/upload response. */
@@ -683,4 +695,120 @@ export async function fetchPerformanceHealth(
   const res = await fetch(`${BASE}/metrics/health?${params.toString()}`);
   if (!res.ok) throw new Error(`Failed to fetch performance health: ${res.status}`);
   return res.json() as Promise<PerformanceHealthCheck>;
+}
+
+/** Risk distribution data from /api/v1/metrics/risk-distribution */
+export interface RiskDistributionItem {
+  level: "Low" | "Medium" | "High" | "Critical";
+  count: number;
+  percentage: number;
+}
+
+export interface RiskDistribution {
+  total_assessments: number;
+  distribution: RiskDistributionItem[];
+  by_operation: Record<string, number>;
+}
+
+/** Document processing statistics from /api/v1/metrics/documents */
+export interface DocumentProcessingStats {
+  indexed_today: number;
+  total_indexed: number;
+  processing: number;
+  failed: number;
+  average_processing_time_ms: number;
+}
+
+/** Query analytics from /api/v1/metrics/queries */
+export interface QueryAnalytic {
+  query_text: string;
+  count: number;
+  percentage: number;
+}
+
+export interface QueryAnalytics {
+  total_queries: number;
+  most_common: QueryAnalytic[];
+  by_hour: Record<string, number>;
+}
+
+/** Fetch risk assessment distribution. */
+export async function fetchRiskDistribution(
+  workspaceId?: string,
+): Promise<RiskDistribution> {
+  const params = new URLSearchParams();
+  if (workspaceId) params.append("workspace_id", workspaceId);
+
+  const res = await fetch(`${BASE}/metrics/risk-distribution?${params.toString()}`);
+  if (!res.ok) throw new Error(`Failed to fetch risk distribution: ${res.status}`);
+  return res.json() as Promise<RiskDistribution>;
+}
+
+/** Fetch document processing statistics. */
+export async function fetchDocumentProcessingStats(
+  workspaceId?: string,
+): Promise<DocumentProcessingStats> {
+  const params = new URLSearchParams();
+  if (workspaceId) params.append("workspace_id", workspaceId);
+
+  const res = await fetch(`${BASE}/metrics/documents?${params.toString()}`);
+  if (!res.ok) throw new Error(`Failed to fetch document stats: ${res.status}`);
+  return res.json() as Promise<DocumentProcessingStats>;
+}
+
+/** Fetch query analytics. */
+export async function fetchQueryAnalytics(
+  workspaceId?: string,
+  topN: number = 5,
+): Promise<QueryAnalytics> {
+  const params = new URLSearchParams();
+  if (workspaceId) params.append("workspace_id", workspaceId);
+  params.append("top_n", String(topN));
+
+  const res = await fetch(`${BASE}/metrics/queries?${params.toString()}`);
+  if (!res.ok) throw new Error(`Failed to fetch query analytics: ${res.status}`);
+  return res.json() as Promise<QueryAnalytics>;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Report Generation API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ReportType = "summary" | "detailed";
+export type ExportFormat = "pdf" | "json" | "csv";
+
+export interface ReportExportRequest {
+  policy_id: string;
+  report_type: ReportType;
+  export_format: ExportFormat;
+  workspace_id: string;
+  include_analytics?: boolean;
+}
+
+export interface ReportExportResponse {
+  report_id: string;
+  status: "success" | "processing" | "failed";
+  download_url?: string;
+  file_name: string;
+  file_size_bytes: number;
+  content_type: string;
+  expires_at?: string;
+  message?: string;
+}
+
+/** Export a risk assessment report in specified format. */
+export async function exportReport(
+  request: ReportExportRequest,
+): Promise<ReportExportResponse> {
+  const res = await fetch(`${BASE}/reports/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to export report: ${res.status}`);
+  }
+
+  return res.json() as Promise<ReportExportResponse>;
 }
