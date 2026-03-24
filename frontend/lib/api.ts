@@ -629,3 +629,58 @@ export async function fetchAuditAnalytics(
     throw new Error(`Failed to fetch audit analytics: ${res.status}`);
   return res.json() as Promise<AuditAnalytics>;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Performance Metrics API (FR030)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Shape of performance statistics from /api/v1/metrics/stats */
+export interface PerformanceStats {
+  total_requests: number;
+  avg_duration_ms: number;
+  min_duration_ms: number;
+  max_duration_ms: number;
+  p50_duration_ms: number;
+  p95_duration_ms: number;
+  p99_duration_ms: number;
+  by_operation: Record<string, { count: number; avg_ms: number }>;
+  by_endpoint: Record<string, { count: number; avg_ms: number }>;
+  by_source: Record<string, number>;
+  avg_tokens_used?: number;
+  avg_result_count?: number;
+  quality_score_avg?: number;
+}
+
+/** Shape of performance health check from /api/v1/metrics/health */
+export interface PerformanceHealthCheck {
+  status: "healthy" | "degraded" | "critical";
+  avg_api_latency_ms: number;
+  p95_api_latency_ms: number;
+  slow_endpoints: Array<{ endpoint: string; avg_ms: number; count: number }>;
+  slow_operations: Array<{ operation: string; avg_ms: number; count: number }>;
+  recommendations: string[];
+}
+
+/** Fetch performance statistics for a workspace. */
+export async function fetchPerformanceStats(
+  workspaceId?: string,
+): Promise<PerformanceStats> {
+  const params = new URLSearchParams();
+  if (workspaceId) params.append("workspace_id", workspaceId);
+
+  const res = await fetch(`${BASE}/metrics/stats?${params.toString()}`);
+  if (!res.ok) throw new Error(`Failed to fetch performance stats: ${res.status}`);
+  return res.json() as Promise<PerformanceStats>;
+}
+
+/** Fetch performance health check. */
+export async function fetchPerformanceHealth(
+  workspaceId?: string,
+): Promise<PerformanceHealthCheck> {
+  const params = new URLSearchParams();
+  if (workspaceId) params.append("workspace_id", workspaceId);
+
+  const res = await fetch(`${BASE}/metrics/health?${params.toString()}`);
+  if (!res.ok) throw new Error(`Failed to fetch performance health: ${res.status}`);
+  return res.json() as Promise<PerformanceHealthCheck>;
+}
