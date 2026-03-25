@@ -33,7 +33,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function FraudPage() {
   const workspaceId = getWorkspaceId();
-  const { data, isLoading: loading, error } = useFraudAlerts(workspaceId);
+  const { data, isLoading: loading, error, refetch } = useFraudAlerts(workspaceId);
 
   const [filter, setFilter] = useState<"all" | "high" | "medium" | "low" | "critical">("all");
   const [selected, setSelected] = useState<FraudAlert | null>(null);
@@ -45,6 +45,16 @@ export default function FraudPage() {
   const highCount = alerts.filter((a) => safeLower(a.severity) === "high" || safeLower(a.severity) === "critical").length;
   const underReview = alerts.filter((a) => safeLower(a.status) === "under_review").length;
   const resolved = alerts.filter((a) => safeLower(a.status) === "resolved").length;
+
+  // Handle status change from investigation panel
+  function handleStatusChange(alertId: string, newStatus: FraudAlert["status"]) {
+    // Update selected alert if it's the one that changed
+    if (selected && selected.alert_id === alertId) {
+      setSelected({ ...selected, status: newStatus });
+    }
+    // Refetch alerts to update the list
+    refetch();
+  }
 
   return (
     <AuthGuard>
@@ -200,6 +210,7 @@ export default function FraudPage() {
             <FraudInvestigationPanel
               alert={selected}
               onClose={() => setSelected(null)}
+              onStatusChange={handleStatusChange}
             />
           )}
         </>
