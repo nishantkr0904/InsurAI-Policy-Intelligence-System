@@ -2,6 +2,7 @@
 Fraud Detection Router.
 
 Exposes GET /api/v1/fraud/alerts endpoint for fraud alert retrieval and analysis.
+Exposes PATCH /api/v1/fraud/alerts/{alert_id}/status for status updates.
 
 Architecture ref:
   docs/requirements.md #FR016 – Fraud Pattern Detection
@@ -12,13 +13,24 @@ Architecture ref:
 from __future__ import annotations
 
 import logging
+import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
-from app.fraud.schemas import AnomalyType, AlertStatus, SeverityLevel, FraudAlertsRequest, FraudAlertsResponse
+from app.database import get_db, AsyncSessionLocal
+from app.fraud.schemas import (
+    AnomalyType,
+    AlertStatus,
+    SeverityLevel,
+    FraudAlertsRequest,
+    FraudAlertsResponse,
+    FraudAlertStatusUpdate,
+    FraudAlertStatusResponse,
+)
 from app.fraud.service import get_fraud_alerts
+from app.models import AuditLog
 
 logger = logging.getLogger(__name__)
 
@@ -123,3 +135,102 @@ async def get_alerts_endpoint(
     )
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Status Update Endpoint
+# ---------------------------------------------------------------------------
+
+# In-memory store for demo mode (simulates database updates)
+_DEMO_ALERT_STATUS: dict[str, AlertStatus] = {}
+
+
+@router.patch(
+    "/alerts/{alert_id}/status",
+    response_model=FraudAlertStatusResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update fraud alert status",
+    description=(
+        "Update the status of a fraud alert (escalate, resolve, dismiss). "
+        "Logs an audit entry for tracking."
+    ),
+)
+async def update_alert_status(
+    alert_id: str,
+    body: FraudAlertStatusUpdate,
+    session: AsyncSession = Depends(get_db),
+) -> FraudAlertStatusResponse:
+    """
+    Update the status of a fraud alert.
+
+    Path parameters:
+      - alert_id: Unique alert identifier
+
+    Request body:
+      - status: New status (new, under_review, escalated, resolved, false_positive)
+      - notes: Optional investigation notes
+      - workspace_id: Workspace namespace
+
+    Response:
+      - alert_id: Alert ID
+      - status: New status
+      - previous_status: Previous status
+      - updated_at: ISO 8601 timestamp
+      - message: Confirmation message
+
+    Also logs an audit entry with action="fraud_status_updated".
+    """
+    logger.info(
+        "Updating fraud alert status: alert_id=%s new_status=%s workspace=%s",
+        alert_id,
+        body.status.value,
+        body.workspace_id,
+    )
+
+    # Demo mode: use in-memory store
+    previous_status = _DEMO_ALERT_STATUS.get(alert_id, AlertStatus.NEW)
+    _DEMO_ALERT_STATUS[alert_id] = body.status
+
+    updated_at = datetime.utcnow().isoformat()
+
+    # Log audit entry
+    try:
+        audit_log = AuditLog(
+            id=str(uuid.uuid4()),
+            action="fraud_status_updated",
+            actor_id="system",
+            actor_type="user",
+            resource_type="fraud_alert",
+            resource_id=alert_id,
+            workspace_id=body.workspace_id,
+            severity="info" if body.status != AlertStatus.ESCALATED else "warning",
+            status="success",
+            metadata={
+                "previous_status": previous_status.value,
+                "new_status": body.status.value,
+                "notes": body.notes,
+            },
+        )
+        session.add(audit_log)
+        await session.commit()
+        logger.info("Audit log created for fraud alert status update: %s", alert_id)
+    except Exception as exc:
+        logger.warning("Failed to create audit log: %s", exc)
+        # Don't fail the request if audit logging fails
+
+    # Generate status-specific message
+    status_messages = {
+        AlertStatus.ESCALATED: f"Alert {alert_id} has been escalated for senior review",
+        AlertStatus.RESOLVED: f"Alert {alert_id} has been resolved",
+        AlertStatus.FALSE_POSITIVE: f"Alert {alert_id} marked as false positive",
+        AlertStatus.UNDER_REVIEW: f"Alert {alert_id} is now under review",
+        AlertStatus.NEW: f"Alert {alert_id} status reset to new",
+    }
+
+    return FraudAlertStatusResponse(
+        alert_id=alert_id,
+        status=body.status,
+        previous_status=previous_status,
+        updated_at=updated_at,
+        message=status_messages.get(body.status, f"Alert {alert_id} status updated"),
+    )
