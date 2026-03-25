@@ -43,6 +43,7 @@ function calcScore(issues: ComplianceIssue[]) {
 export default function CompliancePage() {
   const workspaceId = getWorkspaceId();
   const { data, isLoading: loading, error, refetch } = useComplianceIssues(workspaceId);
+  const [retrying, setRetrying] = useState(false);
 
   const [running, setRunning] = useState(false);
   const [ran, setRan] = useState(false);
@@ -72,6 +73,25 @@ export default function CompliancePage() {
       });
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function handleRetry() {
+    setRetrying(true);
+    const toastId = toast.loading("Retrying...");
+    try {
+      await refetch();
+      toast.success("Compliance data loaded", {
+        id: toastId,
+        description: "Issues retrieved successfully",
+      });
+    } catch (e) {
+      toast.error("Retry failed", {
+        id: toastId,
+        description: (e as Error).message,
+      });
+    } finally {
+      setRetrying(false);
     }
   }
 
@@ -107,10 +127,30 @@ export default function CompliancePage() {
       {/* Error Banner */}
       {error && (
         <div
-          className="rounded-lg px-4 py-3 text-sm"
+          className="rounded-lg px-4 py-4 text-sm"
           style={{ background: "rgba(239,68,68,0.12)", color: "var(--danger)", border: "1px solid var(--danger)" }}
         >
-          <strong>Error:</strong> {error?.message || "Failed to load compliance issues"}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <strong>Error loading compliance issues</strong>
+              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                {error?.message || "Failed to load compliance data. Please try again."}
+              </p>
+            </div>
+            <button
+              onClick={handleRetry}
+              disabled={retrying}
+              className="shrink-0 px-3 py-1 rounded text-xs font-medium"
+              style={{
+                background: "var(--danger)",
+                color: "white",
+                cursor: retrying ? "not-allowed" : "pointer",
+                opacity: retrying ? 0.6 : 1,
+              }}
+            >
+              {retrying ? "Retrying..." : "Retry"}
+            </button>
+          </div>
         </div>
       )}
 
