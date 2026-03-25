@@ -102,6 +102,11 @@ def _generate_sample_compliance_issues(
             ("Missing claim file documentation", "All claim support documents not retained"),
             ("Inadequate backup procedures", "Disaster recovery plan not established"),
         ],
+        RuleCategory.OTHER: [
+            ("Non-categorized compliance issue", "Issue does not fit standard categories"),
+            ("Custom regulatory requirement", "Organization-specific compliance requirement"),
+            ("Third-party audit finding", "Finding from external compliance audit"),
+        ],
     }
 
     remediation_templates = [
@@ -229,24 +234,28 @@ async def get_compliance_issues(
                 result = await session.execute(query)
                 db_issues = result.scalars().all()
 
-                all_issues = [
-                    ComplianceIssue(
-                        issue_id=issue.issue_number,
-                        rule_name=issue.title or "",
-                        rule_category=RuleCategory(issue.rule_category),
-                        description=issue.description or "",
-                        severity=SeverityLevel(issue.severity),
-                        status=IssueStatus(issue.status),
-                        policy_id=issue.policy_number,
-                        document_section=None,
-                        detected_date=issue.created_at.isoformat() if issue.created_at else datetime.utcnow().isoformat(),
-                        due_date=issue.remediation_deadline.isoformat() if issue.remediation_deadline else None,
-                        remediation_steps=[issue.required_remediation] if issue.required_remediation else [],
-                        affected_records=len(issue.affected_policies) if issue.affected_policies else 0,
-                    )
-                    for issue in db_issues
-                ]
-                logger.info("Retrieved %d compliance issues from database", len(all_issues))
+                try:
+                    all_issues = [
+                        ComplianceIssue(
+                            issue_id=issue.issue_number,
+                            rule_name=issue.title or "",
+                            rule_category=RuleCategory(issue.rule_category),
+                            description=issue.description or "",
+                            severity=SeverityLevel(issue.severity),
+                            status=IssueStatus(issue.status),
+                            policy_id=issue.policy_number,
+                            document_section=None,
+                            detected_date=issue.created_at.isoformat() if issue.created_at else datetime.utcnow().isoformat(),
+                            due_date=issue.remediation_deadline.isoformat() if issue.remediation_deadline else None,
+                            remediation_steps=[issue.required_remediation] if issue.required_remediation else [],
+                            affected_records=len(issue.affected_policies) if issue.affected_policies else 0,
+                        )
+                        for issue in db_issues
+                    ]
+                    logger.info("Retrieved %d compliance issues from database", len(all_issues))
+                except (ValueError, KeyError) as exc:
+                    logger.warning("Error converting DB issues to schema (enum mismatch?), falling back to sample data: %s", exc)
+                    all_issues = None
         except Exception as exc:
             logger.warning("Database query failed, falling back to sample data: %s", exc)
             all_issues = None
