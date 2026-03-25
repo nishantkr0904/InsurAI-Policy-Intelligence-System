@@ -34,6 +34,90 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Error Classification and User-Friendly Messages
+# ---------------------------------------------------------------------------
+
+def _classify_ai_error(exc: Exception) -> tuple[str, str]:
+    """
+    Classify AI/embedding errors and return user-friendly message.
+
+    Returns:
+        tuple of (error_type, user_friendly_message)
+    """
+    error_str = str(exc).lower()
+    error_type = type(exc).__name__
+
+    # Rate limit / quota errors
+    if "rate" in error_str and "limit" in error_str:
+        return "rate_limit", "AI service rate limited. Please try again in a few minutes."
+    if "quota" in error_str or "insufficient_quota" in error_str:
+        return "quota_exceeded", "AI service quota exceeded. Please try again later."
+    if "429" in error_str:
+        return "rate_limit", "AI service temporarily busy. Please try again shortly."
+
+    # Authentication errors
+    if "401" in error_str or "authentication" in error_str or "api_key" in error_str:
+        return "auth_error", "AI service configuration error. Please contact support."
+
+    # Timeout errors
+    if "timeout" in error_str or "timed out" in error_str:
+        return "timeout", "AI service timed out. Please try again."
+
+    # Connection errors
+    if "connection" in error_str or "network" in error_str:
+        return "connection_error", "Unable to reach AI service. Please check your connection."
+
+    # Model errors
+    if "model" in error_str and ("not found" in error_str or "invalid" in error_str):
+        return "model_error", "AI model configuration error. Please contact support."
+
+    # Default unknown error
+    return "unknown", "AI service temporarily unavailable. Basic validation will be performed."
+
+
+def _create_fallback_response(
+    request: ClaimValidationRequest,
+    error_type: str,
+    user_message: str,
+) -> ClaimValidationResponse:
+    """
+    Create a graceful fallback response when AI services fail.
+
+    This allows the workflow to continue with manual review.
+    """
+    logger.info(
+        "Creating fallback response for claim_id=%s (error_type=%s)",
+        request.claim_id,
+        error_type,
+    )
+
+    return ClaimValidationResponse(
+        claim_id=request.claim_id,
+        policy_number=request.policy_number,
+        approval_status=ApprovalStatus.NEEDS_REVIEW,
+        risk_score=50.0,  # Neutral risk score
+        severity=SeverityLevel.MEDIUM,
+        reasoning=(
+            f"⚠️ AI Service Unavailable: {user_message}\n\n"
+            f"Basic validation completed. Manual review is required to process this claim.\n\n"
+            f"Claim Details:\n"
+            f"- Type: {request.claim_type.value}\n"
+            f"- Amount: ${request.claim_amount:,.2f}\n"
+            f"- Description: {request.description[:200]}..."
+        ),
+        referenced_clauses=[],  # No clauses retrieved due to AI failure
+        confidence_score=0.0,  # No AI confidence
+        next_steps=[
+            "Manual policy review required",
+            "Verify claim details against policy documents",
+            "Escalate to senior adjuster if needed",
+            "Retry AI validation when service is available",
+        ],
+    )
+
+
 # System prompt for claim validation
 _CLAIMS_SYSTEM_PROMPT = """You are an expert insurance claim adjudicator for InsurAI.
 
@@ -149,9 +233,7 @@ async def validate_claim(
 
     Returns:
         ClaimValidationResponse with approval status, risk score, reasoning
-
-    Raises:
-        RuntimeError: if retrieval or LLM call fails
+        Falls back gracefully if AI services are unavailable.
     """
     logger.info(
         "Validating claim: claim_id=%s policy=%s type=%s amount=$%.2f",
@@ -163,8 +245,10 @@ async def validate_claim(
 
     model = model or settings.LLM_MODEL
 
-    # Step 1: Retrieve relevant policy clauses
+    # Step 1: Retrieve relevant policy clauses (with fallback)
     query = _build_claim_query(request)
+    chunks = []
+
     try:
         chunks = retrieve(
             query=query,
@@ -172,8 +256,17 @@ async def validate_claim(
             top_k=10,  # Get more context for claim validation
         )
     except Exception as exc:
-        logger.error("Retrieval failed for claim_id=%s: %s", request.claim_id, exc)
-        raise RuntimeError(f"Policy retrieval failed: {exc}") from exc
+        # Log the full error internally
+        logger.error(
+            "Retrieval failed for claim_id=%s: %s (type=%s)",
+            request.claim_id,
+            exc,
+            type(exc).__name__,
+            exc_info=True,  # Full stack trace in logs
+        )
+        # Return graceful fallback instead of raising
+        error_type, user_message = _classify_ai_error(exc)
+        return _create_fallback_response(request, error_type, user_message)
 
     # Step 2: Build context from chunks
     context_lines = []
@@ -217,7 +310,7 @@ Determine:
 4. Any clause violations or exclusions found
 5. Recommended next steps"""
 
-    # Step 4: Call LLM for evaluation
+    # Step 4: Call LLM for evaluation (with fallback)
     try:
         response = litellm.completion(
             model=model,
@@ -230,15 +323,32 @@ Determine:
         )
         llm_response = response.choices[0].message.content
     except Exception as exc:
-        logger.error("LLM evaluation failed for claim_id=%s: %s", request.claim_id, exc)
-        raise RuntimeError(f"LLM evaluation failed: {exc}") from exc
+        # Log the full error internally
+        logger.error(
+            "LLM evaluation failed for claim_id=%s: %s (type=%s)",
+            request.claim_id,
+            exc,
+            type(exc).__name__,
+            exc_info=True,  # Full stack trace in logs
+        )
+        # Return graceful fallback
+        error_type, user_message_err = _classify_ai_error(exc)
+        return _create_fallback_response(request, error_type, user_message_err)
 
-    # Step 5: Parse structured response
+    # Step 5: Parse structured response (with fallback)
     try:
         result = _extract_json_response(llm_response)
     except RuntimeError as exc:
-        logger.error("Failed to parse LLM response for claim_id=%s", request.claim_id)
-        raise
+        logger.error(
+            "Failed to parse LLM response for claim_id=%s: %s",
+            request.claim_id,
+            exc,
+        )
+        return _create_fallback_response(
+            request,
+            "parse_error",
+            "AI response could not be processed. Manual review required."
+        )
 
     # Step 6: Map LLM result to response schema
     approval_status = ApprovalStatus(result.get("approval_status", "pending"))
