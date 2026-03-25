@@ -9,6 +9,26 @@ interface FraudInvestigationPanelProps {
   onStatusChange?: (alertId: string, status: FraudAlert["status"]) => void;
 }
 
+// Utility: Safe toLowerCase to prevent crashes
+function safeLower(value: unknown): string {
+  return typeof value === "string" ? value.toLowerCase() : "";
+}
+
+// Utility: Normalize alert data to handle missing/undefined fields
+function normalizeAlert(alert: FraudAlert) {
+  return {
+    ...alert,
+    // Use anomaly_types[0] as "type" if available, fallback to "unknown"
+    type: alert.anomaly_types?.[0] || "unknown",
+    // Ensure all string fields have safe defaults
+    severity: alert.severity || "low",
+    status: alert.status || "new",
+    reasoning: alert.reasoning || "No details provided",
+    detected_date: alert.detected_date || new Date().toISOString(),
+    policy_number: alert.policy_number || "UNKNOWN",
+  };
+}
+
 /**
  * FraudInvestigationPanel - Structured fraud investigation display.
  * Implements FR018 – Fraud Investigation Support.
@@ -21,10 +41,13 @@ interface FraudInvestigationPanelProps {
  * - Action buttons for case management
  */
 export default function FraudInvestigationPanel({
-  alert,
+  alert: rawAlert,
   onClose,
   onStatusChange,
 }: FraudInvestigationPanelProps) {
+  // Normalize alert data to prevent undefined crashes
+  const alert = normalizeAlert(rawAlert);
+
   const [activeTab, setActiveTab] = useState<"evidence" | "claims" | "policy">("evidence");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -34,12 +57,13 @@ export default function FraudInvestigationPanel({
   const policyClauses = generatePolicyClauses(alert);
   const timeline = generateTimeline(alert);
 
-  const sevStyles = {
+  const sevStyles: Record<string, { color: string; bg: string; border: string }> = {
+    critical: { color: "var(--danger)", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)" },
     high: { color: "var(--danger)", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)" },
     medium: { color: "var(--warning)", bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)" },
     low: { color: "var(--success)", bg: "rgba(34,197,94,0.12)", border: "rgba(34,197,94,0.3)" },
   };
-  const sev = sevStyles[alert.severity];
+  const sev = sevStyles[alert.severity] || sevStyles.low;
 
   async function handleAction(action: "resolve" | "dismiss" | "escalate") {
     setActionLoading(action);
@@ -48,8 +72,8 @@ export default function FraudInvestigationPanel({
     setActionLoading(null);
 
     if (onStatusChange) {
-      const newStatus = action === "resolve" ? "resolved" : action === "dismiss" ? "dismissed" : "under_review";
-      onStatusChange(alert.id, newStatus);
+      const newStatus = action === "resolve" ? "resolved" : action === "dismiss" ? "false_positive" : "under_review";
+      onStatusChange(alert.alert_id, newStatus);
     }
     if (action !== "escalate") {
       onClose();
@@ -100,11 +124,11 @@ export default function FraudInvestigationPanel({
                     className="badge text-xs font-bold"
                     style={{ background: sev.bg, color: sev.color }}
                   >
-                    {alert.severity.toUpperCase()} RISK
+                    {safeLower(alert.severity).toUpperCase()} RISK
                   </span>
                 </div>
                 <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                  Alert {alert.id} • Claim {alert.claim_id}
+                  Alert {alert.alert_id || "N/A"} • Claim {alert.claim_id || "N/A"}
                 </p>
               </div>
             </div>
@@ -184,7 +208,7 @@ export default function FraudInvestigationPanel({
                 style={{ background: sev.bg, border: `1px solid ${sev.border}` }}
               >
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
-                  {alert.description}
+                  {alert.reasoning || "No details available"}
                 </p>
               </div>
 
@@ -380,11 +404,11 @@ export default function FraudInvestigationPanel({
             <span
               className="text-xs font-semibold px-3 py-1 rounded-full capitalize"
               style={{
-                background: alert.status === "resolved" ? "var(--success-soft)" : alert.status === "dismissed" ? "var(--border)" : "var(--warning-soft)",
-                color: alert.status === "resolved" ? "var(--success)" : alert.status === "dismissed" ? "var(--text-muted)" : "var(--warning)",
+                background: alert.status === "resolved" ? "var(--success-soft)" : alert.status === "false_positive" ? "var(--border)" : "var(--warning-soft)",
+                color: alert.status === "resolved" ? "var(--success)" : alert.status === "false_positive" ? "var(--text-muted)" : "var(--warning)",
               }}
             >
-              {alert.status === "under_review" ? "Under Review" : alert.status}
+              {safeLower(alert.status).replace("_", " ") || "Unknown"}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -432,9 +456,9 @@ interface EvidenceIndicator {
   icon: string;
 }
 
-function generateEvidenceIndicators(alert: FraudAlert): { indicators: EvidenceIndicator[] } {
+function generateEvidenceIndicators(alert: ReturnType<typeof normalizeAlert>): { indicators: EvidenceIndicator[] } {
   const indicators: EvidenceIndicator[] = [];
-  const type = alert.type.toLowerCase();
+  const type = safeLower(alert.type); // Safe toLowerCase
 
   // Generate indicators based on fraud type
   if (type.includes("duplicate") || type.includes("submission")) {
@@ -478,7 +502,7 @@ function generateEvidenceIndicators(alert: FraudAlert): { indicators: EvidenceIn
     indicators.push({
       title: "Anomaly Detected",
       description: "AI analysis flagged unusual patterns requiring investigation",
-      severity: alert.severity === "high" ? "high" : "medium",
+      severity: safeLower(alert.severity) === "high" || safeLower(alert.severity) === "critical" ? "high" : "medium",
       icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
     });
   }
@@ -504,15 +528,15 @@ interface RelatedClaim {
   reason: string;
 }
 
-function generateRelatedClaims(alert: FraudAlert): RelatedClaim[] {
+function generateRelatedClaims(alert: ReturnType<typeof normalizeAlert>): RelatedClaim[] {
   // Generate plausible related claims based on alert data
   const claims: RelatedClaim[] = [];
-  const baseNum = parseInt(alert.claim_id.replace(/\D/g, "")) || 1000;
+  const baseNum = parseInt((alert.claim_id || "1000").replace(/\D/g, "")) || 1000;
 
   if (alert.risk_score > 60) {
     claims.push({
       id: `CLM-${baseNum - 15}`,
-      type: alert.type,
+      type: alert.type || "N/A",
       date: "2 weeks ago",
       similarity: Math.min(95, alert.risk_score + 10),
       reason: "Same claimant pattern",
@@ -529,10 +553,10 @@ function generateRelatedClaims(alert: FraudAlert): RelatedClaim[] {
     });
   }
 
-  if (alert.severity === "high") {
+  if (safeLower(alert.severity) === "high" || safeLower(alert.severity) === "critical") {
     claims.push({
       id: `CLM-${baseNum - 78}`,
-      type: alert.type,
+      type: alert.type || "N/A",
       date: "3 months ago",
       similarity: 72,
       reason: "Amount pattern match",
@@ -549,26 +573,29 @@ interface PolicyClause {
   violated: boolean;
 }
 
-function generatePolicyClauses(alert: FraudAlert): PolicyClause[] {
+function generatePolicyClauses(alert: ReturnType<typeof normalizeAlert>): PolicyClause[] {
   const clauses: PolicyClause[] = [];
+
+  // Safe extraction of last 2 chars from policy number
+  const policyRef = (alert.policy_number || "00").slice(-2);
 
   // Add relevant policy clauses based on alert type
   clauses.push({
-    reference: `§${alert.policy_id.slice(-2)}.1`,
+    reference: `§${policyRef}.1`,
     title: "Material Misrepresentation",
     text: "Any fraudulent statement, misrepresentation, or concealment of material fact by the insured shall void coverage and may result in claim denial.",
-    violated: alert.severity === "high",
+    violated: safeLower(alert.severity) === "high" || safeLower(alert.severity) === "critical",
   });
 
   clauses.push({
-    reference: `§${alert.policy_id.slice(-2)}.3`,
+    reference: `§${policyRef}.3`,
     title: "Claim Documentation Requirements",
     text: "All claims must be supported by original documentation, receipts, and evidence of loss. Failure to provide adequate documentation may delay or deny claim processing.",
-    violated: alert.type.toLowerCase().includes("document"),
+    violated: safeLower(alert.type).includes("document"),
   });
 
   clauses.push({
-    reference: `§${alert.policy_id.slice(-2)}.7`,
+    reference: `§${policyRef}.7`,
     title: "Cooperation Clause",
     text: "The insured agrees to cooperate fully with any investigation and provide truthful information. Non-cooperation may result in denial of benefits.",
     violated: false,
@@ -576,7 +603,7 @@ function generatePolicyClauses(alert: FraudAlert): PolicyClause[] {
 
   if (alert.risk_score > 70) {
     clauses.push({
-      reference: `§${alert.policy_id.slice(-2)}.12`,
+      reference: `§${policyRef}.12`,
       title: "Fraud Prevention",
       text: "The insurer reserves the right to investigate suspicious claims and deny coverage where fraud is suspected or proven.",
       violated: true,
@@ -592,8 +619,8 @@ interface TimelineEvent {
   type: "alert" | "action" | "info";
 }
 
-function generateTimeline(alert: FraudAlert): TimelineEvent[] {
-  const alertDate = new Date(alert.date);
+function generateTimeline(alert: ReturnType<typeof normalizeAlert>): TimelineEvent[] {
+  const alertDate = new Date(alert.detected_date || new Date());
   const events: TimelineEvent[] = [];
 
   events.push({
