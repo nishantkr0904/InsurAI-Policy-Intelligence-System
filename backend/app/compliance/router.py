@@ -109,11 +109,17 @@ async def get_issues_endpoint(
             sort_by=sort_by,
         )
         result = await get_compliance_issues(request, session)
-    except Exception as exc:
-        logger.error("Failed to retrieve compliance issues: %s", exc)
+    except ValueError as exc:
+        logger.error("Invalid compliance filter: %s", exc)
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Compliance service unavailable: {exc}",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid filter parameter: {exc}",
+        ) from exc
+    except Exception as exc:
+        logger.error("Failed to retrieve compliance issues: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve compliance issues. Service is processing your request. Please try again.",
         ) from exc
 
     logger.info(
@@ -172,10 +178,10 @@ async def get_report_endpoint(
         )
         result = await generate_compliance_report(request, session)
     except Exception as exc:
-        logger.error("Failed to generate compliance report: %s", exc)
+        logger.error("Failed to generate compliance report: %s", exc, exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Compliance report generation failed: {exc}",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate compliance report. Please try again.",
         ) from exc
 
     logger.info(
