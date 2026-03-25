@@ -118,16 +118,33 @@ def _extract_text_from_pdf(file_bytes: bytes) -> str:
         return f"[PDF text extraction unavailable – install pymupdf]\n{len(file_bytes)} bytes"
 
 
-def _extract_text_from_docx(file_bytes: bytes) -> str:
-    """Extract plain text from a DOCX file using python-docx."""
+def _extract_text_from_docx(file_bytes: bytes, content_type: str = None) -> str:
+    """
+    Extract plain text from a DOCX or DOC file using python-docx.
+
+    Note: python-docx only supports DOCX (Office Open XML) format.
+    For legacy DOC files (Word 97-2003), conversion to DOCX/PDF is recommended.
+    """
     try:
         from docx import Document
         doc = Document(BytesIO(file_bytes))
         paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
         return "\n\n".join(paragraphs)
     except ImportError:
-        logger.warning("python-docx not installed – returning placeholder for DOCX.")
+        logger.warning("python-docx not installed – returning placeholder for DOCX/DOC.")
         return f"[DOCX text extraction unavailable – install python-docx]\n{len(file_bytes)} bytes"
+    except Exception as e:
+        # Handle legacy DOC files which python-docx cannot parse
+        if content_type == "application/msword":
+            logger.warning("Legacy DOC format detected – python-docx only supports DOCX. Error: %s", e)
+            return (
+                f"[Legacy DOC format not supported]\n"
+                f"Please convert this document to DOCX, PDF, or TXT format.\n"
+                f"File size: {len(file_bytes)} bytes"
+            )
+        else:
+            logger.error("Failed to extract text from DOCX: %s", e)
+            raise
 
 
 def _extract_text(file_bytes: bytes, content_type: str) -> str:
@@ -138,7 +155,7 @@ def _extract_text(file_bytes: bytes, content_type: str) -> str:
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/msword",
     ):
-        return _extract_text_from_docx(file_bytes)
+        return _extract_text_from_docx(file_bytes, content_type)
     elif content_type == "text/plain":
         return file_bytes.decode("utf-8", errors="replace")
     else:

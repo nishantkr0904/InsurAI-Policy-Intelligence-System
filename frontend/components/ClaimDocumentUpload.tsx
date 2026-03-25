@@ -98,7 +98,7 @@ export default function ClaimDocumentUpload({
           )}
         </button>
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          PDF, DOCX, images up to 10MB
+          PDF, DOC, DOCX, TXT, images up to 50MB
         </p>
       </div>
 

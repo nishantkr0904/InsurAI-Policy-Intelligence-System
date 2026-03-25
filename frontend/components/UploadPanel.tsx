@@ -109,7 +109,7 @@ export default function UploadPanel({ workspaceId, onUploaded }: UploadPanelProp
         </div>
         <div className="text-center">
           <p className="text-sm font-medium" style={{ color: dragging ? "var(--accent)" : "var(--text-secondary)" }}>
-            {uploading ? `Uploading… ${progress}%` : "Drop PDF / DOCX here"}
+            {uploading ? `Uploading… ${progress}%` : "Drop PDF / DOC / DOCX / TXT here"}
           </p>
           {!uploading && (
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>

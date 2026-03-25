@@ -66,9 +66,14 @@ export default function DocumentProcessing({ workspaceId, isDemo }: DocumentProc
     if (!file) return;
 
     // Validate file type
-    const validTypes = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+    const validTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+      "application/msword", // .doc
+      "text/plain", // .txt
+    ];
     if (!validTypes.includes(file.type)) {
-      toast.error("Please upload a PDF or DOCX file");
+      toast.error("Please upload a PDF, DOC, DOCX, or TXT file");
       return;
     }
 
@@ -146,7 +151,7 @@ export default function DocumentProcessing({ workspaceId, isDemo }: DocumentProc
           {uploading ? "Uploading..." : "📤 Upload Document"}
           <input
             type="file"
-            accept=".pdf,.docx"
+            accept=".pdf,.doc,.docx,.txt"
             onChange={handleUpload}
             disabled={uploading}
             className="hidden"
