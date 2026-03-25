@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { type FraudAlert } from "@/lib/api";
+import { toast } from "sonner";
+import { type FraudAlert, updateFraudAlertStatus } from "@/lib/api";
+import { getWorkspaceId } from "@/lib/auth";
 
 interface FraudInvestigationPanelProps {
   alert: FraudAlert;
@@ -50,6 +52,7 @@ export default function FraudInvestigationPanel({
 
   const [activeTab, setActiveTab] = useState<"evidence" | "claims" | "policy">("evidence");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [currentStatus, setCurrentStatus] = useState(alert.status);
 
   // Generate structured evidence based on alert data
   const evidence = generateEvidenceIndicators(alert);
@@ -66,17 +69,48 @@ export default function FraudInvestigationPanel({
   const sev = sevStyles[alert.severity] || sevStyles.low;
 
   async function handleAction(action: "resolve" | "dismiss" | "escalate") {
-    setActionLoading(action);
-    // Simulate API call
-    await new Promise((r) => setTimeout(r, 800));
-    setActionLoading(null);
-
-    if (onStatusChange) {
-      const newStatus = action === "resolve" ? "resolved" : action === "dismiss" ? "false_positive" : "under_review";
-      onStatusChange(alert.alert_id, newStatus);
+    if (!alert.alert_id) {
+      toast.error("Cannot update: missing alert ID");
+      return;
     }
-    if (action !== "escalate") {
-      onClose();
+
+    setActionLoading(action);
+
+    // Map action to status
+    const statusMap: Record<string, FraudAlert["status"]> = {
+      resolve: "resolved",
+      dismiss: "false_positive",
+      escalate: "escalated",
+    };
+    const newStatus = statusMap[action];
+
+    try {
+      const response = await updateFraudAlertStatus(alert.alert_id, {
+        status: newStatus,
+        notes: `Action: ${action} performed via investigation panel`,
+        workspace_id: getWorkspaceId() || "default",
+      });
+
+      // Update local state
+      setCurrentStatus(newStatus);
+
+      // Notify parent component
+      if (onStatusChange) {
+        onStatusChange(alert.alert_id, newStatus);
+      }
+
+      // Show success toast
+      toast.success(response.message || `Alert ${action}d successfully`);
+
+      // Close modal for non-escalate actions
+      if (action !== "escalate") {
+        onClose();
+      }
+    } catch (error) {
+      console.error(`Failed to ${action} alert:`, error);
+      toast.error(error instanceof Error ? error.message : `Failed to ${action} alert`);
+    } finally {
+      setActionLoading(null);
     }
   }
 
@@ -404,11 +438,11 @@ export default function FraudInvestigationPanel({
             <span
               className="text-xs font-semibold px-3 py-1 rounded-full capitalize"
               style={{
-                background: alert.status === "resolved" ? "var(--success-soft)" : alert.status === "false_positive" ? "var(--border)" : "var(--warning-soft)",
-                color: alert.status === "resolved" ? "var(--success)" : alert.status === "false_positive" ? "var(--text-muted)" : "var(--warning)",
+                background: currentStatus === "resolved" ? "var(--success-soft)" : currentStatus === "false_positive" ? "var(--border)" : currentStatus === "escalated" ? "rgba(239,68,68,0.12)" : "var(--warning-soft)",
+                color: currentStatus === "resolved" ? "var(--success)" : currentStatus === "false_positive" ? "var(--text-muted)" : currentStatus === "escalated" ? "var(--danger)" : "var(--warning)",
               }}
             >
-              {safeLower(alert.status).replace("_", " ") || "Unknown"}
+              {safeLower(currentStatus).replace("_", " ") || "Unknown"}
             </span>
           </div>
           <div className="flex items-center gap-2">
