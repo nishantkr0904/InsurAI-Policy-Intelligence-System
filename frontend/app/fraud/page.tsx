@@ -11,6 +11,11 @@ import { useFraudAlerts } from "@/hooks/useQueries";
  * Now using TanStack Query for automatic caching and background refetching
  */
 
+// Utility: Safe toLowerCase to prevent crashes
+function safeLower(value: unknown): string {
+  return typeof value === "string" ? value.toLowerCase() : "";
+}
+
 const SEVERITY_STYLES: Record<string, { color: string; bg: string }> = {
   critical: { color: "var(--danger)", bg: "rgba(239,68,68,0.12)" },
   high: { color: "var(--danger)", bg: "rgba(239,68,68,0.12)" },
@@ -34,12 +39,12 @@ export default function FraudPage() {
   const [selected, setSelected] = useState<FraudAlert | null>(null);
 
   const alerts = data?.alerts || [];
-  const filtered = filter === "all" ? alerts : alerts.filter((a) => a.severity === filter);
+  const filtered = filter === "all" ? alerts : alerts.filter((a) => safeLower(a.severity) === filter);
 
   const total = alerts.length;
-  const highCount = alerts.filter((a) => a.severity === "high" || a.severity === "critical").length;
-  const underReview = alerts.filter((a) => a.status === "under_review").length;
-  const resolved = alerts.filter((a) => a.status === "resolved").length;
+  const highCount = alerts.filter((a) => safeLower(a.severity) === "high" || safeLower(a.severity) === "critical").length;
+  const underReview = alerts.filter((a) => safeLower(a.status) === "under_review").length;
+  const resolved = alerts.filter((a) => safeLower(a.status) === "resolved").length;
 
   return (
     <AuthGuard>
@@ -119,17 +124,17 @@ export default function FraudPage() {
               </thead>
               <tbody>
                 {filtered.map((alert) => {
-                  const sev = SEVERITY_STYLES[alert.severity];
+                  const sev = SEVERITY_STYLES[safeLower(alert.severity)] || SEVERITY_STYLES.low;
                   return (
                     <tr key={alert.alert_id}>
                       <td>
                         <span className="font-mono font-semibold text-sm" style={{ color: "var(--accent)" }}>
-                          {alert.alert_id}
+                          {alert.alert_id || "N/A"}
                         </span>
                       </td>
-                      <td className="font-medium">{alert.claim_id}</td>
+                      <td className="font-medium">{alert.claim_id || "N/A"}</td>
                       <td style={{ color: "var(--text-secondary)" }}>
-                        {alert.anomaly_types.length > 0 ? alert.anomaly_types[0].replace(/_/g, ' ') : 'N/A'}
+                        {alert.anomaly_types && alert.anomaly_types.length > 0 ? alert.anomaly_types[0].replace(/_/g, ' ') : 'N/A'}
                       </td>
                       <td>
                         <span
@@ -143,20 +148,20 @@ export default function FraudPage() {
                                 : "var(--success)",
                           }}
                         >
-                          {Math.round(alert.risk_score)}
+                          {Math.round(alert.risk_score || 0)}
                         </span>
                         <span className="text-xs ml-0.5" style={{ color: "var(--text-muted)" }}>/100</span>
                       </td>
                       <td>
                         <span className="badge" style={{ background: sev.bg, color: sev.color }}>
-                          {alert.severity}
+                          {alert.severity || "low"}
                         </span>
                       </td>
                       <td className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                        {new Date(alert.detected_date).toLocaleDateString()}
+                        {alert.detected_date ? new Date(alert.detected_date).toLocaleDateString() : "N/A"}
                       </td>
                       <td className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                        {STATUS_LABELS[alert.status]}
+                        {STATUS_LABELS[alert.status] || alert.status || "N/A"}
                       </td>
                       <td>
                         <div className="flex gap-1.5">
