@@ -272,7 +272,30 @@ export async function validateClaim(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
   });
-  if (!res.ok) throw new Error(`Claim validation failed: ${res.status}`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: "Request failed" }));
+
+    // Handle FastAPI/Pydantic validation errors (array of objects)
+    let errorMessage: string;
+    if (Array.isArray(errorData.detail)) {
+      // Extract readable messages from validation errors
+      errorMessage = errorData.detail
+        .map((err: { loc?: string[]; msg?: string }) => {
+          const field = err.loc?.slice(-1)[0] || "field";
+          return `${field}: ${err.msg || "invalid"}`;
+        })
+        .join("; ");
+    } else if (typeof errorData.detail === "string") {
+      errorMessage = errorData.detail;
+    } else if (errorData.message) {
+      errorMessage = errorData.message;
+    } else {
+      errorMessage = `Claim validation failed: ${res.status}`;
+    }
+
+    console.error("Validate Claim Error:", errorData);
+    throw new Error(errorMessage);
+  }
   return res.json() as Promise<ClaimValidationResponse>;
 }
 
