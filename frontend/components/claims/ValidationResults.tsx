@@ -72,8 +72,46 @@ export default function ValidationResults({
   const confidenceLevel = getConfidenceLevel(result.confidence_score);
   const confidenceStyle = CONFIDENCE_STYLES[confidenceLevel];
 
+  // Detect AI fallback mode (confidence_score === 0)
+  const isAIUnavailable = result.confidence_score === 0;
+
   return (
     <div className="space-y-5">
+      {/* AI Unavailable Warning Banner */}
+      {isAIUnavailable && (
+        <div
+          className="flex items-start gap-3 p-4 rounded-lg"
+          style={{
+            background: "rgba(245,158,11,0.1)",
+            border: "1px solid var(--warning)",
+          }}
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--warning)"
+            strokeWidth="2"
+            className="shrink-0 mt-0.5"
+          >
+            <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div>
+            <p className="font-semibold" style={{ color: "var(--warning)" }}>
+              AI Service Unavailable
+            </p>
+            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+              The AI validation service is temporarily unavailable. Basic validation has been performed,
+              but <strong>manual review is required</strong> before making a final decision.
+            </p>
+            <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+              You can still proceed with the workflow. Try again later for full AI-powered validation.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Status Header */}
       <div className="card p-4">
         <div className="flex items-center justify-between mb-4">
@@ -122,8 +160,8 @@ export default function ValidationResults({
           </div>
         </div>
 
-        {/* Low Confidence Warning */}
-        {confidenceLevel === "low" && (
+        {/* Low Confidence Warning (only show if not AI fallback) */}
+        {confidenceLevel === "low" && !isAIUnavailable && (
           <div
             className="flex items-start gap-3 p-3 rounded-lg mb-4"
             style={{ background: "rgba(239,68,68,0.1)", border: "1px solid var(--danger)" }}
