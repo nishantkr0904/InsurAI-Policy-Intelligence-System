@@ -356,6 +356,39 @@ export async function fetchFraudAlerts(
   return res.json() as Promise<FraudAlertsResponse>;
 }
 
+/** Shape of fraud alert status update request. */
+export interface FraudAlertStatusUpdate {
+  status: "new" | "under_review" | "escalated" | "resolved" | "false_positive";
+  notes?: string;
+  workspace_id: string;
+}
+
+/** Shape of fraud alert status update response. */
+export interface FraudAlertStatusResponse {
+  alert_id: string;
+  status: string;
+  previous_status: string;
+  updated_at: string;
+  message: string;
+}
+
+/** Update fraud alert status (escalate, resolve, dismiss). */
+export async function updateFraudAlertStatus(
+  alertId: string,
+  update: FraudAlertStatusUpdate,
+): Promise<FraudAlertStatusResponse> {
+  const res = await fetch(`${BASE}/fraud/alerts/${alertId}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(update),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: "Request failed" }));
+    throw new Error(errorData.detail || `Failed to update alert status: ${res.status}`);
+  }
+  return res.json() as Promise<FraudAlertStatusResponse>;
+}
+
 /** Shape of a compliance issue from the backend. */
 export interface ComplianceIssue {
   issue_id: string;
