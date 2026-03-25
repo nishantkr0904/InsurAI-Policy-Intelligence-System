@@ -18,13 +18,17 @@ interface UploadedDocument {
 }
 
 const CLAIM_TYPES = [
-  { value: "collision", label: "Collision" },
-  { value: "property_damage", label: "Property Damage" },
+  { value: "auto", label: "Auto" },
+  { value: "health", label: "Health" },
+  { value: "home", label: "Home" },
+  { value: "property", label: "Property" },
   { value: "liability", label: "Liability" },
-  { value: "medical", label: "Medical" },
-  { value: "vehicle", label: "Vehicle" },
-  { value: "business_interruption", label: "Business Interruption" },
+  { value: "life", label: "Life" },
+  { value: "disability", label: "Disability" },
+  { value: "other", label: "Other" },
 ];
+
+const VALID_CLAIM_TYPES = CLAIM_TYPES.map((t) => t.value);
 
 export default function ClaimsClient() {
   const isDemo = isDemoUser();
@@ -39,7 +43,7 @@ export default function ClaimsClient() {
   const [form, setForm] = useState({
     claimId: "",
     policyNumber: "",
-    claimType: "collision",
+    claimType: "auto",
     incidentDate: "",
     amount: "",
     description: "",
@@ -47,10 +51,17 @@ export default function ClaimsClient() {
 
   function handleSelectClaim(claim: PendingClaim) {
     setSelectedClaim(claim);
+
+    // Normalize claim_type to lowercase and validate
+    const normalizedClaimType = claim.claim_type.toLowerCase();
+    const claimType = VALID_CLAIM_TYPES.includes(normalizedClaimType)
+      ? normalizedClaimType
+      : "auto"; // Default fallback
+
     setForm({
       claimId: claim.claim_id,
       policyNumber: claim.policy_number,
-      claimType: claim.claim_type,
+      claimType: claimType,
       incidentDate: claim.submission_date,
       amount: claim.amount.toString(),
       description: "",
@@ -71,6 +82,16 @@ export default function ClaimsClient() {
     setValidationResult(null);
 
     try {
+      // Validate claim_type before sending
+      const normalizedClaimType = form.claimType.toLowerCase();
+      if (!VALID_CLAIM_TYPES.includes(normalizedClaimType)) {
+        toast.error(
+          `Invalid claim type: "${form.claimType}". Must be one of: ${VALID_CLAIM_TYPES.join(", ")}`
+        );
+        setIsValidating(false);
+        return;
+      }
+
       if (isDemo) {
         // Demo mode: mock validation result
         await new Promise((r) => setTimeout(r, 1500));
@@ -99,38 +120,65 @@ export default function ClaimsClient() {
         const response = await validateClaim({
           claim_id: form.claimId,
           policy_number: form.policyNumber,
-          claim_type: form.claimType,
-          incident_date: form.incidentDate,
-          amount: parseFloat(form.amount) || 0,
-          description: form.description,
+          claim_type: normalizedClaimType,
+          claim_amount: parseFloat(form.amount) || 0,
+          description: form.description || "No description provided",
+          claim_date: form.incidentDate,
           workspace_id: getWorkspaceId() || "default",
         });
+
+        // Detect fallback response (AI unavailable)
+        const isFallback = response.confidence_score === 0;
 
         // Map API response to ValidationResult
         const result: ValidationResult = {
           claim_id: form.claimId,
-          approval_status: response.status === "denied" ? "denied" :
-                          response.status === "pending" ? "requires_review" :
+          approval_status: response.approval_status === "denied" ? "denied" :
+                          response.approval_status === "pending" ? "requires_review" :
+                          response.approval_status === "needs_review" ? "requires_review" :
                           response.risk_score > 50 ? "approved_with_conditions" : "approved",
           risk_score: response.risk_score,
-          severity: response.risk_score >= 70 ? "critical" :
-                   response.risk_score >= 50 ? "high" :
-                   response.risk_score >= 30 ? "medium" : "low",
-          referenced_clauses: response.clauses.map((c) => ({
-            clause_id: c.ref,
-            title: c.ref,
-            page: 1,
-            snippet: c.text,
+          severity: response.severity as "low" | "medium" | "high" | "critical",
+          referenced_clauses: (response.referenced_clauses || []).map((c) => ({
+            clause_id: c.document_id,
+            title: `Section ${c.chunk_index}`,
+            page: c.chunk_index,
+            snippet: c.clause_text,
           })),
-          confidence_score: 0.85,
+          confidence_score: response.confidence_score / 100, // Convert to 0-1 scale
           reasoning: response.reasoning,
-          next_steps: ["Review validation result", "Make final decision", "Document reasoning"],
+          next_steps: response.next_steps || ["Review validation result", "Make final decision"],
         };
         setValidationResult(result);
-        toast.success("Claim validated successfully");
+
+        // Show appropriate notification
+        if (isFallback) {
+          toast.warning("AI service unavailable — showing limited validation. Manual review required.");
+        } else {
+          toast.success("Claim validated successfully");
+        }
       }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Validation failed");
+    } catch (error: unknown) {
+      console.error("Validate Claim Error:", error);
+
+      // Extract readable error message
+      let message: string;
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (typeof error === "string") {
+        message = error;
+      } else if (error && typeof error === "object") {
+        // Handle edge cases where error is an object
+        const errObj = error as Record<string, unknown>;
+        message =
+          (errObj.message as string) ||
+          (errObj.detail as string) ||
+          JSON.stringify(error);
+      } else {
+        message = "Validation failed";
+      }
+
+      toast.error(message);
     } finally {
       setIsValidating(false);
     }
@@ -155,7 +203,7 @@ export default function ClaimsClient() {
       setForm({
         claimId: "",
         policyNumber: "",
-        claimType: "collision",
+        claimType: "auto",
         incidentDate: "",
         amount: "",
         description: "",
@@ -290,15 +338,21 @@ export default function ClaimsClient() {
                   />
                 </div>
                 <div className="space-y-1 col-span-2">
-                  <label className="form-label">Description</label>
+                  <label className="form-label">Description *</label>
                   <textarea
                     className="input"
                     name="description"
                     rows={3}
                     value={form.description}
                     onChange={handleFormChange}
-                    placeholder="Describe the incident..."
+                    placeholder="Describe the incident... (minimum 10 characters)"
+                    required
+                    minLength={10}
+                    maxLength={5000}
                   />
+                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                    {form.description.length}/5000 characters (minimum 10 required)
+                  </p>
                 </div>
 
                 {/* Document Upload */}
