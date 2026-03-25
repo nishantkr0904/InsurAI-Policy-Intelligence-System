@@ -115,3 +115,19 @@ class FraudInvestigationPanel(BaseModel):
     confidence_score: float
     related_claims: List[RelatedClaim]
     investigation_notes: str = Field(default="")
+
+
+class FraudAlertStatusUpdate(BaseModel):
+    """Request body for PATCH /api/v1/fraud/alerts/{alert_id}/status."""
+    status: AlertStatus = Field(..., description="New alert status")
+    notes: Optional[str] = Field(default=None, description="Investigation notes")
+    workspace_id: str = Field(default="default", description="Workspace namespace")
+
+
+class FraudAlertStatusResponse(BaseModel):
+    """Response body from PATCH /api/v1/fraud/alerts/{alert_id}/status."""
+    alert_id: str
+    status: AlertStatus
+    previous_status: AlertStatus
+    updated_at: str
+    message: str
