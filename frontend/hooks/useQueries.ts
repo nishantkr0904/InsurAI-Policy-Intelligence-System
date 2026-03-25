@@ -46,6 +46,8 @@ export function useComplianceIssues(workspaceId: string | null) {
     enabled: !!workspaceId,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    retry: 2, // Retry failed requests up to 2 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
   });
 }
 
