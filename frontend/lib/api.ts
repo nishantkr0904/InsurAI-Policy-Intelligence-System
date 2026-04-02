@@ -272,30 +272,7 @@ export async function validateClaim(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
   });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({ detail: "Request failed" }));
-
-    // Handle FastAPI/Pydantic validation errors (array of objects)
-    let errorMessage: string;
-    if (Array.isArray(errorData.detail)) {
-      // Extract readable messages from validation errors
-      errorMessage = errorData.detail
-        .map((err: { loc?: string[]; msg?: string }) => {
-          const field = err.loc?.slice(-1)[0] || "field";
-          return `${field}: ${err.msg || "invalid"}`;
-        })
-        .join("; ");
-    } else if (typeof errorData.detail === "string") {
-      errorMessage = errorData.detail;
-    } else if (errorData.message) {
-      errorMessage = errorData.message;
-    } else {
-      errorMessage = `Claim validation failed: ${res.status}`;
-    }
-
-    console.error("Validate Claim Error:", errorData);
-    throw new Error(errorMessage);
-  }
+  if (!res.ok) throw new Error(`Claim validation failed: ${res.status}`);
   return res.json() as Promise<ClaimValidationResponse>;
 }
 
@@ -354,39 +331,6 @@ export async function fetchFraudAlerts(
   const res = await fetch(`${BASE}/fraud/alerts?${params.toString()}`);
   if (!res.ok) throw new Error(`Failed to fetch fraud alerts: ${res.status}`);
   return res.json() as Promise<FraudAlertsResponse>;
-}
-
-/** Shape of fraud alert status update request. */
-export interface FraudAlertStatusUpdate {
-  status: "new" | "under_review" | "escalated" | "resolved" | "false_positive";
-  notes?: string;
-  workspace_id: string;
-}
-
-/** Shape of fraud alert status update response. */
-export interface FraudAlertStatusResponse {
-  alert_id: string;
-  status: string;
-  previous_status: string;
-  updated_at: string;
-  message: string;
-}
-
-/** Update fraud alert status (escalate, resolve, dismiss). */
-export async function updateFraudAlertStatus(
-  alertId: string,
-  update: FraudAlertStatusUpdate,
-): Promise<FraudAlertStatusResponse> {
-  const res = await fetch(`${BASE}/fraud/alerts/${alertId}/status`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(update),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({ detail: "Request failed" }));
-    throw new Error(errorData.detail || `Failed to update alert status: ${res.status}`);
-  }
-  return res.json() as Promise<FraudAlertStatusResponse>;
 }
 
 /** Shape of a compliance issue from the backend. */
