@@ -812,3 +812,111 @@ export async function exportReport(
 
   return res.json() as Promise<ReportExportResponse>;
 }
+
+// ---------------------------------------------------------------------------
+// Authentication API
+// ---------------------------------------------------------------------------
+
+/** User response from backend */
+export interface UserResponse {
+  name: string;
+  email: string;
+  role: string | null;
+  workspace: string | null;
+  initials: string;
+  onboarded: boolean;
+}
+
+/** Login request */
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+/** Login response */
+export interface LoginResponse {
+  success: boolean;
+  user: UserResponse | null;
+  error: string | null;
+}
+
+/** Registration request */
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  name: string;
+}
+
+/** Registration response */
+export interface RegisterResponse {
+  success: boolean;
+  error: string | null;
+}
+
+/** Onboarding update request */
+export interface OnboardingUpdateRequest {
+  workspace?: string;
+  role?: string;
+}
+
+/**
+ * Authenticate user with email and password.
+ * POST /api/v1/auth/login
+ */
+export async function loginUser(
+  request: LoginRequest
+): Promise<LoginResponse> {
+  const res = await fetch(`${BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Login failed: ${res.status}`);
+  }
+
+  return res.json() as Promise<LoginResponse>;
+}
+
+/**
+ * Register a new user account.
+ * POST /api/v1/auth/register
+ */
+export async function registerUser(
+  request: RegisterRequest
+): Promise<RegisterResponse> {
+  const res = await fetch(`${BASE}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Registration failed: ${res.status}`);
+  }
+
+  return res.json() as Promise<RegisterResponse>;
+}
+
+/**
+ * Complete user onboarding (mark as onboarded, update workspace and role).
+ * POST /api/v1/auth/onboarding/{email}
+ */
+export async function completeUserOnboarding(
+  email: string,
+  request: OnboardingUpdateRequest
+): Promise<UserResponse> {
+  const res = await fetch(`${BASE}/auth/onboarding/${encodeURIComponent(email)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Onboarding update failed: ${res.status}`);
+  }
+
+  return res.json() as Promise<UserResponse>;
+}
+
