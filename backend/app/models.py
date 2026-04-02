@@ -786,3 +786,27 @@ class PerformanceMetric(Base):
         Index("idx_perf_endpoint_created", "endpoint", "created_at"),
         Index("idx_perf_workspace_created", "workspace_id", "created_at"),
     )
+
+
+# ============================================================================
+# USER MODEL (Authentication)
+# ============================================================================
+
+class User(Base):
+    """
+    User model for authentication and authorization.
+    
+    Stores user accounts with hashed passwords for secure authentication.
+    Supports onboarding tracking and role/workspace assignment.
+    """
+    __tablename__ = "users"
+    
+    email = Column(String, primary_key=True, index=True)
+    password_hash = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    role = Column(String, nullable=True)
+    workspace = Column(String, nullable=True)
+    onboarded = Column(Boolean, default=False)
+    first_login_shown = Column(Boolean, default=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
