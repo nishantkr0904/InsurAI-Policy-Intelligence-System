@@ -109,10 +109,9 @@ export default function SignupPage() {
     if (errors.email || errors.password || errors.confirmPassword) return;
 
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 900));
 
-    // Register the user
-    const result = registerUser(form.email, form.password);
+    // Register the user via backend API
+    const result = await registerUser(form.email, form.password);
 
     if (!result.success) {
       toast.error("Registration failed", {

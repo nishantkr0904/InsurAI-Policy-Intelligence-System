@@ -33,11 +33,9 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    // Simulate network latency
-    await new Promise((r) => setTimeout(r, 800));
 
-    // Validate credentials against registered users and demo account
-    const result = validateCredentials(email, password);
+    // Validate credentials against backend API and demo account
+    const result = await validateCredentials(email, password);
     if (!result.success) {
       setError(result.error || "Invalid email or password. Please try again.");
       toast.error("Invalid credentials", {
