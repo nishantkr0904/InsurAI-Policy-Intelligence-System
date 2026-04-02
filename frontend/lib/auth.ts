@@ -1,7 +1,9 @@
 /**
- * Shared auth utilities – localStorage-based session management.
- * In production this would be replaced by a real auth provider (JWT/OAuth).
+ * Shared auth utilities – hybrid localStorage + backend API session management.
+ * Backend authentication for production use with localStorage fallback for demo.
  */
+
+import { loginUser as apiLoginUser, registerUser as apiRegisterUser, completeUserOnboarding, LoginResponse } from "./api";
 
 export interface InsurAIUser {
   name: string;
@@ -107,7 +109,7 @@ export function getSelectedRole(): string | null {
 }
 
 /** Save workspace details, link them to the current user, and mark onboarding complete. */
-export function saveWorkspace(company: string, workspaceName: string): void {
+export async function saveWorkspace(company: string, workspaceName: string): Promise<void> {
   if (typeof window === "undefined") return;
   localStorage.setItem("insurai_company", company);
   const user = getUser();
@@ -117,8 +119,17 @@ export function saveWorkspace(company: string, workspaceName: string): void {
     const selectedRole = getSelectedRole();
     if (selectedRole) user.role = selectedRole;
     localStorage.setItem("insurai_user", JSON.stringify(user));
-    // Mark user as onboarded in their registration record (per-user tracking)
-    markUserOnboarded(user.email, workspaceName, selectedRole || undefined);
+    
+    // Update backend with onboarding status
+    try {
+      await completeUserOnboarding(user.email, {
+        workspace: workspaceName,
+        role: selectedRole || undefined,
+      });
+    } catch (error) {
+      console.error("Failed to update onboarding status on backend:", error);
+      // Continue anyway - localStorage is updated
+    }
   }
   completeOnboarding(workspaceName);
 }
@@ -232,102 +243,77 @@ export function isUserOnboarded(email: string): boolean {
 }
 
 /**
- * Register a new user with email and password.
+ * Register a new user with email and password via backend API.
  * Returns { success, error } object.
  */
-export function registerUser(
+export async function registerUser(
   email: string,
   password: string,
   name = ""
-): { success: boolean; error?: string } {
-  const normalizedEmail = email.trim().toLowerCase();
-
-  // Check if email is demo email
-  if (normalizedEmail === DEMO_EMAIL) {
-    return { success: false, error: "This email is reserved for demo purposes." };
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await apiRegisterUser({ email, password, name });
+    
+    return {
+      success: response.success,
+      error: response.error || undefined,
+    };
+  } catch (error) {
+    console.error("Registration error:", error);
+    return { 
+      success: false, 
+      error: "Unable to connect to authentication server." 
+    };
   }
-
-  // Check if user already exists
-  const users = getRegisteredUsers();
-  if (users.some((u) => u.email === normalizedEmail)) {
-    return { success: false, error: "An account with this email already exists." };
-  }
-
-  // Register new user
-  const newUser: RegisteredUser = {
-    email: normalizedEmail,
-    passwordHash: simpleHash(password),
-    name,
-    createdAt: new Date().toISOString(),
-    onboarded: false,
-  };
-
-  users.push(newUser);
-  saveRegisteredUsers(users);
-
-  return { success: true };
 }
 
 /**
- * Validate login credentials against registered users.
+ * Validate login credentials against backend API.
  * Returns { success, user, error } object.
  * Also restores onboarding status for returning users.
  */
-export function validateCredentials(
+export async function validateCredentials(
   email: string,
   password: string
-): { success: boolean; user?: InsurAIUser; error?: string } {
-  const normalizedEmail = email.trim().toLowerCase();
-
-  // Check demo credentials first
-  if (normalizedEmail === DEMO_EMAIL && password === DEMO_PASSWORD) {
-    return {
-      success: true,
-      user: {
-        name: "Demo User",
-        email: DEMO_EMAIL,
-        role: "admin",
-        workspace: localStorage.getItem("insurai_workspace") ?? "default",
-        initials: "DU",
-      },
+): Promise<{ success: boolean; user?: InsurAIUser; error?: string }> {
+  try {
+    const response: LoginResponse = await apiLoginUser({ email, password });
+    
+    if (!response.success || !response.user) {
+      return { 
+        success: false, 
+        error: response.error || "Login failed." 
+      };
+    }
+    
+    // Convert backend UserResponse to InsurAIUser format
+    const user: InsurAIUser = {
+      name: response.user.name,
+      email: response.user.email,
+      role: response.user.role || "",
+      workspace: response.user.workspace || "default",
+      initials: response.user.initials,
+    };
+    
+    // Restore onboarding status for returning users
+    if (response.user.onboarded) {
+      localStorage.setItem("insurai_onboarded", "true");
+      if (response.user.workspace) {
+        localStorage.setItem("insurai_workspace", response.user.workspace);
+      }
+      if (response.user.role) {
+        localStorage.setItem("insurai_user_role", response.user.role);
+      }
+    }
+    
+    return { success: true, user };
+  } catch (error) {
+    console.error("Login error:", error);
+    return { 
+      success: false, 
+      error: "Unable to connect to authentication server." 
     };
   }
-
-  // Check registered users
-  const users = getRegisteredUsers();
-  const foundUser = users.find((u) => u.email === normalizedEmail);
-
-  if (!foundUser) {
-    return { success: false, error: "No account found with this email." };
-  }
-
-  // Validate password
-  if (foundUser.passwordHash !== simpleHash(password)) {
-    return { success: false, error: "Invalid password." };
-  }
-
-  // Restore onboarding status for returning users
-  if (foundUser.onboarded) {
-    localStorage.setItem("insurai_onboarded", "true");
-    if (foundUser.workspace) {
-      localStorage.setItem("insurai_workspace", foundUser.workspace);
-    }
-    if (foundUser.role) {
-      localStorage.setItem("insurai_user_role", foundUser.role);
-    }
-  }
-
-  // Return user data
-  return {
-    success: true,
-    user: {
-      name: foundUser.name || normalizedEmail.split("@")[0],
-      email: foundUser.email,
-      role: foundUser.role || localStorage.getItem("insurai_user_role") || "",
-      workspace: foundUser.workspace || localStorage.getItem("insurai_workspace") ?? "default",
-      initials: getInitials(foundUser.name || normalizedEmail.split("@")[0]),
-    },
-  };
 }
 
 /**
