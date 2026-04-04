@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { isAuthenticated, getUser, logout, type InsurAIUser } from "@/lib/auth";
-import { getVisibleNavLinks, getRoleLabel, type NavLink } from "@/lib/rbac";
 
 const ROLE_LABELS: Record<string, string> = {
   underwriter:       "Underwriter",
@@ -23,7 +22,6 @@ export default function Navbar() {
 
   const [authed, setAuthed]           = useState(false);
   const [user,   setUser]             = useState<InsurAIUser | null>(null);
-  const [navLinks, setNavLinks]       = useState<NavLink[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen,   setNotifOpen]   = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -35,8 +33,6 @@ export default function Navbar() {
     setAuthed(auth);
     const currentUser = auth ? getUser() : null;
     setUser(currentUser);
-    // Filter navigation links based on user role
-    setNavLinks(getVisibleNavLinks(currentUser?.role || null));
   }, [pathname]);
 
   // Close dropdowns on outside click
@@ -55,11 +51,6 @@ export default function Navbar() {
     setUser(null);
     setProfileOpen(false);
     router.push("/login");
-  }
-
-  function isActive(href: string) {
-    if (href === "/dashboard") return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
-    return pathname === href || pathname.startsWith(href + "/");
   }
 
   const isLandingPage    = pathname === "/";
@@ -140,35 +131,9 @@ export default function Navbar() {
         height: "60px",
       }}
     >
-      {/* Left: Logo + Nav */}
+      {/* Left: Logo only */}
       <div className="flex items-center gap-4">
         {Logo}
-
-        <nav className="flex items-center gap-0.5">
-          {navLinks.map(({ href, label }) => {
-            const active = isActive(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className="relative px-3 py-2 rounded-lg text-sm font-medium transition-[background-color,color] duration-150"
-                style={{
-                  color: active ? "var(--text-primary)" : "var(--text-secondary)",
-                  background: active ? "rgba(59,130,246,0.1)" : "transparent",
-                  textDecoration: "none",
-                }}
-              >
-                {label}
-                {active && (
-                  <span
-                    className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full"
-                    style={{ background: "var(--accent-gradient)" }}
-                  />
-                )}
-              </Link>
-            );
-          })}
-        </nav>
       </div>
 
       {/* Right: Workspace + Notifications + Profile */}

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "@/app/globals.css";
 import Navbar from "@/components/Navbar";
+import AppShell from "@/components/AppShell";
 import ClientLayoutWrapper from "@/components/ClientLayoutWrapper";
 import QueryProvider from "@/components/QueryProvider";
 import { Toaster } from "sonner";
@@ -52,7 +53,7 @@ export default function RootLayout({
             <Navbar />
 
             {/* ── Page Content ── */}
-            <main className="flex-1 flex flex-col overflow-auto">{children}</main>
+            <AppShell>{children}</AppShell>
 
             {/* ── Footer ── */}
             <footer

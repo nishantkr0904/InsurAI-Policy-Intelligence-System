@@ -41,6 +41,7 @@ export const ROLE_SIDEBAR_LINKS: Record<UserRole, NavLink[]> = {
     { href: "/dashboard/underwriter", label: "Overview", icon: "📊" },
     { href: "/documents", label: "Policies", icon: "📄" },
     { href: "/chat", label: "Policy Chat", icon: "💬" },
+    { href: "/claims", label: "Claims", icon: "✅" },
     { href: "/analytics", label: "Analytics", icon: "📈" },
   ],
   claims_adjuster: [

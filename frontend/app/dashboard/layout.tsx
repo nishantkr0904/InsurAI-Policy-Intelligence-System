@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import DashboardSidebar from "@/components/DashboardSidebar";
 
 /**
  * Dashboard layout – shared sidebar navigation for role-based views.
@@ -18,13 +17,5 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="flex flex-1 overflow-hidden" style={{ height: "calc(100vh - 84px)" }}>
-      {/* Role-based sidebar */}
-      <DashboardSidebar />
-
-      {/* Page content */}
-      <main className="flex-1 overflow-y-auto p-6">{children}</main>
-    </div>
-  );
+  return <>{children}</>;
 }
