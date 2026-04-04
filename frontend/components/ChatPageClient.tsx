@@ -65,16 +65,15 @@ export default function ChatPageClient({ workspaceId }: Props) {
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
               </div>
-              <h1 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
-                Policy Chat
-              </h1>
+              <div>
+                <h1 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+                  Policy Chat
+                </h1>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                  Ask questions about your policies
+                </p>
+              </div>
             </div>
-            <span
-              className="badge badge-accent"
-              style={{ fontSize: "0.65rem" }}
-            >
-              {workspaceId}
-            </span>
           </div>
           <ChatPanel
             workspaceId={workspaceId}

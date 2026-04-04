@@ -70,20 +70,15 @@ export default function AnalyticsClient() {
     return () => clearTimeout(timer);
   }, [router]);
 
-  const workspace = user?.workspace ?? "default";
-
   return (
     <div className="px-6 py-6 max-w-7xl mx-auto w-full space-y-8">
       {/* ── Header ──────────────────────────────────────────────── */}
       <div>
         <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-          Query Analytics
+          Analytics
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          Workspace: <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{workspace}</span>
-        </p>
-        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          Monitor and analyze AI query patterns, performance, and user engagement
+          Monitor and analyze Al query patterns, performance, and user engagement trends
         </p>
       </div>
 

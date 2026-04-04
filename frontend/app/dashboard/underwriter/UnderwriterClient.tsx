@@ -23,6 +23,7 @@ export default function UnderwriterClient() {
   }, [router]);
 
   const workspace = user?.workspace ?? "default";
+  const firstName = user?.name?.trim()?.split(" ")?.[0] || "there";
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -37,11 +38,10 @@ export default function UnderwriterClient() {
               className="text-2xl font-bold"
               style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}
             >
-              Underwriter Dashboard
+              Welcome back, {firstName}!
             </h1>
             <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-              Workspace:{" "}
-              <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{workspace}</span>
+              Policy insights and activity summary
               {isDemo && (
                 <>
                   {" · "}
@@ -129,7 +129,7 @@ function OverviewTab({
           processingDocs.slice(0, 3).map((doc) => ({
             task: `Processing: ${doc.filename}`,
             status: "Processing",
-            time: `Started ${new Date(doc.uploaded_at).toLocaleTimeString()}`,
+            time: `Started ${new Date(doc.created_at ?? Date.now()).toLocaleTimeString()}`,
             href: "/documents",
           }))
         );
@@ -149,7 +149,7 @@ function OverviewTab({
         const recentDocs = docs.slice(0, 3).map((doc) => ({
           action: `Document ${doc.status}`,
           policy: doc.filename,
-          time: new Date(doc.uploaded_at).toLocaleTimeString(),
+          time: new Date(doc.created_at ?? Date.now()).toLocaleTimeString(),
           href: "/documents",
         }));
         setActivity(recentDocs);

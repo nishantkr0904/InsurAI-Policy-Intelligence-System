@@ -80,7 +80,7 @@ const EXAMPLE_QUESTIONS = [
 ];
 
 const ROLE_DASHBOARDS = [
-  { href: "/dashboard/underwriter", label: "Underwriter Dashboard", desc: "Risk assessment & coverage tools", color: "var(--accent)" },
+  { href: "/dashboard/underwriter", label: "Underwriter Overview", desc: "Risk assessment & coverage tools", color: "var(--accent)" },
   { href: "/dashboard/compliance",  label: "Compliance Dashboard",  desc: "Regulatory monitoring & audits",  color: "var(--warning)" },
 ];
 
@@ -90,7 +90,7 @@ const ROLE_TIPS: Record<string, { title: string; tips: string[] }> = {
     tips: [
       "Upload policy PDFs to extract coverage terms and exclusions instantly.",
       "Use AI queries to compare risk clauses across multiple policies.",
-      "Check the Underwriter Dashboard for portfolio risk metrics.",
+      "Check the Underwriter Overview for portfolio risk metrics.",
     ],
   },
   claims_team: {

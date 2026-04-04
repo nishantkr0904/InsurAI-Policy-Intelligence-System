@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import UnderwriterClient from "./UnderwriterClient";
 
 /**
- * Underwriter dashboard – risk assessment and coverage query tools.
+ * Underwriter overview – risk assessment and coverage query tools.
  *
  * Architecture ref:
  *   docs/system-architecture.md §4 – "Underwriters see risk-assessment tools"
@@ -12,7 +12,7 @@ import UnderwriterClient from "./UnderwriterClient";
  * and AI-generated risk reports.
  */
 
-export const metadata: Metadata = { title: "Underwriter Dashboard – InsurAI" };
+export const metadata: Metadata = { title: "Overview – InsurAI" };
 
 export default function UnderwriterPage() {
   return <UnderwriterClient />;

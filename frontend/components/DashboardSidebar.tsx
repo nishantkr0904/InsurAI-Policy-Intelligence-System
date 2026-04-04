@@ -40,7 +40,7 @@ export default function DashboardSidebar() {
           className="section-title"
           style={{ margin: 0 }}
         >
-          {roleLabel} Dashboard
+          {roleLabel.toUpperCase()}
         </p>
       </div>
 

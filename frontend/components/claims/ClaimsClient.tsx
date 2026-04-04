@@ -229,7 +229,7 @@ export default function ClaimsClient() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
-            Claims Adjuster Dashboard
+            Claims
           </h1>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
             Review, validate, and process insurance claims

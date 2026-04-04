@@ -26,7 +26,7 @@ export default function DocumentsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-              Documents
+              Policies
             </h1>
             <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
               Uploaded policy documents and their ingestion status.
