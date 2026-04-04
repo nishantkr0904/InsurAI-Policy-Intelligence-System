@@ -1,26 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
+import ClaimsAdjusterDashboard from "@/components/claims/ClaimsAdjusterDashboard";
 
 /**
- * Claims adjuster dashboard entrypoint.
- * Redirects to the dedicated claims workspace.
+ * Claims adjuster overview dashboard route.
  */
 export default function ClaimsAdjusterDashboardPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace("/claims");
-  }, [router]);
-
   return (
     <AuthGuard allowedRoles={["claims_adjuster", "admin"]}>
-      <div className="flex items-center justify-center h-full">
-        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          Loading claims workspace...
-        </p>
+      <div className="px-6 py-6 max-w-7xl mx-auto w-full">
+        <ClaimsAdjusterDashboard />
       </div>
     </AuthGuard>
   );

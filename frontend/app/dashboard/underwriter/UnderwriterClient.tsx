@@ -38,7 +38,7 @@ export default function UnderwriterClient() {
               className="text-2xl font-bold"
               style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}
             >
-              Welcome back, {firstName}!
+              Welcome Back, {firstName}!
             </h1>
             <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
               Policy insights and activity summary

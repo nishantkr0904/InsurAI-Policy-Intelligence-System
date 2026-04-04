@@ -1,6 +1,6 @@
 "use client";
 import AuthGuard from "@/components/AuthGuard";
-import ClaimsAdjusterDashboard from "@/components/claims/ClaimsAdjusterDashboard";
+import ClaimsValidationWorkflow from "@/components/claims/ClaimsValidationWorkflow";
 
 /**
  * Claims validation workspace (claims_adjuster role) – FR012-FR015
@@ -18,7 +18,7 @@ export default function ClaimsPage() {
   return (
     <AuthGuard allowedRoles={["claims_adjuster", "admin"]}>
       <div className="px-6 py-6 max-w-7xl mx-auto w-full">
-        <ClaimsAdjusterDashboard />
+        <ClaimsValidationWorkflow />
       </div>
     </AuthGuard>
   );
