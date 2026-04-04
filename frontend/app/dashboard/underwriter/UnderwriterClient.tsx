@@ -4,19 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isAuthenticated, getUser, isDemoUser } from "@/lib/auth";
 import { fetchDocuments, fetchPerformanceStats, fetchAuditAnalytics, type DocumentRecord } from "@/lib/api";
-import DocumentProcessing from "@/components/underwriter/DocumentProcessing";
-import PolicyChat from "@/components/underwriter/PolicyChat";
-import RiskAssessmentPanel from "@/components/underwriter/RiskAssessmentPanel";
-import AnalyticsDashboard from "@/components/underwriter/AnalyticsDashboard";
 import SystemHealth from "@/components/underwriter/SystemHealth";
 import ExportPanel from "@/components/underwriter/ExportPanel";
-
-type TabView = "overview" | "documents" | "chat" | "risk" | "analytics";
 
 export default function UnderwriterClient() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<TabView>("overview");
   const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
@@ -30,14 +23,6 @@ export default function UnderwriterClient() {
   }, [router]);
 
   const workspace = user?.workspace ?? "default";
-
-  const tabs: { id: TabView; label: string; icon: string }[] = [
-    { id: "overview", label: "Overview", icon: "📊" },
-    { id: "documents", label: "Documents", icon: "📄" },
-    { id: "chat", label: "Policy Chat", icon: "💬" },
-    { id: "risk", label: "Risk Assessment", icon: "⚖️" },
-    { id: "analytics", label: "Analytics", icon: "📈" },
-  ];
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -72,33 +57,11 @@ export default function UnderwriterClient() {
             <ExportPanel workspaceId={workspace} isDemo={isDemo} />
           </div>
         </div>
-
-        {/* Tabs */}
-        <div className="flex gap-2 mt-4">
-          {tabs.map(({ id, label, icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
-              style={{
-                background: activeTab === id ? "rgba(59,130,246,0.12)" : "transparent",
-                color: activeTab === id ? "var(--accent)" : "var(--text-secondary)",
-                border: activeTab === id ? "1px solid rgba(59,130,246,0.3)" : "1px solid transparent",
-              }}
-            >
-              {icon} {label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {activeTab === "overview" && <OverviewTab workspaceId={workspace} isDemo={isDemo} setActiveTab={setActiveTab} />}
-        {activeTab === "documents" && <DocumentProcessing workspaceId={workspace} isDemo={isDemo} />}
-        {activeTab === "chat" && <PolicyChat workspaceId={workspace} isDemo={isDemo} />}
-        {activeTab === "risk" && <RiskAssessmentPanel workspaceId={workspace} isDemo={isDemo} />}
-        {activeTab === "analytics" && <AnalyticsDashboard workspaceId={workspace} isDemo={isDemo} />}
+        <OverviewTab workspaceId={workspace} isDemo={isDemo} />
       </div>
     </div>
   );
@@ -108,12 +71,11 @@ export default function UnderwriterClient() {
 function OverviewTab({
   workspaceId,
   isDemo,
-  setActiveTab
 }: {
   workspaceId: string;
   isDemo: boolean;
-  setActiveTab: (tab: TabView) => void;
 }) {
+  const router = useRouter();
   const [stats, setStats] = useState({
     documentsIndexed: isDemo ? "24" : "—",
     avgRiskScore: isDemo ? "42" : "—",
@@ -225,9 +187,27 @@ function OverviewTab({
                 </div>
               ))
             ) : (
-              <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
-                No recent activity
-              </p>
+              <div className="text-center py-8">
+                <p className="text-2xl mb-2">📄</p>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                  No recent activity
+                </p>
+                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                  Upload a policy to get started
+                </p>
+                <button
+                  onClick={() => router.push("/documents")}
+                  className="mt-3 px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+                  style={{
+                    background: "var(--accent)",
+                    color: "#fff",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  Upload Policy
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -242,20 +222,20 @@ function OverviewTab({
           </h3>
           <div className="space-y-2">
             {[
-              { label: "Upload Policy Document", icon: "📤", tab: "documents" as TabView },
-              { label: "Run Risk Assessment", icon: "⚖️", tab: "risk" as TabView },
-              { label: "Query Policy", icon: "💬", tab: "chat" as TabView },
-              { label: "View Analytics", icon: "📈", tab: "analytics" as TabView },
-            ].map(({ label, icon, tab }) => (
+              { label: "Upload Policy Document", icon: "📤", href: "/documents" },
+              { label: "Query Policies", icon: "💬", href: "/chat" },
+              { label: "View Analytics", icon: "📈", href: "/analytics" },
+            ].map(({ label, icon, href }) => (
               <button
                 key={label}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => router.push(href)}
                 className="w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors hover:bg-white/5"
                 style={{
                   background: "var(--bg-surface)",
                   border: "1px solid var(--border)",
                   color: "var(--text-primary)",
                   cursor: "pointer",
+                  textAlign: "left",
                 }}
               >
                 <span>{icon}</span>
