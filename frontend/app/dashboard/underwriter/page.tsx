@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import AuthGuard from "@/components/AuthGuard";
 import UnderwriterClient from "./UnderwriterClient";
 
 /**
@@ -15,6 +16,10 @@ import UnderwriterClient from "./UnderwriterClient";
 export const metadata: Metadata = { title: "Overview – InsurAI" };
 
 export default function UnderwriterPage() {
-  return <UnderwriterClient />;
+  return (
+    <AuthGuard allowedRoles={["underwriter", "admin"]}>
+      <UnderwriterClient />
+    </AuthGuard>
+  );
 }
 

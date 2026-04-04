@@ -9,6 +9,8 @@ interface AuthGuardProps {
   children: React.ReactNode;
   /** If true, skip role-based access check (only check authentication) */
   skipRoleCheck?: boolean;
+  /** Optional allow-list for roles that can access the wrapped page */
+  allowedRoles?: string[];
 }
 
 /**
@@ -18,7 +20,11 @@ interface AuthGuardProps {
  * - Checks role-based access permissions and redirects unauthorized users.
  * - Renders a spinner while the auth state is being resolved.
  */
-export default function AuthGuard({ children, skipRoleCheck = false }: AuthGuardProps) {
+export default function AuthGuard({
+  children,
+  skipRoleCheck = false,
+  allowedRoles,
+}: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
@@ -41,6 +47,16 @@ export default function AuthGuard({ children, skipRoleCheck = false }: AuthGuard
       const user = getUser();
       const userRole = user?.role || null;
 
+      if (allowedRoles?.length && (!userRole || !allowedRoles.includes(userRole))) {
+        setAccessDenied(true);
+        setErrorMessage(getUnauthorizedMessage(userRole));
+
+        const timer = setTimeout(() => {
+          router.push(getRoleDefaultRoute(userRole));
+        }, 2500);
+        return () => clearTimeout(timer);
+      }
+
       if (!canAccessRoute(userRole, pathname)) {
         setAccessDenied(true);
         setErrorMessage(getUnauthorizedMessage(userRole));
@@ -54,7 +70,7 @@ export default function AuthGuard({ children, skipRoleCheck = false }: AuthGuard
     }
 
     setReady(true);
-  }, [router, pathname, skipRoleCheck]);
+  }, [router, pathname, skipRoleCheck, allowedRoles]);
 
   // Still checking auth/permissions
   if (!ready && !accessDenied) {

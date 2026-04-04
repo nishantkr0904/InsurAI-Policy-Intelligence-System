@@ -1,9 +1,9 @@
 "use client";
 import AuthGuard from "@/components/AuthGuard";
-import ClaimsClient from "@/components/claims/ClaimsClient";
+import ClaimsAdjusterDashboard from "@/components/claims/ClaimsAdjusterDashboard";
 
 /**
- * Claims Adjuster Dashboard – FR012-FR015
+ * Claims validation workspace (claims_adjuster role) – FR012-FR015
  *
  * Features:
  * - Claims Queue: View and filter pending claims
@@ -16,9 +16,9 @@ import ClaimsClient from "@/components/claims/ClaimsClient";
  */
 export default function ClaimsPage() {
   return (
-    <AuthGuard>
+    <AuthGuard allowedRoles={["claims_adjuster", "admin"]}>
       <div className="px-6 py-6 max-w-7xl mx-auto w-full">
-        <ClaimsClient />
+        <ClaimsAdjusterDashboard />
       </div>
     </AuthGuard>
   );

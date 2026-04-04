@@ -24,7 +24,7 @@ export interface NavLink {
  */
 export const ROLE_DEFAULT_ROUTES: Record<UserRole, string> = {
   underwriter: "/dashboard/underwriter",
-  claims_adjuster: "/claims",
+  claims_adjuster: "/dashboard/claims-adjuster",
   compliance_officer: "/compliance",
   fraud_analyst: "/fraud",
   broker: "/documents",
@@ -41,11 +41,10 @@ export const ROLE_SIDEBAR_LINKS: Record<UserRole, NavLink[]> = {
     { href: "/dashboard/underwriter", label: "Overview", icon: "📊" },
     { href: "/documents", label: "Policies", icon: "📄" },
     { href: "/chat", label: "Policy Chat", icon: "💬" },
-    { href: "/claims", label: "Claims", icon: "✅" },
     { href: "/analytics", label: "Analytics", icon: "📈" },
   ],
   claims_adjuster: [
-    { href: "/dashboard", label: "Overview", icon: "📊" },
+    { href: "/dashboard/claims-adjuster", label: "Overview", icon: "📊" },
     { href: "/claims", label: "Claims Validation", icon: "✅" },
     { href: "/documents", label: "Policies", icon: "📄" },
     { href: "/chat", label: "Policy Chat", icon: "💬" },
@@ -61,7 +60,6 @@ export const ROLE_SIDEBAR_LINKS: Record<UserRole, NavLink[]> = {
   fraud_analyst: [
     { href: "/dashboard", label: "Overview", icon: "📊" },
     { href: "/fraud", label: "Fraud Alerts", icon: "🔍" },
-    { href: "/claims", label: "Claims Review", icon: "✅" },
     { href: "/audit", label: "Audit Trail", icon: "📜" },
     { href: "/documents", label: "Policies", icon: "📄" },
     { href: "/chat", label: "Policy Chat", icon: "💬" },
@@ -119,7 +117,6 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/dashboard/underwriter",
     "/documents",
     "/chat",
-    "/claims",
     "/analytics",
     "/settings",
   ],
@@ -127,6 +124,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   // Claims Adjuster: claims validation, policies, AI chat
   claims_adjuster: [
     "/dashboard",
+    "/dashboard/claims-adjuster",
     "/documents",
     "/chat",
     "/claims",
@@ -150,7 +148,6 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/dashboard",
     "/documents",
     "/chat",
-    "/claims",
     "/fraud",
     "/analytics",
     "/audit",
@@ -209,11 +206,16 @@ export function canAccessRoute(role: string | null, route: string): boolean {
 
   if (!allowedRoutes) return false;
 
+  // Admin keeps access to role-specific dashboard routes.
+  if (normalizedRole === "admin" && route.startsWith("/dashboard/")) {
+    return true;
+  }
+
   // Check if the route or any parent route is in the allowed list
   return allowedRoutes.some((allowed) => {
     if (route === allowed) return true;
-    // Allow access to child routes (e.g., /dashboard/underwriter when /dashboard is allowed)
-    if (route.startsWith(allowed + "/")) return true;
+    // Prevent "/dashboard" from acting as a wildcard for role-specific child routes.
+    if (allowed !== "/dashboard" && route.startsWith(allowed + "/")) return true;
     return false;
   });
 }
