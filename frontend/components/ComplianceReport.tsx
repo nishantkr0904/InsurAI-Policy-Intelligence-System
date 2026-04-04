@@ -31,18 +31,20 @@ export default function ComplianceReport({
     day: "numeric",
   });
 
-  // Group issues by severity
-  const criticalIssues = issues.filter((i) => i.severity === "critical");
-  const warningIssues = issues.filter((i) => i.severity === "warning");
-  const infoIssues = issues.filter((i) => i.severity === "info");
+  const normalizedIssues = issues.map((issue, index) => normalizeIssue(issue, index));
+
+  // Group issues by display severity buckets.
+  const criticalIssues = normalizedIssues.filter((i) => i.displaySeverity === "critical");
+  const warningIssues = normalizedIssues.filter((i) => i.displaySeverity === "warning");
+  const infoIssues = normalizedIssues.filter((i) => i.displaySeverity === "info");
 
   // Count by status
-  const openCount = issues.filter((i) => i.status === "open").length;
-  const acknowledgedCount = issues.filter((i) => i.status === "acknowledged").length;
-  const resolvedCount = issues.filter((i) => i.status === "resolved").length;
+  const openCount = normalizedIssues.filter((i) => i.status === "open").length;
+  const acknowledgedCount = normalizedIssues.filter((i) => i.status === "acknowledged").length;
+  const resolvedCount = normalizedIssues.filter((i) => i.status === "resolved").length;
 
   // Generate recommendations based on issues
-  const recommendations = generateRecommendations(issues);
+  const recommendations = generateRecommendations(normalizedIssues);
 
   const scoreColor =
     score >= 80 ? "var(--success)" : score >= 60 ? "var(--warning)" : "var(--danger)";
@@ -215,7 +217,7 @@ export default function ComplianceReport({
               </h3>
               <div className="space-y-3">
                 {criticalIssues.map((issue) => (
-                  <IssueCard key={issue.id} issue={issue} />
+                  <IssueCard key={issue.key} issue={issue} />
                 ))}
               </div>
             </section>
@@ -228,7 +230,7 @@ export default function ComplianceReport({
               </h3>
               <div className="space-y-3">
                 {warningIssues.map((issue) => (
-                  <IssueCard key={issue.id} issue={issue} />
+                  <IssueCard key={issue.key} issue={issue} />
                 ))}
               </div>
             </section>
@@ -241,7 +243,7 @@ export default function ComplianceReport({
               </h3>
               <div className="space-y-3">
                 {infoIssues.map((issue) => (
-                  <IssueCard key={issue.id} issue={issue} />
+                  <IssueCard key={issue.key} issue={issue} />
                 ))}
               </div>
             </section>
@@ -313,7 +315,8 @@ function IssueCard({ issue }: { issue: ComplianceIssue }) {
     warning: { color: "var(--warning)", bg: "rgba(245,158,11,0.12)" },
     info: { color: "var(--accent)", bg: "rgba(37,99,235,0.12)" },
   };
-  const sev = sevColors[issue.severity];
+  const normalizedIssue = normalizeIssue(issue);
+  const sev = sevColors[normalizedIssue.displaySeverity];
 
   return (
     <div
@@ -325,11 +328,11 @@ function IssueCard({ issue }: { issue: ComplianceIssue }) {
           className="badge shrink-0"
           style={{ background: sev.bg, color: sev.color }}
         >
-          {issue.id}
+          {normalizedIssue.issueId}
         </span>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm mb-1" style={{ color: "var(--text-primary)" }}>
-            {issue.rule}
+            {normalizedIssue.ruleName}
           </p>
           <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {issue.description}
@@ -372,7 +375,11 @@ function generateRecommendations(issues: ComplianceIssue[]): string[] {
   }
 
   // Add specific recommendations based on issue types
-  const uniqueRules = new Set(issues.filter(i => i.status !== "resolved").map((i) => i.rule));
+  const uniqueRules = new Set(
+    issues
+      .filter((i) => i.status !== "resolved")
+      .map((i) => normalizeIssue(i).ruleName)
+  );
 
   if (uniqueRules.size > 0) {
     recommendations.push(
@@ -393,4 +400,21 @@ function generateRecommendations(issues: ComplianceIssue[]): string[] {
   }
 
   return recommendations;
+}
+
+function normalizeIssue(issue: ComplianceIssue, index = 0) {
+  const issueId = issue.issue_id || `ISSUE-${index}`;
+  const ruleName = issue.rule_name || "Compliance rule";
+
+  let displaySeverity: "critical" | "warning" | "info" = "info";
+  if (issue.severity === "critical") displaySeverity = "critical";
+  else if (issue.severity === "high" || issue.severity === "medium") displaySeverity = "warning";
+
+  return {
+    ...issue,
+    key: `${issueId}-${issue.detected_date || index}`,
+    issueId,
+    ruleName,
+    displaySeverity,
+  };
 }
