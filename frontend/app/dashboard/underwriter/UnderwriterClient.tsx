@@ -82,7 +82,9 @@ function OverviewTab({
     policiesReviewed: isDemo ? "156" : "—",
     highRisk: isDemo ? "8" : "—",
   });
-  const [activity, setActivity] = useState<Array<{ action: string; policy: string; time: string }>>([]);
+  const [activity, setActivity] = useState<Array<{ action: string; policy: string; time: string; href?: string }>>([]);
+  const [pendingTasks, setPendingTasks] = useState<Array<{ task: string; status: string; time: string; href?: string }>>([]);
+  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [loading, setLoading] = useState(!isDemo);
 
   useEffect(() => {
@@ -90,9 +92,13 @@ function OverviewTab({
       loadRealData();
     } else {
       setActivity([
-        { action: "Risk assessment completed", policy: "HOME-2024-001", time: "2 min ago" },
-        { action: "Document indexed", policy: "AUTO-2024-087", time: "15 min ago" },
-        { action: "Policy query answered", policy: "COMM-2024-045", time: "1 hour ago" },
+        { action: "Risk assessment completed", policy: "HOME-2024-001", time: "2 min ago", href: "/analytics" },
+        { action: "Document indexed", policy: "AUTO-2024-087", time: "15 min ago", href: "/documents" },
+        { action: "Policy query answered", policy: "COMM-2024-045", time: "1 hour ago", href: "/chat" },
+      ]);
+      setPendingTasks([
+        { task: "Document processing", status: "Processing", time: "Started 5 min ago", href: "/documents" },
+        { task: "Review high-risk policy", status: "Pending", time: "Assigned 1 hour ago", href: "/analytics" },
       ]);
     }
   }, [workspaceId, isDemo]);
@@ -107,22 +113,46 @@ function OverviewTab({
       ]);
 
       const indexedDocs = docs.filter((d) => d.status === "indexed").length;
-
+      const processingDocs = docs.filter((d) => d.status === "processing");
+      
+      setDocuments(docs);
       setStats({
         documentsIndexed: String(indexedDocs),
         avgRiskScore: perfStats?.quality_score_avg ? String(Math.round(perfStats.quality_score_avg * 100)) : "—",
         policiesReviewed: auditStats ? String(auditStats.total_events) : "—",
-        highRisk: "—", // Would need specific endpoint
+        highRisk: "—",
       });
 
-      // Transform audit data to recent activity
+      // Create pending tasks from processing documents
+      if (processingDocs.length > 0) {
+        setPendingTasks(
+          processingDocs.slice(0, 3).map((doc) => ({
+            task: `Processing: ${doc.filename}`,
+            status: "Processing",
+            time: `Started ${new Date(doc.uploaded_at).toLocaleTimeString()}`,
+            href: "/documents",
+          }))
+        );
+      }
+
+      // Transform audit data to recent activity with links
       if (auditStats?.top_actions) {
         const recentActivity = auditStats.top_actions.slice(0, 3).map((a) => ({
           action: a.action.replace(/_/g, " "),
           policy: `${a.count} actions`,
           time: `${a.avg_duration_ms ? Math.round(a.avg_duration_ms) + "ms avg" : ""}`,
+          href: a.action.includes("chat") ? "/chat" : a.action.includes("risk") ? "/analytics" : "/documents",
         }));
         setActivity(recentActivity);
+      } else if (docs.length > 0) {
+        // Show recent documents as activity
+        const recentDocs = docs.slice(0, 3).map((doc) => ({
+          action: `Document ${doc.status}`,
+          policy: doc.filename,
+          time: new Date(doc.uploaded_at).toLocaleTimeString(),
+          href: "/documents",
+        }));
+        setActivity(recentDocs);
       }
     } catch (error) {
       console.error("Failed to load overview data:", error);
@@ -161,6 +191,66 @@ function OverviewTab({
         ))}
       </div>
 
+      {/* Pending Tasks (if any) */}
+      {!loading && pendingTasks.length > 0 && (
+        <div
+          className="rounded-lg p-4"
+          style={{
+            background: "linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(139,92,246,0.06) 100%)",
+            border: "1px solid rgba(59,130,246,0.25)",
+          }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+              ⚡ Action Required
+            </h3>
+            <span
+              className="text-xs font-semibold px-2 py-1 rounded-full"
+              style={{ background: "var(--accent)", color: "#fff" }}
+            >
+              {pendingTasks.length} pending
+            </span>
+          </div>
+          <div className="space-y-2">
+            {pendingTasks.map((task, i) => (
+              <div
+                key={i}
+                onClick={() => task.href && router.push(task.href)}
+                className="flex items-center justify-between p-3 rounded-lg transition-all cursor-pointer hover:bg-white/5"
+                style={{
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className="w-2 h-2 rounded-full animate-pulse"
+                    style={{ background: "var(--warning)" }}
+                  />
+                  <div>
+                    <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                      {task.task}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                      {task.time}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className="text-xs font-semibold px-2 py-1 rounded"
+                  style={{
+                    background: task.status === "Processing" ? "var(--warning-soft)" : "var(--accent-soft)",
+                    color: task.status === "Processing" ? "var(--warning)" : "var(--accent)",
+                  }}
+                >
+                  {task.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Two-column layout */}
       <div className="grid grid-cols-2 gap-6">
         {/* Recent Activity */}
@@ -178,12 +268,40 @@ function OverviewTab({
               </p>
             ) : activity.length > 0 ? (
               activity.map((item, i) => (
-                <div key={i} className="flex items-start justify-between p-2 rounded" style={{ background: "var(--bg-surface)" }}>
+                <div
+                  key={i}
+                  onClick={() => item.href && router.push(item.href)}
+                  className={`flex items-start justify-between p-2 rounded transition-colors ${
+                    item.href ? "cursor-pointer hover:bg-white/5" : ""
+                  }`}
+                  style={{ background: "var(--bg-surface)" }}
+                >
                   <div>
-                    <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{item.action}</p>
-                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{item.policy}</p>
+                    <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                      {item.action}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                      {item.policy}
+                    </p>
                   </div>
-                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>{item.time}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      {item.time}
+                    </span>
+                    {item.href && (
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        style={{ color: "var(--accent)" }}
+                      >
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    )}
+                  </div>
                 </div>
               ))
             ) : (
