@@ -11,6 +11,7 @@ import json
 import logging
 from datetime import datetime
 from io import BytesIO
+import textwrap
 from typing import Dict, Any, Optional, List
 import uuid
 
@@ -101,74 +102,99 @@ def _generate_csv_report(report_data: ReportData) -> bytes:
 
 
 def _generate_pdf_report(report_data: ReportData) -> bytes:
-    """Generate PDF report using simple HTML-like format."""
-    # Since we don't have reportlab, create a simple text-based "PDF"
-    # In production, use reportlab or weasyprint
-    lines = []
-    
-    lines.append("=" * 80)
-    lines.append("INSURAI RISK ASSESSMENT REPORT")
-    lines.append("=" * 80)
-    lines.append(f"Report ID: {report_data.report_id}")
-    lines.append(f"Generated: {report_data.generated_at.strftime('%Y-%m-%d %H:%M:%S UTC')}")
-    lines.append(f"Report Type: {report_data.report_type.value.upper()}")
-    lines.append("")
-    
-    # Policy Section
-    lines.append("-" * 80)
-    lines.append("POLICY INFORMATION")
-    lines.append("-" * 80)
-    lines.append(f"Policy ID:        {report_data.policy_info.policy_id}")
-    lines.append(f"Policy Number:    {report_data.policy_info.policy_number or 'Not provided'}")
-    lines.append(f"Insured Name:     {report_data.policy_info.insured_name or 'Not provided'}")
-    lines.append(f"Policy Type:      {report_data.policy_info.policy_type or 'Not provided'}")
-    lines.append(f"Coverage Amount:  ${report_data.policy_info.coverage_amount or 0:,.2f}")
-    lines.append(f"Deductible:       ${report_data.policy_info.deductible or 0:,.2f}")
-    lines.append("")
-    
-    # Risk Assessment Section
-    lines.append("-" * 80)
-    lines.append("RISK ASSESSMENT")
-    lines.append("-" * 80)
-    lines.append(f"Risk Score:       {report_data.risk_score:.1f} / 100")
-    lines.append(f"Risk Level:       {report_data.risk_level}")
-    lines.append("")
-    lines.append("Risk Factors:")
+    """Generate a valid PDF report using PyMuPDF."""
+    import fitz
+
+    doc = fitz.open()
+    page = doc.new_page(width=612, height=792)  # US Letter
+    margin_x = 48
+    margin_top = 54
+    margin_bottom = 54
+    y = margin_top
+    body_width = 612 - (margin_x * 2)
+
+    def new_page() -> None:
+        nonlocal page, y
+        page = doc.new_page(width=612, height=792)
+        y = margin_top
+
+    def ensure_space(required_height: float) -> None:
+        nonlocal y
+        if y + required_height > 792 - margin_bottom:
+            new_page()
+
+    def draw_line(text: str, size: float = 11, bold: bool = False, gap: float = 4) -> None:
+        nonlocal y
+        wrap_width = max(30, int(body_width / (size * 0.55)))
+        lines = textwrap.wrap(text, width=wrap_width) or [""]
+        for line in lines:
+          ensure_space(size + 6)
+          page.insert_text(
+              (margin_x, y),
+              line,
+              fontsize=size,
+              fontname="helv",
+              color=(0, 0, 0),
+          )
+          y += size + 4
+        y += gap
+
+    def draw_section(title: str) -> None:
+        nonlocal y
+        ensure_space(30)
+        y += 6
+        page.draw_line((margin_x, y - 2), (612 - margin_x, y - 2), color=(0.7, 0.7, 0.7), width=1)
+        draw_line(title, size=14, bold=True, gap=2)
+
+    # Title block
+    draw_line("INSURAI RISK ASSESSMENT REPORT", size=18, bold=True, gap=8)
+    draw_line(f"Report ID: {report_data.report_id}", size=11)
+    draw_line(f"Generated: {report_data.generated_at.strftime('%Y-%m-%d %H:%M:%S UTC')}", size=11)
+    draw_line(f"Report Type: {report_data.report_type.value.upper()}", size=11, gap=10)
+
+    # Policy section
+    draw_section("POLICY INFORMATION")
+    draw_line(f"Policy ID: {report_data.policy_info.policy_id}")
+    draw_line(f"Policy Number: {report_data.policy_info.policy_number or 'Not provided'}")
+    draw_line(f"Insured Name: {report_data.policy_info.insured_name or 'Not provided'}")
+    draw_line(f"Policy Type: {report_data.policy_info.policy_type or 'Not provided'}")
+    draw_line(f"Coverage Amount: ${report_data.policy_info.coverage_amount or 0:,.2f}")
+    draw_line(f"Deductible: ${report_data.policy_info.deductible or 0:,.2f}", gap=8)
+
+    # Risk assessment section
+    draw_section("RISK ASSESSMENT")
+    draw_line(f"Risk Score: {report_data.risk_score:.1f} / 100")
+    draw_line(f"Risk Level: {report_data.risk_level}", gap=8)
+    draw_line("Risk Factors:", bold=True, gap=2)
     for i, factor in enumerate(report_data.risk_factors, 1):
-        lines.append(f"  {i}. {factor.name}")
-        lines.append(f"     Impact: {factor.impact}")
-        lines.append(f"     {factor.description}")
-    lines.append("")
-    
-    # Key Findings Section
-    lines.append("-" * 80)
-    lines.append("KEY FINDINGS")
-    lines.append("-" * 80)
+        draw_line(f"{i}. {factor.name}", bold=True, gap=0)
+        draw_line(f"Impact: {factor.impact}", size=10, gap=0)
+        draw_line(factor.description, size=10, gap=6)
+
+    # Key findings section
+    draw_section("KEY FINDINGS")
     for i, finding in enumerate(report_data.key_findings, 1):
-        lines.append(f"Finding {i}: {finding.title}")
-        lines.append(f"Severity: {finding.severity}")
-        lines.append(f"Description: {finding.description}")
-        lines.append(f"Recommendation: {finding.recommendation}")
-        lines.append("")
-    
-    # Query Insights Section
+        draw_line(f"Finding {i}: {finding.title}", bold=True, gap=0)
+        draw_line(f"Severity: {finding.severity}", size=10, gap=0)
+        draw_line(finding.description, size=10, gap=0)
+        draw_line(f"Recommendation: {finding.recommendation}", size=10, gap=8)
+
+    # Query insights section
     if report_data.query_insights:
-        lines.append("-" * 80)
-        lines.append("QUERY INSIGHTS")
-        lines.append("-" * 80)
+        draw_section("QUERY INSIGHTS")
         if "top_queries" in report_data.query_insights:
-            lines.append("Top Queries:")
+            draw_line("Top Queries:", bold=True, gap=2)
             for query in report_data.query_insights.get("top_queries", [])[:5]:
-                lines.append(f"  - {query}")
-        lines.append("")
-    
+                draw_line(f"• {query}", size=10, gap=2)
+
     # Footer
-    lines.append("=" * 80)
-    lines.append("END OF REPORT")
-    lines.append("=" * 80)
-    
-    pdf_text = "\n".join(lines)
-    return pdf_text.encode('utf-8')
+    ensure_space(30)
+    y = min(y + 8, 792 - margin_bottom)
+    page.draw_line((margin_x, y), (612 - margin_x, y), color=(0.7, 0.7, 0.7), width=1)
+    y += 12
+    draw_line("END OF REPORT", size=11, bold=True, gap=0)
+
+    return doc.tobytes()
 
 
 async def generate_report(
