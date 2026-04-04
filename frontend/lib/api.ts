@@ -853,7 +853,14 @@ export async function exportReport(
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to export report: ${res.status}`);
+    let detail = "";
+    try {
+      const data = (await res.json()) as { detail?: string };
+      detail = data.detail ? ` - ${data.detail}` : "";
+    } catch {
+      // ignore non-JSON error payloads
+    }
+    throw new Error(`Failed to export report: ${res.status}${detail}`);
   }
 
   return res.json() as Promise<ReportExportResponse>;

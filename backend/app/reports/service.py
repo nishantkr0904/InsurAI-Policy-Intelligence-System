@@ -6,6 +6,7 @@ Generates summary and detailed reports with risk analysis and key findings.
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 from datetime import datetime
@@ -27,6 +28,12 @@ from app.reports.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _build_data_url(content_type: str, report_bytes: bytes) -> str:
+    """Build an inline download URL when object storage is unavailable."""
+    encoded = base64.b64encode(report_bytes).decode("ascii")
+    return f"data:{content_type};base64,{encoded}"
 
 
 def _generate_json_report(report_data: ReportData) -> bytes:
@@ -275,27 +282,29 @@ async def generate_report(
             raise ValueError(f"Unsupported format: {request.export_format}")
         
         # Store in MinIO
+        download_url = None
+        expires_at = datetime.utcnow().isoformat()
         try:
             from app.storage.minio_client import upload_file, get_presigned_url
-            
-            object_name = f"{request.workspace_id}/reports/{file_name}"
-            
-            await upload_file(
-                file=BytesIO(report_bytes),
-                file_name=file_name,
+
+            stored = upload_file(
+                file_bytes=report_bytes,
+                filename=file_name,
                 content_type=content_type,
                 workspace_id=request.workspace_id,
             )
-            
+
             # Generate presigned URL (expires in 60 minutes)
-            download_url = await get_presigned_url(
-                object_name=object_name,
-                expiration=3600,  # 60 minutes
+            download_url = get_presigned_url(
+                object_name=stored.object_name,
+                expiry_minutes=60,
             )
-            
+            expires_at = datetime.utcnow().isoformat()
         except Exception as e:
-            logger.error(f"MinIO storage failed: {e}")
-            raise
+            # Degrade gracefully so export still works when object storage is unavailable.
+            logger.warning("MinIO storage failed; falling back to inline download URL: %s", e)
+            download_url = _build_data_url(content_type, report_bytes)
+            expires_at = None
         
         logger.info(
             "Report generated: report_id=%s policy_id=%s format=%s size=%d bytes",
@@ -312,7 +321,7 @@ async def generate_report(
             file_name=file_name,
             file_size_bytes=len(report_bytes),
             content_type=content_type,
-            expires_at=datetime.utcnow().isoformat(),
+            expires_at=expires_at,
         )
         
     except Exception as e:

@@ -51,7 +51,7 @@ export default function ExportPanel({ workspaceId, policyId = "policy_default", 
       }
     } catch (error) {
       console.error("Export failed:", error);
-      toast.error("Failed to export report");
+      toast.error(error instanceof Error ? error.message : "Failed to export report");
     } finally {
       setExporting(false);
     }
