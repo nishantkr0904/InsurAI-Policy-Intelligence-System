@@ -6,7 +6,7 @@ import ValidationResults, { type ValidationResult } from "./ValidationResults";
 import ClaimDecision, { type ClaimDecision as ClaimDecisionType } from "./ClaimDecision";
 import ClaimChat from "./ClaimChat";
 import ClaimDocumentUpload from "@/components/ClaimDocumentUpload";
-import { validateClaim } from "@/lib/api";
+import { validateClaim, type ClaimValidationRequest } from "@/lib/api";
 import { getWorkspaceId, isDemoUser } from "@/lib/auth";
 
 type Tab = "queue" | "validate" | "decision" | "chat";
@@ -17,7 +17,9 @@ interface UploadedDocument {
   size: number;
 }
 
-const CLAIM_TYPES = [
+type ClaimType = ClaimValidationRequest["claim_type"];
+
+const CLAIM_TYPES: Array<{ value: ClaimType; label: string }> = [
   { value: "auto", label: "Auto" },
   { value: "health", label: "Health" },
   { value: "home", label: "Home" },
@@ -29,6 +31,10 @@ const CLAIM_TYPES = [
 ];
 
 const VALID_CLAIM_TYPES = CLAIM_TYPES.map((t) => t.value);
+
+function isValidClaimType(value: string): value is ClaimType {
+  return (VALID_CLAIM_TYPES as string[]).includes(value);
+}
 
 export default function ClaimsClient() {
   const isDemo = isDemoUser();
@@ -54,7 +60,7 @@ export default function ClaimsClient() {
 
     // Normalize claim_type to lowercase and validate
     const normalizedClaimType = claim.claim_type.toLowerCase();
-    const claimType = VALID_CLAIM_TYPES.includes(normalizedClaimType)
+    const claimType = isValidClaimType(normalizedClaimType)
       ? normalizedClaimType
       : "auto"; // Default fallback
 
@@ -84,7 +90,7 @@ export default function ClaimsClient() {
     try {
       // Validate claim_type before sending
       const normalizedClaimType = form.claimType.toLowerCase();
-      if (!VALID_CLAIM_TYPES.includes(normalizedClaimType)) {
+      if (!isValidClaimType(normalizedClaimType)) {
         toast.error(
           `Invalid claim type: "${form.claimType}". Must be one of: ${VALID_CLAIM_TYPES.join(", ")}`
         );
