@@ -38,8 +38,7 @@ export const ROLE_DEFAULT_ROUTES: Record<UserRole, string> = {
  */
 export const ROLE_SIDEBAR_LINKS: Record<UserRole, NavLink[]> = {
   underwriter: [
-    { href: "/dashboard", label: "Overview", icon: "📊" },
-    { href: "/dashboard/underwriter", label: "Risk Assessment", icon: "📋" },
+    { href: "/dashboard/underwriter", label: "Overview", icon: "📊" },
     { href: "/documents", label: "Policies", icon: "📄" },
     { href: "/chat", label: "Policy Chat", icon: "💬" },
     { href: "/analytics", label: "Analytics", icon: "📈" },
