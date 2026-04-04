@@ -26,21 +26,30 @@ export default function AuditLogTable({ logs, onlyFailed = false }: AuditLogTabl
   const [statusFilter, setStatusFilter] = useState<"all" | "success" | "failure">("all");
   const [sortBy, setSortBy] = useState<"timestamp" | "user">("timestamp");
 
+  const getActionType = (log: AuditLogEntry) =>
+    (log as AuditLogEntry & { action_type?: string }).action_type || log.action || "unknown_action";
+
+  const getUserName = (log: AuditLogEntry) =>
+    (log as AuditLogEntry & { user_name?: string }).user_name || log.user_email || log.user_id || "Unknown User";
+
+  const getResourceName = (log: AuditLogEntry) =>
+    (log as AuditLogEntry & { resource_name?: string }).resource_name || log.resource_id || log.resource_type || "N/A";
+
   const filteredLogs = useMemo(() => {
     let filtered = [...logs];
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter((log) =>
-        log.user_name.toLowerCase().includes(term) ||
-        log.resource_name.toLowerCase().includes(term) ||
-        log.resource_id.toLowerCase().includes(term) ||
+        getUserName(log).toLowerCase().includes(term) ||
+        getResourceName(log).toLowerCase().includes(term) ||
+        (log.resource_id || "").toLowerCase().includes(term) ||
         log.description.toLowerCase().includes(term)
       );
     }
 
     if (actionFilter !== "all") {
-      filtered = filtered.filter((log) => log.action_type === actionFilter);
+      filtered = filtered.filter((log) => getActionType(log) === actionFilter);
     }
 
     if (statusFilter !== "all") {
@@ -48,21 +57,21 @@ export default function AuditLogTable({ logs, onlyFailed = false }: AuditLogTabl
     }
 
     if (onlyFailed) {
-      filtered = filtered.filter((log) => log.status === "failure");
+      filtered = filtered.filter((log) => log.status === "failure" || log.status === "error");
     }
 
     filtered.sort((a, b) => {
       if (sortBy === "timestamp") {
         return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       } else {
-        return a.user_name.localeCompare(b.user_name);
+        return getUserName(a).localeCompare(getUserName(b));
       }
     });
 
     return filtered;
   }, [logs, searchTerm, actionFilter, statusFilter, sortBy, onlyFailed]);
 
-  const uniqueActions = Array.from(new Set(logs.map((l) => l.action_type)));
+  const uniqueActions = Array.from(new Set(logs.map((l) => getActionType(l))));
 
   return (
     <div className="space-y-4">
@@ -161,10 +170,13 @@ export default function AuditLogTable({ logs, onlyFailed = false }: AuditLogTabl
             </thead>
             <tbody>
               {filteredLogs.map((log, index) => {
-                const actionInfo = ACTION_LABELS[log.action_type] || { label: log.action_type, icon: "•", color: "var(--text-secondary)" };
+                const actionType = getActionType(log);
+                const fallbackLabel = actionType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                const actionInfo = ACTION_LABELS[actionType] || { label: fallbackLabel, icon: "•", color: "var(--text-secondary)" };
+                const isSuccess = log.status === "success";
                 return (
                   <tr
-                    key={log.id}
+                    key={log.audit_id || `${log.timestamp}-${index}`}
                     style={{
                       borderBottom: index < filteredLogs.length - 1 ? "1px solid var(--border-subtle)" : undefined,
                     }}
@@ -185,28 +197,28 @@ export default function AuditLogTable({ logs, onlyFailed = false }: AuditLogTabl
                     <td className="px-4 py-3">
                       <div className="max-w-xs">
                         <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
-                          {log.resource_name}
+                          {getResourceName(log)}
                         </p>
                         <p className="text-xs text-center" style={{ color: "var(--text-secondary)" }}>
-                          {log.resource_type}
+                          {log.resource_type || "resource"}
                         </p>
                       </div>
                     </td>
                     <td className="px-4 py-3" style={{ color: "var(--text-primary)" }}>
-                      {log.user_name}
+                      {getUserName(log)}
                       <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                        {log.user_id.substring(0, 8)}...
+                        {(log.user_id || "unknown").substring(0, 8)}...
                       </p>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span
                         className="inline-block px-2 py-1 rounded text-xs font-semibold"
                         style={{
-                          background: log.status === "success" ? "var(--success-soft)" : "var(--danger-soft)",
-                          color: log.status === "success" ? "var(--success)" : "var(--danger)",
+                          background: isSuccess ? "var(--success-soft)" : "var(--danger-soft)",
+                          color: isSuccess ? "var(--success)" : "var(--danger)",
                         }}
                       >
-                        {log.status === "success" ? "✓ Success" : "✗ Failed"}
+                        {isSuccess ? "✓ Success" : "✗ Failed"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">

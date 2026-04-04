@@ -173,17 +173,16 @@ export default function AuditClient() {
         <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
           Audit Trail
         </h1>
-        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          Workspace: <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{workspace}</span>
-          {isDemo && (
+        {isDemo && (
+          <p className="text-sm mt-1">
             <span
-              className="ml-2 px-2 py-0.5 rounded text-xs font-semibold"
+              className="px-2 py-0.5 rounded text-xs font-semibold"
               style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
             >
               DEMO MODE
             </span>
-          )}
-        </p>
+          </p>
+        )}
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
           Historical record of policy modifications, claims decisions, compliance checks, and user activity logs
         </p>

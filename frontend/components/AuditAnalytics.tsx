@@ -44,6 +44,12 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export default function AuditAnalytics({ logs }: AuditAnalyticsProps) {
+  const getActionType = (log: AuditLogEntry) =>
+    (log as AuditLogEntry & { action_type?: string }).action_type || log.action || "unknown_action";
+
+  const getUserName = (log: AuditLogEntry) =>
+    (log as AuditLogEntry & { user_name?: string }).user_name || log.user_email || log.user_id || "Unknown User";
+
   // Generate hourly activity data (last 24 hours)
   const hourlyData = React.useMemo(() => {
     const data: Record<string, { hour: string; actions: number; successes: number; failures: number }> = {};
@@ -73,7 +79,7 @@ export default function AuditAnalytics({ logs }: AuditAnalyticsProps) {
   const actionTypeData = React.useMemo(() => {
     const counts: Record<string, number> = {};
     logs.forEach((log) => {
-      const type = log.action_type.replace(/_/g, " ").toUpperCase();
+      const type = getActionType(log).replace(/_/g, " ").toUpperCase();
       counts[type] = (counts[type] || 0) + 1;
     });
     return Object.entries(counts)
@@ -93,7 +99,8 @@ export default function AuditAnalytics({ logs }: AuditAnalyticsProps) {
   const topUsers = React.useMemo(() => {
     const counts: Record<string, number> = {};
     logs.forEach((log) => {
-      counts[log.user_name] = (counts[log.user_name] || 0) + 1;
+      const name = getUserName(log);
+      counts[name] = (counts[name] || 0) + 1;
     });
     return Object.entries(counts)
       .map(([name, count]) => ({ name, count }))
