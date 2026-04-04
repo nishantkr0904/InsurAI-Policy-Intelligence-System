@@ -25,7 +25,7 @@ export interface NavLink {
 export const ROLE_DEFAULT_ROUTES: Record<UserRole, string> = {
   underwriter: "/dashboard/underwriter",
   claims_adjuster: "/dashboard/claims-adjuster",
-  compliance_officer: "/compliance",
+  compliance_officer: "/dashboard/compliance",
   fraud_analyst: "/fraud",
   broker: "/documents",
   auditor: "/audit",
@@ -50,9 +50,8 @@ export const ROLE_SIDEBAR_LINKS: Record<UserRole, NavLink[]> = {
     { href: "/chat", label: "Policy Chat", icon: "💬" },
   ],
   compliance_officer: [
-    { href: "/dashboard", label: "Overview", icon: "📊" },
+    { href: "/dashboard/compliance", label: "Overview", icon: "📊" },
     { href: "/compliance", label: "Compliance", icon: "🛡️" },
-    { href: "/dashboard/compliance", label: "Compliance Dashboard", icon: "📋" },
     { href: "/audit", label: "Audit Trail", icon: "📜" },
     { href: "/documents", label: "Policies", icon: "📄" },
     { href: "/chat", label: "Policy Chat", icon: "💬" },
