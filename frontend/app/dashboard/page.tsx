@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, getUser } from "@/lib/auth";
+import { isAuthenticated, isOnboarded, getUser } from "@/lib/auth";
+import { getRoleDefaultRoute } from "@/lib/rbac";
 
 /**
  * Dashboard router – redirects to role-specific dashboard.
@@ -18,24 +19,13 @@ export default function DashboardPage() {
       return;
     }
 
-    const user = getUser();
-    const role = user?.role || "underwriter";
-
-    // Redirect to role-specific dashboard
-    switch (role) {
-      case "underwriter":
-        router.replace("/dashboard/underwriter");
-        break;
-      case "compliance_officer":
-        router.replace("/dashboard/compliance");
-        break;
-      case "claims_adjuster":
-      case "claims_team":
-        router.replace("/dashboard/underwriter"); // Use underwriter for now
-        break;
-      default:
-        router.replace("/dashboard/underwriter");
+    if (!isOnboarded()) {
+      router.replace("/onboarding");
+      return;
     }
+
+    const user = getUser();
+    router.replace(getRoleDefaultRoute(user?.role || null));
   }, [router]);
 
   return (

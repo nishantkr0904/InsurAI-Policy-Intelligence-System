@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, saveWorkspace, getSelectedRole, saveSelectedRole } from "@/lib/auth";
+import { isAuthenticated, saveWorkspace, getSelectedRole } from "@/lib/auth";
 import { getRoleDefaultRoute } from "@/lib/rbac";
 import OnboardingProgress from "@/components/OnboardingProgress";
 
@@ -42,10 +42,10 @@ export default function WorkspaceSetupPage() {
     // Simulate a brief save
     await new Promise((r) => setTimeout(r, 600));
 
-    saveWorkspace(company.trim(), workspaceName.trim());
+    await saveWorkspace(company.trim(), workspaceName.trim());
 
     // Redirect to role-specific dashboard after onboarding
-    const roleRoute = getRoleDefaultRoute(selectedRole);
+    const roleRoute = getRoleDefaultRoute(getSelectedRole());
     router.push(roleRoute);
   }
 

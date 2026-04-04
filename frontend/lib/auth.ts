@@ -275,7 +275,7 @@ export async function registerUser(
 export async function validateCredentials(
   email: string,
   password: string
-): Promise<{ success: boolean; user?: InsurAIUser; error?: string }> {
+): Promise<{ success: boolean; user?: InsurAIUser; onboarded?: boolean; error?: string }> {
   try {
     const response: LoginResponse = await apiLoginUser({ email, password });
     
@@ -291,7 +291,7 @@ export async function validateCredentials(
       name: response.user.name,
       email: response.user.email,
       role: response.user.role || "",
-      workspace: response.user.workspace || "default",
+      workspace: response.user.workspace || "",
       initials: response.user.initials,
     };
     
@@ -304,9 +304,15 @@ export async function validateCredentials(
       if (response.user.role) {
         localStorage.setItem("insurai_user_role", response.user.role);
       }
+    } else {
+      // Clear stale onboarding/session role state for first-time users.
+      localStorage.removeItem("insurai_onboarded");
+      localStorage.removeItem("insurai_workspace");
+      localStorage.removeItem("insurai_user_role");
+      localStorage.removeItem("insurai_onboarding_step");
     }
     
-    return { success: true, user };
+    return { success: true, user, onboarded: response.user.onboarded };
   } catch (error) {
     console.error("Login error:", error);
     return { 

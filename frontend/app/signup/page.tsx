@@ -122,17 +122,18 @@ export default function SignupPage() {
     }
 
     // Log in the newly registered user
-    const workspace = "default";
     login({
       name: "",
       email: form.email.trim().toLowerCase(),
       role: "",
-      workspace,
+      workspace: "",
       initials: "",
     });
 
-    localStorage.setItem("insurai_workspace", workspace);
+    localStorage.removeItem("insurai_workspace");
+    localStorage.removeItem("insurai_user_role");
     localStorage.removeItem("insurai_onboarded");
+    localStorage.removeItem("insurai_onboarding_step");
 
     toast.success("Account created!", {
       description: "Redirecting to setup...",

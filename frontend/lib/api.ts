@@ -307,6 +307,22 @@ export interface FraudAlertsResponse {
   has_more: boolean;
 }
 
+/** Request body for updating fraud alert status. */
+export interface FraudAlertStatusUpdateRequest {
+  status: FraudAlert["status"];
+  notes?: string;
+  workspace_id?: string;
+}
+
+/** Response body from fraud alert status update endpoint. */
+export interface FraudAlertStatusUpdateResponse {
+  alert_id: string;
+  status: FraudAlert["status"];
+  previous_status: FraudAlert["status"];
+  updated_at: string;
+  message: string;
+}
+
 /** Fetch fraud alerts for a workspace. */
 export async function fetchFraudAlerts(
   workspaceId: string,
@@ -331,6 +347,36 @@ export async function fetchFraudAlerts(
   const res = await fetch(`${BASE}/fraud/alerts?${params.toString()}`);
   if (!res.ok) throw new Error(`Failed to fetch fraud alerts: ${res.status}`);
   return res.json() as Promise<FraudAlertsResponse>;
+}
+
+/**
+ * Update status of a fraud alert (resolve/escalate/dismiss, etc.).
+ */
+export async function updateFraudAlertStatus(
+  alertId: string,
+  request: FraudAlertStatusUpdateRequest,
+): Promise<FraudAlertStatusUpdateResponse> {
+  const res = await fetch(`${BASE}/fraud/alerts/${encodeURIComponent(alertId)}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...request,
+      workspace_id: request.workspace_id || "default",
+    }),
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const data = (await res.json()) as { detail?: string };
+      detail = data.detail ? ` - ${data.detail}` : "";
+    } catch {
+      // ignore non-JSON error payloads
+    }
+    throw new Error(`Failed to update fraud alert status: ${res.status}${detail}`);
+  }
+
+  return res.json() as Promise<FraudAlertStatusUpdateResponse>;
 }
 
 /** Shape of a compliance issue from the backend. */

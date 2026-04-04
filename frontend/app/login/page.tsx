@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { login, isAuthenticated, validateCredentials, isOnboarded, getUser } from "@/lib/auth";
+import { login, isAuthenticated, validateCredentials, getUser } from "@/lib/auth";
 import { getRoleDefaultRoute } from "@/lib/rbac";
 
 export default function LoginPage() {
@@ -52,9 +52,8 @@ export default function LoginPage() {
       description: "Redirecting to your dashboard...",
     });
 
-    // If never onboarded, go through workspace setup
-    // Otherwise, redirect to role-specific dashboard
-    if (!isOnboarded()) {
+    // Backend onboarding status is authoritative and avoids stale localStorage redirects.
+    if (result.onboarded === false) {
       router.push("/onboarding");
     } else {
       const roleRoute = getRoleDefaultRoute(result.user!.role || null);
