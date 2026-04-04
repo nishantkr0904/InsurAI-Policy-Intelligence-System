@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
+import { toast } from "sonner";
 import AuthGuard from "@/components/AuthGuard";
 import FraudInvestigationPanel from "@/components/FraudInvestigationPanel";
-import { type FraudAlert } from "@/lib/api";
+import { type FraudAlert, updateFraudAlertStatus } from "@/lib/api";
 import { getWorkspaceId } from "@/lib/auth";
 import { useFraudAlerts } from "@/hooks/useQueries";
 
@@ -37,6 +38,7 @@ export default function FraudPage() {
 
   const [filter, setFilter] = useState<"all" | "high" | "medium" | "low" | "critical">("all");
   const [selected, setSelected] = useState<FraudAlert | null>(null);
+  const [dismissingAlertId, setDismissingAlertId] = useState<string | null>(null);
 
   const alerts = data?.alerts || [];
   const filtered = filter === "all" ? alerts : alerts.filter((a) => safeLower(a.severity) === filter);
@@ -54,6 +56,39 @@ export default function FraudPage() {
     }
     // Refetch alerts to update the list
     refetch();
+  }
+
+  async function handleDismissAlert(alert: FraudAlert) {
+    if (!alert.alert_id) {
+      toast.error("Cannot dismiss: missing alert ID");
+      return;
+    }
+
+    if (alert.status === "false_positive") {
+      toast.info("Alert is already dismissed");
+      return;
+    }
+
+    setDismissingAlertId(alert.alert_id);
+    try {
+      const response = await updateFraudAlertStatus(alert.alert_id, {
+        status: "false_positive",
+        notes: "Dismissed from fraud alerts table",
+        workspace_id: workspaceId || "default",
+      });
+
+      toast.success(response.message || "Alert dismissed");
+
+      if (selected?.alert_id === alert.alert_id) {
+        setSelected({ ...selected, status: "false_positive" });
+      }
+
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to dismiss alert");
+    } finally {
+      setDismissingAlertId(null);
+    }
   }
 
   return (
@@ -187,14 +222,18 @@ export default function FraudPage() {
                             View
                           </button>
                           <button
+                            onClick={() => void handleDismissAlert(alert)}
+                            disabled={dismissingAlertId === alert.alert_id || alert.status === "false_positive"}
                             className="text-xs font-medium px-2.5 py-1 rounded-md transition-colors"
                             style={{
                               background: "var(--bg-surface)",
                               color: "var(--text-secondary)",
                               border: "1px solid var(--border)",
+                              opacity: dismissingAlertId === alert.alert_id || alert.status === "false_positive" ? 0.55 : 1,
+                              cursor: dismissingAlertId === alert.alert_id || alert.status === "false_positive" ? "not-allowed" : "pointer",
                             }}
                           >
-                            Dismiss
+                            {dismissingAlertId === alert.alert_id ? "..." : alert.status === "false_positive" ? "Dismissed" : "Dismiss"}
                           </button>
                         </div>
                       </td>
