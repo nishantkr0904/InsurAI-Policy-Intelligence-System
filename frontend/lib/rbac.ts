@@ -26,7 +26,7 @@ export const ROLE_DEFAULT_ROUTES: Record<UserRole, string> = {
   underwriter: "/dashboard/underwriter",
   claims_adjuster: "/dashboard/claims-adjuster",
   compliance_officer: "/dashboard/compliance",
-  fraud_analyst: "/fraud",
+  fraud_analyst: "/dashboard/fraud-analyst",
   broker: "/documents",
   auditor: "/audit",
   customer: "/chat",
@@ -57,7 +57,7 @@ export const ROLE_SIDEBAR_LINKS: Record<UserRole, NavLink[]> = {
     { href: "/chat", label: "Policy Chat", icon: "💬" },
   ],
   fraud_analyst: [
-    { href: "/dashboard", label: "Overview", icon: "📊" },
+    { href: "/dashboard/fraud-analyst", label: "Overview", icon: "📊" },
     { href: "/fraud", label: "Fraud Alerts", icon: "🔍" },
     { href: "/audit", label: "Audit Trail", icon: "📜" },
     { href: "/documents", label: "Policies", icon: "📄" },
@@ -145,6 +145,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   // Fraud Analyst: fraud detection, claims, policies, AI chat, analytics, audit trail
   fraud_analyst: [
     "/dashboard",
+    "/dashboard/fraud-analyst",
     "/documents",
     "/chat",
     "/fraud",
