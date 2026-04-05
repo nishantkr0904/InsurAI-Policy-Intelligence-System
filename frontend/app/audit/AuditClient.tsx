@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUser, getWorkspaceId, hydrateSession, isDemoUser } from "@/lib/auth";
+import { exportAuditLogsCsv } from "@/lib/api";
 import { useAuditLogs, useAuditAnalytics } from "@/hooks/useQueries";
 import AuditLogTable from "@/components/AuditLogTable";
 import AuditAnalytics from "@/components/AuditAnalytics";
 import type { AuditLogEntry } from "@/lib/api";
+import { toast } from "sonner";
 
 /**
  * Mock audit log generator for demo users.
@@ -114,11 +116,65 @@ function generateMockAuditLogs(count: number): AuditLogEntry[] {
   return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
+function buildAuditCsv(logs: AuditLogEntry[]): string {
+  const header = [
+    "audit_id",
+    "timestamp",
+    "workspace_id",
+    "user_id",
+    "user_email",
+    "action",
+    "status",
+    "severity",
+    "resource_type",
+    "resource_id",
+    "description",
+  ];
+
+  const escapeValue = (value: string | number | null | undefined): string => {
+    const raw = value === null || value === undefined ? "" : String(value);
+    if (raw.includes(",") || raw.includes("\n") || raw.includes("\"")) {
+      return `"${raw.replace(/\"/g, '""')}"`;
+    }
+    return raw;
+  };
+
+  const rows = logs.map((log) => [
+    log.audit_id,
+    log.timestamp,
+    log.workspace_id,
+    log.user_id,
+    log.user_email || "",
+    log.action,
+    log.status,
+    log.severity,
+    log.resource_type || "",
+    log.resource_id || "",
+    log.description,
+  ]);
+
+  return [header, ...rows]
+    .map((row) => row.map((value) => escapeValue(value)).join(","))
+    .join("\n");
+}
+
+function triggerDownload(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}
+
 export default function AuditClient() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "logs" | "failures">("overview");
   const [isDemo, setIsDemo] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // For demo users: use mock data with local state
   const [mockLogs, setMockLogs] = useState<AuditLogEntry[]>([]);
@@ -174,6 +230,32 @@ export default function AuditClient() {
   const isLoading = isDemo ? mockLoading : realLogsLoading;
   const workspace = user?.workspace ?? "default";
   const failureLogs = auditLogs.filter((log) => log.status === "failure" || log.status === "error");
+
+  async function handleExportCsv() {
+    if (isExporting) return;
+    setIsExporting(true);
+
+    try {
+      if (isDemo) {
+        const csv = buildAuditCsv(auditLogs);
+        triggerDownload(
+          new Blob([csv], { type: "text/csv;charset=utf-8" }),
+          `audit-trail-${workspace}-demo.csv`
+        );
+      } else {
+        const { blob, fileName } = await exportAuditLogsCsv(workspaceId || "default", {
+          sortBy: "timestamp",
+        });
+        triggerDownload(blob, fileName);
+      }
+      toast.success("Audit CSV export started");
+    } catch (error) {
+      console.error("Audit export failed:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to export audit logs");
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   return (
     <div className="px-6 py-6 max-w-7xl mx-auto w-full space-y-8">
@@ -296,10 +378,18 @@ export default function AuditClient() {
             </p>
           </div>
           <button
+            onClick={() => {
+              void handleExportCsv();
+            }}
+            disabled={isExporting || isLoading}
             className="btn-primary shrink-0"
-            style={{ textDecoration: "none", cursor: "pointer" }}
+            style={{
+              textDecoration: "none",
+              cursor: isExporting || isLoading ? "not-allowed" : "pointer",
+              opacity: isExporting || isLoading ? 0.7 : 1,
+            }}
           >
-            📥 Export as CSV
+            {isExporting ? "⏳ Exporting..." : "📥 Export as CSV"}
           </button>
         </div>
       </div>

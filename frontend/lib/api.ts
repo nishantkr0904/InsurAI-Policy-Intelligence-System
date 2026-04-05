@@ -688,6 +688,65 @@ export async function fetchAuditAnalytics(
   return res.json() as Promise<AuditAnalytics>;
 }
 
+export interface AuditExportResponse {
+  blob: Blob;
+  fileName: string;
+}
+
+/** Export audit logs as CSV and return a downloadable blob payload. */
+export async function exportAuditLogsCsv(
+  workspaceId: string,
+  options?: {
+    userId?: string;
+    action?: string;
+    status?: string;
+    severity?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    offset?: number;
+    sortBy?: "timestamp" | "action" | "status";
+  },
+): Promise<AuditExportResponse> {
+  const params = new URLSearchParams({
+    workspace_id: workspaceId,
+    format: "csv",
+  });
+
+  if (options?.userId) params.append("user_id_filter", options.userId);
+  if (options?.action) params.append("action_filter", options.action);
+  if (options?.status) params.append("status_filter", options.status);
+  if (options?.severity) params.append("severity_filter", options.severity);
+  if (options?.startDate) params.append("start_date", options.startDate);
+  if (options?.endDate) params.append("end_date", options.endDate);
+  if (options?.limit) params.append("limit", String(options.limit));
+  if (options?.offset) params.append("offset", String(options.offset));
+  if (options?.sortBy) params.append("sort_by", options.sortBy);
+
+  const res = await fetch(`${BASE}/audit/export?${params.toString()}`, {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const data = (await res.json()) as { detail?: string };
+      detail = data.detail ? ` - ${data.detail}` : "";
+    } catch {
+      // ignore non-JSON error payloads
+    }
+    throw new Error(`Failed to export audit logs: ${res.status}${detail}`);
+  }
+
+  const blob = await res.blob();
+  const contentDisposition = res.headers.get("Content-Disposition") || "";
+  const fileNameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  const fileName = fileNameMatch?.[1] || `audit-trail-${workspaceId}.csv`;
+
+  return { blob, fileName };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Performance Metrics API (FR030)
 // ─────────────────────────────────────────────────────────────────────────────

@@ -51,6 +51,62 @@ from app.models import AuditLog as AuditLogORM
 logger = logging.getLogger(__name__)
 
 
+def _safe_action(action: str | None) -> AuditAction:
+    """Map persisted action values to supported enum values without raising."""
+    if not action:
+        return AuditAction.API_ACCESS
+
+    normalized = action.strip().lower()
+    if normalized == "audit_view":
+        return AuditAction.API_ACCESS
+
+    try:
+        return AuditAction(normalized)
+    except ValueError:
+        return AuditAction.API_ACCESS
+
+
+def _safe_status(status: str | None) -> AuditStatus:
+    if not status:
+        return AuditStatus.SUCCESS
+    try:
+        return AuditStatus(status.strip().lower())
+    except ValueError:
+        return AuditStatus.ERROR
+
+
+def _safe_severity(severity: str | None) -> SeverityLevel:
+    if not severity:
+        return SeverityLevel.INFO
+    try:
+        return SeverityLevel(severity.strip().lower())
+    except ValueError:
+        return SeverityLevel.WARNING
+
+
+def _safe_metadata(meta_data: dict | None) -> AuditMetadata:
+    """Convert persisted metadata to AuditMetadata without raising validation errors."""
+    if not meta_data:
+        return AuditMetadata()
+
+    payload = dict(meta_data)
+
+    duration = payload.get("duration_ms")
+    if duration is not None:
+        try:
+            payload["duration_ms"] = int(round(float(duration)))
+        except (TypeError, ValueError):
+            payload["duration_ms"] = None
+
+    if "additional_context" in payload and not isinstance(payload.get("additional_context"), dict):
+        payload["additional_context"] = {"raw": payload.get("additional_context")}
+
+    try:
+        return AuditMetadata(**payload)
+    except Exception:
+        return AuditMetadata()
+
+
 def _generate_sample_audit_logs(
     workspace_id: str,
     limit: int = 100,
@@ -315,13 +371,13 @@ async def get_audit_logs(
                         workspace_id=log.workspace_id,
                         user_id=log.user_id,
                         user_email=log.user_email,
-                        action=AuditAction(log.action),
-                        status=AuditStatus(log.status),
-                        severity=SeverityLevel(log.severity),
+                        action=_safe_action(log.action),
+                        status=_safe_status(log.status),
+                        severity=_safe_severity(log.severity),
                         resource_type=log.resource_type,
                         resource_id=log.resource_id,
                         description=log.description,
-                        metadata=AuditMetadata(**log.meta_data) if log.meta_data else AuditMetadata(),
+                        metadata=_safe_metadata(log.meta_data),
                     )
                     for log in db_logs
                 ]
@@ -426,13 +482,13 @@ async def get_audit_analytics(
                         workspace_id=log.workspace_id,
                         user_id=log.user_id,
                         user_email=log.user_email,
-                        action=AuditAction(log.action),
-                        status=AuditStatus(log.status),
-                        severity=SeverityLevel(log.severity),
+                        action=_safe_action(log.action),
+                        status=_safe_status(log.status),
+                        severity=_safe_severity(log.severity),
                         resource_type=log.resource_type,
                         resource_id=log.resource_id,
                         description=log.description,
-                        metadata=AuditMetadata(**log.meta_data) if log.meta_data else AuditMetadata(),
+                        metadata=_safe_metadata(log.meta_data),
                     )
                     for log in db_logs
                 ]
