@@ -1,9 +1,17 @@
 /**
- * Shared auth utilities – hybrid localStorage + backend API session management.
- * Backend authentication for production use with localStorage fallback for demo.
+ * Auth/session utilities backed by secure HTTP-only cookie sessions.
+ * Runtime user state is held in memory only (no local/session/indexed storage).
  */
 
-import { loginUser as apiLoginUser, registerUser as apiRegisterUser, completeUserOnboarding, LoginResponse } from "./api";
+import {
+  acknowledgeFirstLogin,
+  completeUserOnboarding,
+  fetchCurrentUser,
+  loginUser as apiLoginUser,
+  LoginResponse,
+  logoutUser as apiLogoutUser,
+  registerUser as apiRegisterUser,
+} from "./api";
 
 export interface InsurAIUser {
   name: string;
@@ -11,55 +19,70 @@ export interface InsurAIUser {
   role: string;
   workspace: string;
   initials: string;
+  onboarded?: boolean;
+  firstLoginShown?: boolean;
 }
 
-export function getUser(): InsurAIUser | null {
-  if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem("insurai_user");
-  if (!raw) return null;
+let sessionUser: InsurAIUser | null = null;
+let selectedRole: string | null = null;
+
+function mapLoginResponseUser(response: NonNullable<LoginResponse["user"]>): InsurAIUser {
+  return {
+    name: response.name,
+    email: response.email,
+    role: response.role || "",
+    workspace: response.workspace || "",
+    initials: response.initials,
+    onboarded: response.onboarded,
+    firstLoginShown: response.first_login_shown,
+  };
+}
+
+export async function hydrateSession(force = false): Promise<InsurAIUser | null> {
+  if (!force && sessionUser) return sessionUser;
+
   try {
-    return JSON.parse(raw) as InsurAIUser;
+    const response = await fetchCurrentUser();
+    if (!response.success || !response.user) {
+      sessionUser = null;
+      return null;
+    }
+    sessionUser = mapLoginResponseUser(response.user);
+    if (sessionUser.role) selectedRole = sessionUser.role;
+    return sessionUser;
   } catch {
+    sessionUser = null;
     return null;
   }
 }
 
+export function getUser(): InsurAIUser | null {
+  return sessionUser;
+}
+
 export function isAuthenticated(): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem("insurai_auth") === "true";
+  return sessionUser !== null;
 }
 
 export function login(user: InsurAIUser): void {
-  localStorage.setItem("insurai_auth", "true");
-  localStorage.setItem("insurai_user", JSON.stringify(user));
+  sessionUser = user;
+  if (user.role) selectedRole = user.role;
 }
 
 export function logout(): void {
-  localStorage.removeItem("insurai_auth");
-  localStorage.removeItem("insurai_user");
-  localStorage.removeItem("insurai_onboarded");
-  localStorage.removeItem("insurai_workspace");
-  localStorage.removeItem("insurai_user_role");
+  sessionUser = null;
+  selectedRole = null;
+  void apiLogoutUser();
 }
 
 export function isOnboarded(): boolean {
-  if (typeof window === "undefined") return false;
-  // First check global flag (updated on login for returning users)
-  if (localStorage.getItem("insurai_onboarded") === "true") return true;
-  // Fallback: check the current user's stored onboarding status
-  const user = getUser();
-  if (user?.email) {
-    return isUserOnboarded(user.email);
-  }
-  return false;
+  return sessionUser?.onboarded === true;
 }
 
 /** Mark onboarding as complete and clean up step state. */
 export function completeOnboarding(workspace = "default"): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("insurai_onboarded", "true");
-  localStorage.setItem("insurai_workspace", workspace);
-  localStorage.removeItem("insurai_onboarding_step");
+  if (!sessionUser) return;
+  sessionUser = { ...sessionUser, onboarded: true, workspace };
 }
 
 export function getInitials(name: string): string {
@@ -93,52 +116,42 @@ export const ONBOARDING_ROLES = [
 export type OnboardingRole = (typeof ONBOARDING_ROLES)[number]["value"];
 
 export function saveSelectedRole(role: string): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("insurai_user_role", role);
-  // Keep the user object's role in sync so the Navbar reflects the selection.
-  const user = getUser();
-  if (user) {
-    user.role = role;
-    localStorage.setItem("insurai_user", JSON.stringify(user));
-  }
+  selectedRole = role;
+  if (sessionUser) sessionUser = { ...sessionUser, role };
 }
 
 export function getSelectedRole(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("insurai_user_role");
+  return selectedRole || sessionUser?.role || null;
 }
 
 /** Save workspace details, link them to the current user, and mark onboarding complete. */
 export async function saveWorkspace(company: string, workspaceName: string): Promise<void> {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("insurai_company", company);
-  const user = getUser();
-  if (user) {
-    user.workspace = workspaceName;
-    // Persist the selected role into the user profile on onboarding completion.
-    const selectedRole = getSelectedRole();
-    if (selectedRole) user.role = selectedRole;
-    localStorage.setItem("insurai_user", JSON.stringify(user));
-    
-    // Update backend with onboarding status
-    try {
-      await completeUserOnboarding(user.email, {
-        workspace: workspaceName,
-        role: selectedRole || undefined,
-      });
-    } catch (error) {
-      console.error("Failed to update onboarding status on backend:", error);
-      // Continue anyway - localStorage is updated
-    }
+  void company; // retained for API compatibility with existing call sites
+
+  if (sessionUser) {
+    const role = getSelectedRole() || undefined;
+    const updated = await completeUserOnboarding(sessionUser.email, {
+      workspace: workspaceName,
+      role,
+    });
+    sessionUser = {
+      name: updated.name,
+      email: updated.email,
+      role: updated.role || role || "",
+      workspace: updated.workspace || workspaceName,
+      initials: updated.initials,
+      onboarded: updated.onboarded,
+      firstLoginShown: !updated.onboarded ? false : undefined,
+    };
+    if (sessionUser.role) selectedRole = sessionUser.role;
   }
+
   completeOnboarding(workspaceName);
 }
 
-/** Get the current workspace ID from localStorage. */
+/** Get the current workspace ID from active session. */
 export function getWorkspaceId(): string | null {
-  if (typeof window === "undefined") return null;
-  const user = getUser();
-  return user?.workspace || null;
+  return sessionUser?.workspace || null;
 }
 
 /**
@@ -148,98 +161,6 @@ export function getWorkspaceId(): string | null {
 export function isDemoUser(): boolean {
   const user = getUser();
   return user?.email === "demo@insurai.ai";
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// User Registration & Credential Storage (localStorage-based for demo/dev)
-// In production, this would be replaced by Keycloak or backend auth.
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface RegisteredUser {
-  email: string;
-  passwordHash: string;
-  name: string;
-  createdAt: string;
-  onboarded: boolean;
-  workspace?: string;
-  role?: string;
-  firstLoginShown?: boolean;
-}
-
-const REGISTERED_USERS_KEY = "insurai_registered_users";
-const DEMO_EMAIL = "demo@insurai.ai";
-const DEMO_PASSWORD = "demo1234";
-
-/**
- * Simple hash function for password storage (NOT cryptographically secure).
- * For production, use proper backend authentication with bcrypt/argon2.
- */
-function simpleHash(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  // Add salt-like prefix for basic obfuscation
-  return `sh_${Math.abs(hash).toString(36)}_${str.length}`;
-}
-
-/** Get all registered users from localStorage. */
-function getRegisteredUsers(): RegisteredUser[] {
-  if (typeof window === "undefined") return [];
-  const raw = localStorage.getItem(REGISTERED_USERS_KEY);
-  if (!raw) return [];
-  try {
-    return JSON.parse(raw) as RegisteredUser[];
-  } catch {
-    return [];
-  }
-}
-
-/** Save registered users to localStorage. */
-function saveRegisteredUsers(users: RegisteredUser[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
-}
-
-/**
- * Mark a registered user as onboarded.
- * Stores the onboarding status in the user's registration record.
- */
-export function markUserOnboarded(email: string, workspace?: string, role?: string): void {
-  const normalizedEmail = email.trim().toLowerCase();
-  if (normalizedEmail === DEMO_EMAIL) {
-    // Demo user uses global flag
-    localStorage.setItem("insurai_onboarded", "true");
-    return;
-  }
-
-  const users = getRegisteredUsers();
-  const userIndex = users.findIndex((u) => u.email === normalizedEmail);
-  if (userIndex !== -1) {
-    users[userIndex].onboarded = true;
-    if (workspace) users[userIndex].workspace = workspace;
-    if (role) users[userIndex].role = role;
-    saveRegisteredUsers(users);
-  }
-  // Also set global flag for current session
-  localStorage.setItem("insurai_onboarded", "true");
-}
-
-/**
- * Check if a registered user has completed onboarding.
- */
-export function isUserOnboarded(email: string): boolean {
-  const normalizedEmail = email.trim().toLowerCase();
-  if (normalizedEmail === DEMO_EMAIL) {
-    // Demo user checks global flag
-    return localStorage.getItem("insurai_onboarded") === "true";
-  }
-
-  const users = getRegisteredUsers();
-  const foundUser = users.find((u) => u.email === normalizedEmail);
-  return foundUser?.onboarded === true;
 }
 
 /**
@@ -287,31 +208,10 @@ export async function validateCredentials(
     }
     
     // Convert backend UserResponse to InsurAIUser format
-    const user: InsurAIUser = {
-      name: response.user.name,
-      email: response.user.email,
-      role: response.user.role || "",
-      workspace: response.user.workspace || "",
-      initials: response.user.initials,
-    };
-    
-    // Restore onboarding status for returning users
-    if (response.user.onboarded) {
-      localStorage.setItem("insurai_onboarded", "true");
-      if (response.user.workspace) {
-        localStorage.setItem("insurai_workspace", response.user.workspace);
-      }
-      if (response.user.role) {
-        localStorage.setItem("insurai_user_role", response.user.role);
-      }
-    } else {
-      // Clear stale onboarding/session role state for first-time users.
-      localStorage.removeItem("insurai_onboarded");
-      localStorage.removeItem("insurai_workspace");
-      localStorage.removeItem("insurai_user_role");
-      localStorage.removeItem("insurai_onboarding_step");
-    }
-    
+    const user: InsurAIUser = mapLoginResponseUser(response.user);
+    sessionUser = user;
+    if (user.role) selectedRole = user.role;
+
     return { success: true, user, onboarded: response.user.onboarded };
   } catch (error) {
     console.error("Login error:", error);
@@ -323,40 +223,13 @@ export async function validateCredentials(
 }
 
 /**
- * Check if any users are registered (for debugging/verification).
- */
-export function getRegisteredUserCount(): number {
-  return getRegisteredUsers().length;
-}
-
-/**
- * Check if a user with given email exists.
- */
-export function isUserRegistered(email: string): boolean {
-  const normalizedEmail = email.trim().toLowerCase();
-  if (normalizedEmail === DEMO_EMAIL) return true;
-  return getRegisteredUsers().some((u) => u.email === normalizedEmail);
-}
-
-/**
  * Check if this is the user's first login (after onboarding).
  * Returns true if the user has never seen the welcome message before.
  */
 export function isFirstLogin(email?: string): boolean {
-  const targetEmail = email || getUser()?.email;
-  if (!targetEmail) return false;
-
-  const normalizedEmail = targetEmail.trim().toLowerCase();
-
-  // Demo user: check session flag
-  if (normalizedEmail === DEMO_EMAIL) {
-    return localStorage.getItem("insurai_first_login_shown") !== "true";
-  }
-
-  // Registered users: check their record
-  const users = getRegisteredUsers();
-  const foundUser = users.find((u) => u.email === normalizedEmail);
-  return foundUser?.firstLoginShown !== true;
+  void email;
+  if (!sessionUser?.onboarded) return false;
+  return sessionUser.firstLoginShown !== true;
 }
 
 /**
@@ -364,22 +237,8 @@ export function isFirstLogin(email?: string): boolean {
  * After this, isFirstLogin() will return false.
  */
 export function markFirstLoginShown(email?: string): void {
-  const targetEmail = email || getUser()?.email;
-  if (!targetEmail) return;
-
-  const normalizedEmail = targetEmail.trim().toLowerCase();
-
-  // Demo user: use session flag
-  if (normalizedEmail === DEMO_EMAIL) {
-    localStorage.setItem("insurai_first_login_shown", "true");
-    return;
-  }
-
-  // Registered users: update their record
-  const users = getRegisteredUsers();
-  const userIndex = users.findIndex((u) => u.email === normalizedEmail);
-  if (userIndex !== -1) {
-    users[userIndex].firstLoginShown = true;
-    saveRegisteredUsers(users);
-  }
+  void email;
+  if (!sessionUser) return;
+  sessionUser = { ...sessionUser, firstLoginShown: true };
+  void acknowledgeFirstLogin();
 }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { isAuthenticated, getUser, logout, type InsurAIUser } from "@/lib/auth";
+import { getUser, hydrateSession, logout, type InsurAIUser } from "@/lib/auth";
 
 const ROLE_LABELS: Record<string, string> = {
   underwriter:       "Underwriter",
@@ -29,10 +29,13 @@ export default function Navbar() {
 
   // Read auth state and compute role-based nav links on every pathname change
   useEffect(() => {
-    const auth = isAuthenticated();
-    setAuthed(auth);
-    const currentUser = auth ? getUser() : null;
-    setUser(currentUser);
+    const init = async () => {
+      const currentUser = await hydrateSession();
+      setAuthed(!!currentUser);
+      setUser(currentUser || getUser());
+    };
+
+    void init();
   }, [pathname]);
 
   // Close dropdowns on outside click

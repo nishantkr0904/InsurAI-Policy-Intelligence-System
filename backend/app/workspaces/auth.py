@@ -16,6 +16,9 @@ from typing import Optional, Tuple
 from fastapi import Depends, HTTPException, Header, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.service import get_user_by_email
+from app.auth.session import get_email_from_session_token
+from app.core.config import settings
 from app.database import get_db
 from app.workspaces.service import WorkspaceService
 
@@ -42,6 +45,7 @@ async def get_workspace_id(
 async def get_current_user_id(
     request: Request,
     x_user_id: Optional[str] = Header(None, alias="X-User-ID"),
+    db: AsyncSession = Depends(get_db),
 ) -> Optional[str]:
     """
     Extract user_id from request.
@@ -52,9 +56,17 @@ async def get_current_user_id(
     Returns:
         User ID string or None if not authenticated
     """
-    # TODO: Replace with proper JWT token extraction when Keycloak is integrated
-    # For now, check header or use mock user
-    return x_user_id
+    # Header remains supported for internal/testing compatibility.
+    if x_user_id:
+        return x_user_id
+
+    session_cookie = request.cookies.get(settings.SESSION_COOKIE_NAME)
+    email = get_email_from_session_token(session_cookie)
+    if not email:
+        return None
+
+    user = await get_user_by_email(db, email)
+    return user.email if user else None
 
 
 async def validate_workspace_access(

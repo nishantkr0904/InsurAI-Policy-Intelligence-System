@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, getUser } from "@/lib/auth";
+import { getUser, hydrateSession } from "@/lib/auth";
 import QueryAnalyticsCharts from "@/components/QueryAnalyticsCharts";
 import QueryLogTable from "@/components/QueryLogTable";
 import type { QueryLogEntry } from "@/lib/api";
@@ -52,22 +52,31 @@ export default function AnalyticsClient() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/login");
-      return;
-    }
-    const u = getUser();
-    setUser(u);
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
-    // Simulate loading query logs
-    setIsLoading(true);
-    const timer = setTimeout(() => {
-      const mockLogs = generateMockQueryLogs(50);
-      setQueryLogs(mockLogs);
-      setIsLoading(false);
-    }, 500);
+    const init = async () => {
+      const sessionUser = await hydrateSession();
+      if (!sessionUser) {
+        router.replace("/login");
+        return;
+      }
 
-    return () => clearTimeout(timer);
+      const u = getUser();
+      setUser(u);
+
+      setIsLoading(true);
+      timer = setTimeout(() => {
+        const mockLogs = generateMockQueryLogs(50);
+        setQueryLogs(mockLogs);
+        setIsLoading(false);
+      }, 500);
+    };
+
+    void init();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [router]);
 
   return (

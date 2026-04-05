@@ -12,11 +12,15 @@ export default function OnboardingHeader() {
   const [step, setStep] = useState<number | null>(null);
 
   useEffect(() => {
-    // Step 0 = role selection, workspace setup = no numeric step yet.
-    // Only show the dot-progress once the user is on the feature steps (1–4).
-    const saved = localStorage.getItem("insurai_onboarding_step");
-    const parsed = saved ? parseInt(saved, 10) : null;
-    setStep(parsed && parsed >= 1 ? parsed : null);
+    if (pathname === "/policies/upload") {
+      setStep(3);
+      return;
+    }
+    if (pathname === "/chat") {
+      setStep(4);
+      return;
+    }
+    setStep(null);
   }, [pathname]);
 
   return (

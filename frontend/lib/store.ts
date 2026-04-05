@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 /**
  * Global application state using Zustand
@@ -9,7 +8,7 @@ import { persist } from 'zustand/middleware';
  * - Active workspace
  * - Onboarding status
  * 
- * Persisted to localStorage for session continuity
+ * Runtime-only in-memory state
  */
 
 export interface User {
@@ -38,45 +37,32 @@ interface AppState {
   logout: () => void;
 }
 
-export const useAppStore = create<AppState>()(
-  persist(
-    (set) => ({
-      // Initial state
-      user: null,
-      isAuthenticated: false,
-      workspaceId: null,
-      onboardingComplete: false,
+export const useAppStore = create<AppState>()((set) => ({
+  // Initial state
+  user: null,
+  isAuthenticated: false,
+  workspaceId: null,
+  onboardingComplete: false,
 
-      // Actions
-      setUser: (user) => set({
-        user,
-        isAuthenticated: !!user,
-        workspaceId: user?.workspace || null
-      }),
+  // Actions
+  setUser: (user) => set({
+    user,
+    isAuthenticated: !!user,
+    workspaceId: user?.workspace || null
+  }),
 
-      setWorkspace: (workspaceId) => set({ workspaceId }),
+  setWorkspace: (workspaceId) => set({ workspaceId }),
 
-      completeOnboarding: (workspaceName) => set((state) => ({
-        onboardingComplete: true,
-        workspaceId: workspaceName,
-        user: state.user ? { ...state.user, workspace: workspaceName } : null
-      })),
+  completeOnboarding: (workspaceName) => set((state) => ({
+    onboardingComplete: true,
+    workspaceId: workspaceName,
+    user: state.user ? { ...state.user, workspace: workspaceName } : null
+  })),
 
-      logout: () => set({
-        user: null,
-        isAuthenticated: false,
-        workspaceId: null,
-        onboardingComplete: false
-      })
-    }),
-    {
-      name: 'insurai-app-state', // localStorage key
-      partialize: (state) => ({
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
-        workspaceId: state.workspaceId,
-        onboardingComplete: state.onboardingComplete
-      })
-    }
-  )
-);
+  logout: () => set({
+    user: null,
+    isAuthenticated: false,
+    workspaceId: null,
+    onboardingComplete: false
+  })
+}));

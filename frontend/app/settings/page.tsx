@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, isOnboarded, getUser, logout, ROLES, type InsurAIUser } from "@/lib/auth";
+import { getUser, hydrateSession, logout, ROLES, type InsurAIUser } from "@/lib/auth";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -10,14 +10,24 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) { router.replace("/login"); return; }
-    if (!isOnboarded()) { router.replace("/onboarding"); return; }
-    setUser(getUser());
+    const init = async () => {
+      const currentUser = await hydrateSession();
+      if (!currentUser) {
+        router.replace("/login");
+        return;
+      }
+      if (!currentUser.onboarded) {
+        router.replace("/onboarding");
+        return;
+      }
+      setUser(getUser());
+    };
+
+    void init();
   }, [router]);
 
   function handleSave() {
     if (!user) return;
-    localStorage.setItem("insurai_user", JSON.stringify(user));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }

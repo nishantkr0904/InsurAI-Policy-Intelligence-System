@@ -878,6 +878,7 @@ export interface UserResponse {
   workspace: string | null;
   initials: string;
   onboarded: boolean;
+  first_login_shown?: boolean;
 }
 
 /** Login request */
@@ -922,6 +923,7 @@ export async function loginUser(
   const res = await fetch(`${BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(request),
   });
 
@@ -942,6 +944,7 @@ export async function registerUser(
   const res = await fetch(`${BASE}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(request),
   });
 
@@ -963,6 +966,7 @@ export async function completeUserOnboarding(
   const res = await fetch(`${BASE}/auth/onboarding/${encodeURIComponent(email)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(request),
   });
 
@@ -971,5 +975,41 @@ export async function completeUserOnboarding(
   }
 
   return res.json() as Promise<UserResponse>;
+}
+
+/** Resolve the active authenticated user from secure cookie session. */
+export async function fetchCurrentUser(): Promise<LoginResponse> {
+  const res = await fetch(`${BASE}/auth/me`, {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    throw new Error(`Session check failed: ${res.status}`);
+  }
+
+  return res.json() as Promise<LoginResponse>;
+}
+
+/** Invalidate server session cookie. */
+export async function logoutUser(): Promise<void> {
+  const res = await fetch(`${BASE}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new Error(`Logout failed: ${res.status}`);
+  }
+}
+
+/** Persist that the first-login welcome message was shown. */
+export async function acknowledgeFirstLogin(): Promise<void> {
+  const res = await fetch(`${BASE}/auth/first-login/ack`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new Error(`First-login ack failed: ${res.status}`);
+  }
 }
 

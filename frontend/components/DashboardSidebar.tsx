@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { getUser } from "@/lib/auth";
+import { getUser, hydrateSession } from "@/lib/auth";
 import { getRoleSidebarLinks, getRoleLabel, type NavLink } from "@/lib/rbac";
 
 /**
@@ -16,10 +16,15 @@ export default function DashboardSidebar() {
   const [roleLabel, setRoleLabel] = useState<string>("");
 
   useEffect(() => {
-    const user = getUser();
-    const role = user?.role || null;
-    setSidebarLinks(getRoleSidebarLinks(role));
-    setRoleLabel(getRoleLabel(role));
+    const init = async () => {
+      await hydrateSession();
+      const user = getUser();
+      const role = user?.role || null;
+      setSidebarLinks(getRoleSidebarLinks(role));
+      setRoleLabel(getRoleLabel(role));
+    };
+
+    void init();
   }, [pathname]);
 
   function isActive(href: string) {

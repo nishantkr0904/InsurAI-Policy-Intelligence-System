@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { login, isAuthenticated, registerUser } from "@/lib/auth";
+import { hydrateSession, registerUser, validateCredentials } from "@/lib/auth";
 
 function FieldError({ msg, testId, id }: { msg: string; testId: string; id: string }) {
   if (!msg) return null;
@@ -38,7 +38,11 @@ export default function SignupPage() {
   const strength = getStrength(form.password);
 
   useEffect(() => {
-    if (isAuthenticated()) router.replace("/dashboard");
+    const init = async () => {
+      const user = await hydrateSession();
+      if (user) router.replace("/dashboard");
+    };
+    void init();
   }, [router]);
 
   function validateEmail(value: string): string {
@@ -121,19 +125,15 @@ export default function SignupPage() {
       return;
     }
 
-    // Log in the newly registered user
-    login({
-      name: "",
-      email: form.email.trim().toLowerCase(),
-      role: "",
-      workspace: "",
-      initials: "",
-    });
-
-    localStorage.removeItem("insurai_workspace");
-    localStorage.removeItem("insurai_user_role");
-    localStorage.removeItem("insurai_onboarded");
-    localStorage.removeItem("insurai_onboarding_step");
+    // Establish backend cookie session for the new user.
+    const loginResult = await validateCredentials(form.email, form.password);
+    if (!loginResult.success) {
+      toast.error("Account created, but sign-in failed", {
+        description: loginResult.error || "Please sign in manually.",
+      });
+      router.push("/login");
+      return;
+    }
 
     toast.success("Account created!", {
       description: "Redirecting to setup...",

@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { isAuthenticated, getUser, type InsurAIUser } from "@/lib/auth";
-import { getSelectedRole, isFirstLogin, markFirstLoginShown } from "@/lib/auth";
+import { getSelectedRole, getUser, hydrateSession, isFirstLogin, markFirstLoginShown, type InsurAIUser } from "@/lib/auth";
 
 const STATS = [
   {
@@ -127,27 +126,29 @@ export default function DashboardClient() {
   const [showFirstLoginMessage, setShowFirstLoginMessage] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/login");
-      return;
-    }
-    const u = getUser();
-    setUser(u);
-    setUserRole(getSelectedRole());
-    // Show getting-started if documents haven't been uploaded yet
-    const hasUploaded = localStorage.getItem("insurai_has_documents") === "true";
-    setIsFirstVisit(!hasUploaded);
-    // Check if this is the user's first login (after onboarding)
-    const firstLogin = isFirstLogin(u?.email);
-    setShowFirstLoginMessage(firstLogin);
-    // Mark first login as shown after a short delay (to ensure message is displayed)
-    if (firstLogin) {
-      setTimeout(() => markFirstLoginShown(u?.email), 1000);
-    }
+    const init = async () => {
+      const sessionUser = await hydrateSession();
+      if (!sessionUser) {
+        router.replace("/login");
+        return;
+      }
+
+      const u = getUser();
+      setUser(u);
+      setUserRole(getSelectedRole());
+
+      const firstLogin = isFirstLogin(u?.email);
+      setIsFirstVisit(firstLogin);
+      setShowFirstLoginMessage(firstLogin);
+      if (firstLogin) {
+        setTimeout(() => markFirstLoginShown(u?.email), 1000);
+      }
+    };
+
+    void init();
   }, [router]);
 
   function dismissOnboarding() {
-    localStorage.setItem("insurai_has_documents", "true");
     setIsFirstVisit(false);
   }
 

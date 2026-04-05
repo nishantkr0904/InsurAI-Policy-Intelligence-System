@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, isOnboarded, getUser } from "@/lib/auth";
+import { getUser, hydrateSession } from "@/lib/auth";
 import { getRoleDefaultRoute } from "@/lib/rbac";
 
 /**
@@ -14,18 +14,22 @@ export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/login");
-      return;
-    }
+    const init = async () => {
+      const user = await hydrateSession();
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      if (!user.onboarded) {
+        router.replace("/onboarding");
+        return;
+      }
 
-    if (!isOnboarded()) {
-      router.replace("/onboarding");
-      return;
-    }
+      const currentUser = getUser();
+      router.replace(getRoleDefaultRoute(currentUser?.role || null));
+    };
 
-    const user = getUser();
-    router.replace(getRoleDefaultRoute(user?.role || null));
+    void init();
   }, [router]);
 
   return (

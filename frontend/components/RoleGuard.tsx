@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { getUser } from "@/lib/auth";
+import { getUser, hydrateSession } from "@/lib/auth";
 import { canAccessRoute, getUnauthorizedMessage } from "@/lib/rbac";
 
 /**
@@ -16,23 +16,26 @@ export default function RoleGuard({ children }: { children: React.ReactNode }) {
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   useEffect(() => {
-    const user = getUser();
-    const userRole = user?.role || null;
+    const init = async () => {
+      await hydrateSession();
+      const user = getUser();
+      const userRole = user?.role || null;
 
-    // Check if user has permission to access this route
-    const hasAccess = canAccessRoute(userRole, pathname);
+      const hasAccess = canAccessRoute(userRole, pathname);
 
-    if (!hasAccess) {
-      setAuthorized(false);
-      setErrorMessage(getUnauthorizedMessage(userRole));
-      // Redirect to dashboard after a brief moment
-      const timer = setTimeout(() => {
-        router.push("/dashboard");
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
+      if (!hasAccess) {
+        setAuthorized(false);
+        setErrorMessage(getUnauthorizedMessage(userRole));
+        const timer = setTimeout(() => {
+          router.push("/dashboard");
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
 
-    setAuthorized(true);
+      setAuthorized(true);
+    };
+
+    void init();
   }, [pathname, router]);
 
   // Still checking permissions

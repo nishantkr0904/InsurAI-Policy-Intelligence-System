@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, isOnboarded } from "@/lib/auth";
+import { getWorkspaceId, hydrateSession } from "@/lib/auth";
 import ChatPageClient from "@/components/ChatPageClient";
 
 /**
- * ChatGate – checks auth, reads workspaceId from localStorage,
+ * ChatGate – validates auth/session and
  * and passes it to ChatPageClient.
  */
 export default function ChatGate() {
@@ -14,16 +14,21 @@ export default function ChatGate() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/login");
-      return;
-    }
-    if (!isOnboarded()) {
-      router.replace("/onboarding");
-      return;
-    }
-    const ws = localStorage.getItem("insurai_workspace") || "default";
-    setWorkspaceId(ws);
+    const init = async () => {
+      const user = await hydrateSession();
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      if (!user.onboarded) {
+        router.replace("/onboarding");
+        return;
+      }
+      const ws = getWorkspaceId() || "default";
+      setWorkspaceId(ws);
+    };
+
+    void init();
   }, [router]);
 
   if (!workspaceId) {

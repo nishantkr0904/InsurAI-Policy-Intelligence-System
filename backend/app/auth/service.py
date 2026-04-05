@@ -41,6 +41,7 @@ def user_to_response(user: User) -> UserResponse:
         workspace=user.workspace,
         initials=get_initials(user.name),
         onboarded=user.onboarded,
+        first_login_shown=user.first_login_shown,
     )
 
 
@@ -92,6 +93,16 @@ async def update_user_onboarding(
     await db.refresh(user)
     
     return user
+
+
+async def mark_first_login_seen(db: AsyncSession, email: str) -> None:
+    """Persist that the first-login message has been displayed."""
+    user = await get_user_by_email(db, email)
+    if not user:
+        return
+
+    user.first_login_shown = True
+    await db.commit()
 
 
 async def validate_login(

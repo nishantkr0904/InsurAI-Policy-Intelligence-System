@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, getUser, isDemoUser } from "@/lib/auth";
+import { getUser, hydrateSession, isDemoUser } from "@/lib/auth";
 import { fetchDocuments, fetchPerformanceStats, fetchAuditAnalytics, type DocumentRecord } from "@/lib/api";
 import SystemHealth from "@/components/underwriter/SystemHealth";
 import ExportPanel from "@/components/underwriter/ExportPanel";
@@ -13,13 +13,18 @@ export default function UnderwriterClient() {
   const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/login");
-      return;
-    }
-    const u = getUser();
-    setUser(u);
-    setIsDemo(isDemoUser());
+    const init = async () => {
+      const sessionUser = await hydrateSession();
+      if (!sessionUser) {
+        router.replace("/login");
+        return;
+      }
+      const u = getUser();
+      setUser(u);
+      setIsDemo(isDemoUser());
+    };
+
+    void init();
   }, [router]);
 
   const workspace = user?.workspace ?? "default";

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, getUser, isDemoUser, getWorkspaceId } from "@/lib/auth";
+import { getUser, getWorkspaceId, hydrateSession, isDemoUser } from "@/lib/auth";
 import { useAuditLogs, useAuditAnalytics } from "@/hooks/useQueries";
 import AuditLogTable from "@/components/AuditLogTable";
 import AuditAnalytics from "@/components/AuditAnalytics";
@@ -139,25 +139,34 @@ export default function AuditClient() {
 
   // Initialize user and demo mode
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/login");
-      return;
-    }
-    const u = getUser();
-    setUser(u);
-    const demoMode = isDemoUser();
-    setIsDemo(demoMode);
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
-    // If demo user, load mock data
-    if (demoMode) {
-      setMockLoading(true);
-      const timer = setTimeout(() => {
-        const mockData = generateMockAuditLogs(150);
-        setMockLogs(mockData);
-        setMockLoading(false);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
+    const init = async () => {
+      const sessionUser = await hydrateSession();
+      if (!sessionUser) {
+        router.replace("/login");
+        return;
+      }
+      const u = getUser();
+      setUser(u);
+      const demoMode = isDemoUser();
+      setIsDemo(demoMode);
+
+      if (demoMode) {
+        setMockLoading(true);
+        timer = setTimeout(() => {
+          const mockData = generateMockAuditLogs(150);
+          setMockLogs(mockData);
+          setMockLoading(false);
+        }, 500);
+      }
+    };
+
+    void init();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [router]);
 
   // Determine which data source to use

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, isOnboarded } from "@/lib/auth";
+import { getWorkspaceId, hydrateSession } from "@/lib/auth";
 import UploadPanel from "@/components/UploadPanel";
 import OnboardingProgress from "@/components/OnboardingProgress";
 
@@ -15,10 +15,20 @@ export default function PoliciesUploadPage() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { router.replace("/login"); return; }
-    if (!isOnboarded()) { router.replace("/onboarding"); return; }
-    const ws = localStorage.getItem("insurai_workspace") ?? "default";
-    setWorkspaceId(ws);
+    const init = async () => {
+      const user = await hydrateSession();
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      if (!user.onboarded) {
+        router.replace("/onboarding");
+        return;
+      }
+      setWorkspaceId(getWorkspaceId() ?? "default");
+    };
+
+    void init();
   }, [router]);
 
   if (!workspaceId) {

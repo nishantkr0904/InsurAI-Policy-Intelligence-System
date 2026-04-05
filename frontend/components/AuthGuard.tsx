@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { isAuthenticated, isOnboarded, getUser } from "@/lib/auth";
+import { getUser, hydrateSession } from "@/lib/auth";
 import { canAccessRoute, getUnauthorizedMessage, getRoleDefaultRoute } from "@/lib/rbac";
 
 interface AuthGuardProps {
@@ -32,44 +32,48 @@ export default function AuthGuard({
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/login");
-      return;
-    }
-
-    if (!isOnboarded()) {
-      router.replace("/onboarding");
-      return;
-    }
-
-    // Check role-based access (unless explicitly skipped)
-    if (!skipRoleCheck) {
-      const user = getUser();
-      const userRole = user?.role || null;
-
-      if (allowedRoles?.length && (!userRole || !allowedRoles.includes(userRole))) {
-        setAccessDenied(true);
-        setErrorMessage(getUnauthorizedMessage(userRole));
-
-        const timer = setTimeout(() => {
-          router.push(getRoleDefaultRoute(userRole));
-        }, 2500);
-        return () => clearTimeout(timer);
+    const init = async () => {
+      const sessionUser = await hydrateSession();
+      if (!sessionUser) {
+        router.replace("/login");
+        return;
       }
 
-      if (!canAccessRoute(userRole, pathname)) {
-        setAccessDenied(true);
-        setErrorMessage(getUnauthorizedMessage(userRole));
-
-        // Redirect to role-appropriate dashboard after delay
-        const timer = setTimeout(() => {
-          router.push(getRoleDefaultRoute(userRole));
-        }, 2500);
-        return () => clearTimeout(timer);
+      if (!sessionUser.onboarded) {
+        router.replace("/onboarding");
+        return;
       }
-    }
 
-    setReady(true);
+      // Check role-based access (unless explicitly skipped)
+      if (!skipRoleCheck) {
+        const user = getUser();
+        const userRole = user?.role || null;
+
+        if (allowedRoles?.length && (!userRole || !allowedRoles.includes(userRole))) {
+          setAccessDenied(true);
+          setErrorMessage(getUnauthorizedMessage(userRole));
+
+          const timer = setTimeout(() => {
+            router.push(getRoleDefaultRoute(userRole));
+          }, 2500);
+          return () => clearTimeout(timer);
+        }
+
+        if (!canAccessRoute(userRole, pathname)) {
+          setAccessDenied(true);
+          setErrorMessage(getUnauthorizedMessage(userRole));
+
+          const timer = setTimeout(() => {
+            router.push(getRoleDefaultRoute(userRole));
+          }, 2500);
+          return () => clearTimeout(timer);
+        }
+      }
+
+      setReady(true);
+    };
+
+    void init();
   }, [router, pathname, skipRoleCheck, allowedRoles]);
 
   // Still checking auth/permissions

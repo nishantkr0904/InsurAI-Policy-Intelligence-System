@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { isAuthenticated, isOnboarded, getUser } from "@/lib/auth";
+import { getUser, hydrateSession } from "@/lib/auth";
 import DashboardSidebar from "@/components/DashboardSidebar";
 
 interface AppShellProps {
@@ -28,10 +28,13 @@ export default function AppShell({ children }: AppShellProps) {
       return;
     }
 
-    const authed = isAuthenticated();
-    const onboarded = isOnboarded();
-    const role = getUser()?.role;
-    setShowSidebar(authed && onboarded && !!role);
+    const init = async () => {
+      const user = await hydrateSession();
+      const role = getUser()?.role;
+      setShowSidebar(!!user && !!user.onboarded && !!role);
+    };
+
+    void init();
   }, [hideShellRoutes, pathname]);
 
   if (!showSidebar) {

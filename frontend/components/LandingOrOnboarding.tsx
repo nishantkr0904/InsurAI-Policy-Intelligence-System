@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, isOnboarded } from "@/lib/auth";
+import { hydrateSession } from "@/lib/auth";
 import OnboardingFlow from "@/components/OnboardingFlow";
 import LandingPage from "@/components/LandingPage";
 
@@ -17,15 +17,20 @@ export default function LandingOrOnboarding() {
   const [state, setState] = useState<"loading" | "landing" | "onboarding">("loading");
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      if (isOnboarded()) {
-        router.replace("/dashboard");
+    const init = async () => {
+      const user = await hydrateSession();
+      if (user) {
+        if (user.onboarded) {
+          router.replace("/dashboard");
+        } else {
+          setState("onboarding");
+        }
       } else {
-        setState("onboarding");
+        setState("landing");
       }
-    } else {
-      setState("landing");
-    }
+    };
+
+    void init();
   }, [router]);
 
   if (state === "loading") {

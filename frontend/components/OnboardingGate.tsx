@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, isOnboarded } from "@/lib/auth";
+import { hydrateSession } from "@/lib/auth";
 import OnboardingFlow from "@/components/OnboardingFlow";
 
 /**
@@ -16,16 +16,21 @@ export default function OnboardingGate() {
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      // Not auth – LandingOrOnboarding handles this case
-      setChecked(true);
-      return;
-    }
-    if (isOnboarded()) {
-      router.replace("/dashboard");
-    } else {
-      setChecked(true);
-    }
+    const init = async () => {
+      const user = await hydrateSession();
+      if (!user) {
+        // Not auth – LandingOrOnboarding handles this case
+        setChecked(true);
+        return;
+      }
+      if (user.onboarded) {
+        router.replace("/dashboard");
+      } else {
+        setChecked(true);
+      }
+    };
+
+    void init();
   }, [router]);
 
   if (!checked) {

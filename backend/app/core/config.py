@@ -47,6 +47,14 @@ class Settings(BaseSettings):
     # or "huggingface/BAAI/bge-reranker-v2-m3". Leave empty to skip re-ranking.
     RERANKER_MODEL: str = ""
 
+    # Cookie session authentication
+    SESSION_SECRET: str = "dev-only-change-me"
+    SESSION_COOKIE_NAME: str = "insurai_session"
+    SESSION_COOKIE_MAX_AGE_SECONDS: int = 60 * 60 * 24
+    SESSION_COOKIE_SECURE: bool = False
+    SESSION_COOKIE_SAMESITE: str = "lax"
+    SESSION_COOKIE_DOMAIN: str | None = None
+
     class Config:
         env_file = ".env"
         case_sensitive = True

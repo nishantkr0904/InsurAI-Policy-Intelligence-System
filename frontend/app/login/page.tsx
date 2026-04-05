@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { login, isAuthenticated, validateCredentials, getUser } from "@/lib/auth";
+import { hydrateSession, login, validateCredentials } from "@/lib/auth";
 import { getRoleDefaultRoute } from "@/lib/rbac";
 
 export default function LoginPage() {
@@ -16,11 +16,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      // Redirect to role-specific route if already logged in
-      const user = getUser();
-      router.replace(getRoleDefaultRoute(user?.role || null));
-    }
+    const init = async () => {
+      const user = await hydrateSession();
+      if (user) {
+        router.replace(getRoleDefaultRoute(user?.role || null));
+      }
+    };
+
+    void init();
   }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -52,7 +55,7 @@ export default function LoginPage() {
       description: "Redirecting to your dashboard...",
     });
 
-    // Backend onboarding status is authoritative and avoids stale localStorage redirects.
+    // Backend onboarding status is authoritative for redirect decisions.
     if (result.onboarded === false) {
       router.push("/onboarding");
     } else {

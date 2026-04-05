@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, saveWorkspace, getSelectedRole } from "@/lib/auth";
+import { getSelectedRole, hydrateSession, saveWorkspace } from "@/lib/auth";
 import { getRoleDefaultRoute } from "@/lib/rbac";
 import OnboardingProgress from "@/components/OnboardingProgress";
 
@@ -15,8 +15,16 @@ export default function WorkspaceSetupPage() {
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) router.replace("/login");
-    setSelectedRole(getSelectedRole());
+    const init = async () => {
+      const user = await hydrateSession();
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      setSelectedRole(getSelectedRole());
+    };
+
+    void init();
   }, [router]);
 
   /** Auto-derive a workspace slug from the company name */

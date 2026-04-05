@@ -27,6 +27,7 @@ class UserResponse(BaseModel):
     workspace: Optional[str] = None
     initials: str
     onboarded: bool = False
+    first_login_shown: bool = False
 
 
 class LoginResponse(BaseModel):
