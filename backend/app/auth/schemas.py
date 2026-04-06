@@ -47,3 +47,11 @@ class OnboardingUpdateRequest(BaseModel):
     """Request to update onboarding status."""
     workspace: Optional[str] = None
     role: Optional[str] = None
+
+
+class UserProfileUpdateRequest(BaseModel):
+    """Request to update the authenticated user profile from Settings."""
+    name: str
+    email: EmailStr
+    role: Optional[str] = None
+    workspace: Optional[str] = None

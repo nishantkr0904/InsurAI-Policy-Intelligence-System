@@ -95,6 +95,36 @@ async def update_user_onboarding(
     return user
 
 
+async def update_user_profile(
+    db: AsyncSession,
+    current_email: str,
+    *,
+    name: str,
+    email: str,
+    role: str | None,
+    workspace: str | None,
+) -> tuple[User | None, str | None]:
+    """Update authenticated user's profile details from settings page."""
+    user = await get_user_by_email(db, current_email)
+    if not user:
+        return None, "User not found"
+
+    new_email = email.strip().lower()
+    if new_email != user.email:
+        existing = await get_user_by_email(db, new_email)
+        if existing:
+            return None, "Email already in use"
+
+    user.name = name.strip() or user.name
+    user.email = new_email
+    user.role = role
+    user.workspace = workspace
+
+    await db.commit()
+    await db.refresh(user)
+    return user, None
+
+
 async def mark_first_login_seen(db: AsyncSession, email: str) -> None:
     """Persist that the first-login message has been displayed."""
     user = await get_user_by_email(db, email)

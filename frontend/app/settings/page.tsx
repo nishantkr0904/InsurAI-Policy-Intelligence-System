@@ -3,11 +3,20 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUser, hydrateSession, logout, ROLES, type InsurAIUser } from "@/lib/auth";
+import { updateCurrentUser } from "@/lib/api";
 
 export default function SettingsPage() {
   const router = useRouter();
   const [user, setUser] = useState<InsurAIUser | null>(null);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    role: "",
+    workspace: "",
+  });
 
   useEffect(() => {
     const init = async () => {
@@ -20,16 +29,64 @@ export default function SettingsPage() {
         router.replace("/onboarding");
         return;
       }
-      setUser(getUser());
+      const loadedUser = getUser();
+      setUser(loadedUser);
+      if (loadedUser) {
+        setForm({
+          name: loadedUser.name ?? "",
+          email: loadedUser.email ?? "",
+          role: loadedUser.role ?? "",
+          workspace: loadedUser.workspace ?? "",
+        });
+      }
     };
 
     void init();
   }, [router]);
 
-  function handleSave() {
+  async function handleSave() {
     if (!user) return;
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const response = await updateCurrentUser({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        role: form.role,
+        workspace: form.workspace.trim(),
+      });
+
+      if (!response.success || !response.user) {
+        setError(response.error || "Unable to save settings.");
+        return;
+      }
+
+      const updatedUser: InsurAIUser = {
+        name: response.user.name,
+        email: response.user.email,
+        role: response.user.role || "",
+        workspace: response.user.workspace || "",
+        initials: response.user.initials,
+        onboarded: response.user.onboarded,
+        firstLoginShown: response.user.first_login_shown,
+      };
+
+      setUser(updatedUser);
+      setForm({
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        workspace: updatedUser.workspace,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      await hydrateSession(true);
+    } catch (e) {
+      setError((e as Error).message || "Unable to save settings.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!user) return null;
@@ -46,15 +103,15 @@ export default function SettingsPage() {
 
         <div>
           <label className="form-label">Full Name</label>
-          <input className="input" value={user.name} onChange={(e) => setUser({ ...user, name: e.target.value })} />
+          <input className="input" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
         </div>
         <div>
           <label className="form-label">Email</label>
-          <input className="input" type="email" value={user.email} onChange={(e) => setUser({ ...user, email: e.target.value })} />
+          <input className="input" type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
         </div>
         <div>
           <label className="form-label">Role</label>
-          <select className="input" value={user.role} onChange={(e) => setUser({ ...user, role: e.target.value })} style={{ cursor: "pointer" }}>
+          <select className="input" value={form.role} onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))} style={{ cursor: "pointer" }}>
             {ROLES.map(({ value, label }) => (
               <option key={value} value={value} style={{ background: "var(--bg-surface)" }}>{label}</option>
             ))}
@@ -62,15 +119,21 @@ export default function SettingsPage() {
         </div>
         <div>
           <label className="form-label">Company or Organization</label>
-          <input className="input" value={user.workspace} onChange={(e) => setUser({ ...user, workspace: e.target.value })} />
+          <input className="input" value={form.workspace} onChange={(e) => setForm((prev) => ({ ...prev, workspace: e.target.value }))} />
           <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
             Your policies and team members will belong to this workspace.
           </p>
         </div>
 
+        {error && (
+          <p className="text-xs rounded px-3 py-2" style={{ color: "var(--danger)", background: "var(--danger-soft)" }}>
+            {error}
+          </p>
+        )}
+
         <div className="flex items-center gap-3">
-          <button onClick={handleSave} className="btn-primary text-sm">
-            {saved ? "✓ Saved!" : "Save Changes"}
+          <button onClick={handleSave} className="btn-primary text-sm" disabled={saving}>
+            {saving ? "Saving..." : saved ? "✓ Saved!" : "Save Changes"}
           </button>
           <button
             onClick={() => { logout(); router.push("/login"); }}

@@ -997,6 +997,14 @@ export interface OnboardingUpdateRequest {
   role?: string;
 }
 
+/** Settings profile update request (authenticated user). */
+export interface UserProfileUpdateRequest {
+  name: string;
+  email: string;
+  role?: string;
+  workspace?: string;
+}
+
 /**
  * Authenticate user with email and password.
  * POST /api/v1/auth/login
@@ -1070,6 +1078,24 @@ export async function fetchCurrentUser(): Promise<LoginResponse> {
 
   if (!res.ok) {
     throw new Error(`Session check failed: ${res.status}`);
+  }
+
+  return res.json() as Promise<LoginResponse>;
+}
+
+/** Update the currently authenticated user's settings profile. */
+export async function updateCurrentUser(
+  request: UserProfileUpdateRequest,
+): Promise<LoginResponse> {
+  const res = await fetch(`${BASE}/auth/me`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(request),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Profile update failed: ${res.status}`);
   }
 
   return res.json() as Promise<LoginResponse>;

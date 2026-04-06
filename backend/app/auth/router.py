@@ -11,12 +11,14 @@ from .schemas import (
     LoginResponse,
     RegisterResponse,
     OnboardingUpdateRequest,
+    UserProfileUpdateRequest,
     UserResponse,
 )
 from .service import (
     validate_login,
     register_user as register_user_service,
     update_user_onboarding,
+    update_user_profile,
     get_user_by_email,
     user_to_response,
     mark_first_login_seen,
@@ -121,6 +123,45 @@ async def me(
     user = await get_user_by_email(db, email)
     if not user:
         return LoginResponse(success=False, user=None, error="User not found")
+
+    return LoginResponse(success=True, user=user_to_response(user), error=None)
+
+
+@router.put("/me", response_model=LoginResponse)
+async def update_me(
+    request: UserProfileUpdateRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    session_cookie: str | None = Cookie(default=None, alias=settings.SESSION_COOKIE_NAME),
+):
+    """Update authenticated user's profile details."""
+    current_email = get_email_from_session_token(session_cookie)
+    if not current_email:
+        return LoginResponse(success=False, user=None, error="Not authenticated")
+
+    user, error = await update_user_profile(
+        db,
+        current_email,
+        name=request.name,
+        email=request.email,
+        role=request.role,
+        workspace=request.workspace,
+    )
+    if not user:
+        return LoginResponse(success=False, user=None, error=error or "Unable to update user")
+
+    if user.email != current_email:
+        token = create_session_token(user.email)
+        response.set_cookie(
+            key=settings.SESSION_COOKIE_NAME,
+            value=token,
+            max_age=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
+            httponly=True,
+            secure=settings.SESSION_COOKIE_SECURE,
+            samesite=settings.SESSION_COOKIE_SAMESITE,
+            domain=settings.SESSION_COOKIE_DOMAIN,
+            path="/",
+        )
 
     return LoginResponse(success=True, user=user_to_response(user), error=None)
 
