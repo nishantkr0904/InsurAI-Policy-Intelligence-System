@@ -37,6 +37,7 @@ from app.processing.vector_store import ensure_collection_exists
 from app.reports.router import router as reports_router
 from app.health.router import router as health_router
 from app.auth.router import router as auth_router
+from app.notifications.router import router as notifications_router
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,7 @@ app.add_middleware(ErrorMonitoringMiddleware)
 # Routers
 # ---------------------------------------------------------------------------
 app.include_router(auth_router)
+app.include_router(notifications_router)
 app.include_router(workspaces_router)
 app.include_router(ingestion_router)
 app.include_router(rag_router)

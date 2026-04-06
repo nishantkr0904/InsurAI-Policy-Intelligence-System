@@ -19,9 +19,12 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, File, Form, Header, HTTPException, Query, Request, UploadFile, status
 
+from app.database import AsyncSessionLocal
 from app.ingestion.schemas import DocumentMetadata, DocumentStatus, DocumentUploadResponse
+from app.notifications.schemas import NotificationPriority, NotificationType
+from app.notifications.service import dispatch_notification_for_actor
 from app.storage.minio_client import list_documents, upload_file
 from app.workers.ingestion_tasks import ingest_document
 
@@ -83,11 +86,13 @@ async def list_workspace_documents(
     ),
 )
 async def upload_document(
+    request: Request,
     file: Annotated[UploadFile, File(description="Policy document (PDF / DOCX / TXT).")],
     workspace_id: Annotated[
         str,
         Form(description="UUID of the workspace this document belongs to."),
     ] = "default",
+    x_user_id: Annotated[str | None, Header(alias="X-User-ID")] = None,
 ) -> DocumentUploadResponse:
     """
     Step 1 of the ingestion pipeline:
@@ -140,6 +145,29 @@ async def upload_document(
         workspace_id=workspace_id,
     )
 
+    try:
+        async with AsyncSessionLocal() as session:
+            await dispatch_notification_for_actor(
+                request=request,
+                session=session,
+                workspace_id=workspace_id,
+                notification_type=NotificationType.POLICY,
+                priority=NotificationPriority.MEDIUM,
+                title="Policy document uploaded",
+                message=f"{file.filename or 'Document'} queued for ingestion.",
+                metadata={
+                    "document_id": document_id,
+                    "filename": file.filename or "upload.bin",
+                    "status": "pending",
+                },
+                dedupe_key=f"document-upload:{workspace_id}:{document_id}",
+                x_user_id=x_user_id,
+            )
+            await session.commit()
+    except Exception:
+        # Notification failure should not block ingestion.
+        pass
+
     return DocumentUploadResponse(
         document_id=document_id,
         filename=file.filename or "upload.bin",
@@ -162,11 +190,13 @@ async def upload_document(
     status_code=status.HTTP_200_OK,
 )
 async def update_document_status(
+    request: Request,
     document_id: str,
     workspace_id: str = Query(..., description="Workspace ID"),
     status: str = Query(..., description="New status: pending, processing, indexed, failed"),
     error_message: str = Query(None, description="Error details if status=failed"),
     chunk_count: int = Query(None, description="Chunk count if status=indexed"),
+    x_user_id: str | None = Header(None, alias="X-User-ID"),
 ) -> dict:
     """
     Manual status update endpoint.
@@ -207,6 +237,37 @@ async def update_document_status(
                 doc.chunk_count = chunk_count
             if status == "indexed":
                 doc.processed_at = datetime.utcnow()
+
+            # Emit notification for terminal status updates.
+            if status in {"indexed", "failed"}:
+                priority = (
+                    NotificationPriority.HIGH if status == "failed" else NotificationPriority.MEDIUM
+                )
+                await dispatch_notification_for_actor(
+                    request=request,
+                    session=session,
+                    workspace_id=workspace_id,
+                    notification_type=NotificationType.POLICY,
+                    priority=priority,
+                    title=(
+                        "Policy document indexed"
+                        if status == "indexed"
+                        else "Policy ingestion failed"
+                    ),
+                    message=(
+                        f"Document {document_id} indexed successfully."
+                        if status == "indexed"
+                        else f"Document {document_id} failed to process."
+                    ),
+                    metadata={
+                        "document_id": document_id,
+                        "status": status,
+                        "chunk_count": chunk_count,
+                        "error_message": error_message,
+                    },
+                    dedupe_key=f"document-status:{workspace_id}:{document_id}:{status}",
+                    x_user_id=x_user_id,
+                )
 
             await session.commit()
 

@@ -4,10 +4,15 @@ import {
   fetchComplianceIssues,
   fetchAuditLogs,
   fetchAuditAnalytics,
+  fetchNotifications,
   type FraudAlertsResponse,
   type ComplianceIssuesResponse,
   type AuditLogsResponse,
   type AuditAnalytics,
+  type NotificationsResponse,
+  type NotificationPriority,
+  type NotificationStatus,
+  type NotificationType,
 } from '@/lib/api';
 
 /**
@@ -98,6 +103,45 @@ export function useAuditAnalytics(
     enabled: options?.enabled !== false && !!workspaceId,
     staleTime: 60 * 1000, // Consider data stale after 1 minute
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes in background
+  });
+}
+
+/**
+ * Fetch role-scoped notifications for the current user.
+ * Uses lightweight polling for near-real-time updates.
+ */
+export function useNotifications(
+  workspaceId: string | null,
+  options?: {
+    status?: NotificationStatus;
+    type?: NotificationType;
+    priority?: NotificationPriority;
+    limit?: number;
+    offset?: number;
+    enabled?: boolean;
+  },
+) {
+  return useQuery<NotificationsResponse, Error>({
+    queryKey: [
+      'notifications',
+      workspaceId,
+      options?.status,
+      options?.type,
+      options?.priority,
+      options?.limit,
+      options?.offset,
+    ],
+    queryFn: () =>
+      fetchNotifications(workspaceId || 'default', {
+        status: options?.status,
+        type: options?.type,
+        priority: options?.priority,
+        limit: options?.limit || 20,
+        offset: options?.offset || 0,
+      }),
+    enabled: options?.enabled !== false && !!workspaceId,
+    staleTime: 15 * 1000,
+    refetchInterval: 30 * 1000,
   });
 }
 

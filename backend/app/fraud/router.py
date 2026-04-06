@@ -16,7 +16,7 @@ import logging
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db, AsyncSessionLocal
@@ -31,6 +31,8 @@ from app.fraud.schemas import (
 )
 from app.fraud.service import get_fraud_alerts
 from app.models import AuditLog
+from app.notifications.schemas import NotificationPriority, NotificationType
+from app.notifications.service import dispatch_notification_for_actor
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,7 @@ router = APIRouter(prefix="/api/v1/fraud", tags=["Fraud Detection"])
     ),
 )
 async def get_alerts_endpoint(
+    request: Request,
     workspace_id: str = "default",
     status_filter: AlertStatus | None = None,
     severity_filter: SeverityLevel | None = None,
@@ -134,6 +137,41 @@ async def get_alerts_endpoint(
         len(result.alerts),
     )
 
+    try:
+        top_alert = result.alerts[0] if result.alerts else None
+        if top_alert:
+            priority = (
+                NotificationPriority.CRITICAL
+                if top_alert.severity.value == "critical"
+                else NotificationPriority.HIGH
+                if top_alert.severity.value == "high"
+                else NotificationPriority.MEDIUM
+            )
+            await dispatch_notification_for_actor(
+                request=request,
+                session=session,
+                workspace_id=workspace_id,
+                notification_type=NotificationType.FRAUD,
+                priority=priority,
+                title=f"Fraud alert {top_alert.alert_id} requires attention",
+                message=(
+                    f"Risk score {top_alert.risk_score:.1f} ({top_alert.severity.value}). "
+                    f"{result.total} alerts currently in queue."
+                ),
+                metadata={
+                    "alert_id": top_alert.alert_id,
+                    "claim_id": top_alert.claim_id,
+                    "risk_score": top_alert.risk_score,
+                    "severity": top_alert.severity.value,
+                    "total_alerts": result.total,
+                },
+                dedupe_key=(
+                    f"fraud-alert:{workspace_id}:{top_alert.alert_id}:{top_alert.status.value}"
+                ),
+            )
+    except Exception as exc:
+        logger.warning("Failed to dispatch fraud alert notification: %s", exc)
+
     return result
 
 
@@ -158,6 +196,7 @@ _DEMO_ALERT_STATUS: dict[str, AlertStatus] = {}
 async def update_alert_status(
     alert_id: str,
     body: FraudAlertStatusUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_db),
 ) -> FraudAlertStatusResponse:
     """
@@ -227,10 +266,33 @@ async def update_alert_status(
         AlertStatus.NEW: f"Alert {alert_id} status reset to new",
     }
 
-    return FraudAlertStatusResponse(
+    response = FraudAlertStatusResponse(
         alert_id=alert_id,
         status=body.status,
         previous_status=previous_status,
         updated_at=updated_at,
         message=status_messages.get(body.status, f"Alert {alert_id} status updated"),
     )
+
+    try:
+        priority = NotificationPriority.HIGH if body.status == AlertStatus.ESCALATED else NotificationPriority.MEDIUM
+        await dispatch_notification_for_actor(
+            request=request,
+            session=session,
+            workspace_id=body.workspace_id,
+            notification_type=NotificationType.FRAUD,
+            priority=priority,
+            title=f"Fraud alert {alert_id} updated",
+            message=response.message,
+            metadata={
+                "alert_id": alert_id,
+                "previous_status": previous_status.value,
+                "new_status": body.status.value,
+                "notes": body.notes,
+            },
+            dedupe_key=f"fraud-status:{body.workspace_id}:{alert_id}:{body.status.value}",
+        )
+    except Exception as exc:
+        logger.warning("Failed to dispatch fraud status notification: %s", exc)
+
+    return response

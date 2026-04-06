@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -27,6 +27,8 @@ from app.compliance.schemas import (
     ComplianceReport,
 )
 from app.compliance.service import get_compliance_issues, generate_compliance_report
+from app.notifications.schemas import NotificationPriority, NotificationType
+from app.notifications.service import dispatch_notification_for_actor
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ router = APIRouter(prefix="/api/v1/compliance", tags=["Compliance"])
     ),
 )
 async def get_issues_endpoint(
+    request: Request,
     workspace_id: str = "default",
     status_filter: IssueStatus | None = None,
     severity_filter: SeverityLevel | None = None,
@@ -128,6 +131,40 @@ async def get_issues_endpoint(
         len(result.issues),
     )
 
+    try:
+        unresolved = sum(1 for issue in result.issues if issue.status.value != "resolved")
+        by_severity = result.summary.get("by_severity", {}) if isinstance(result.summary, dict) else {}
+        critical_count = int(by_severity.get("critical", 0))
+        high_count = int(by_severity.get("high", 0))
+        medium_count = int(by_severity.get("medium", 0))
+        low_count = int(by_severity.get("low", 0))
+
+        priority = NotificationPriority.HIGH if critical_count > 0 else NotificationPriority.MEDIUM
+        await dispatch_notification_for_actor(
+            request=request,
+            session=session,
+            workspace_id=workspace_id,
+            notification_type=NotificationType.COMPLIANCE,
+            priority=priority,
+            title="Compliance check completed",
+            message=(
+                f"{result.total} issues found ({critical_count} critical, {unresolved} unresolved)."
+            ),
+            metadata={
+                "total": result.total,
+                "critical": critical_count,
+                "high": high_count,
+                "medium": medium_count,
+                "low": low_count,
+                "workspace_id": workspace_id,
+            },
+            dedupe_key=(
+                f"compliance-check:{workspace_id}:{critical_count}:{result.total}:{offset}:{limit}"
+            ),
+        )
+    except Exception as exc:
+        logger.warning("Failed to dispatch compliance check notification: %s", exc)
+
     return result
 
 
@@ -142,6 +179,7 @@ async def get_issues_endpoint(
     ),
 )
 async def get_report_endpoint(
+    request: Request,
     workspace_id: str = "default",
     include_resolved: bool = False,
     session: AsyncSession = Depends(get_db),
@@ -190,5 +228,33 @@ async def get_report_endpoint(
         result.executive_summary.compliance_score,
         result.executive_summary.total_issues,
     )
+
+    try:
+        priority = (
+            NotificationPriority.HIGH
+            if result.executive_summary.critical_count > 0
+            else NotificationPriority.MEDIUM
+        )
+        await dispatch_notification_for_actor(
+            request=request,
+            session=session,
+            workspace_id=workspace_id,
+            notification_type=NotificationType.COMPLIANCE,
+            priority=priority,
+            title="Compliance report generated",
+            message=(
+                f"Score {result.executive_summary.compliance_score:.1f}. "
+                f"Critical issues: {result.executive_summary.critical_count}."
+            ),
+            metadata={
+                "report_id": result.report_id,
+                "compliance_score": result.executive_summary.compliance_score,
+                "critical_issues": result.executive_summary.critical_count,
+                "total_issues": result.executive_summary.total_issues,
+            },
+            dedupe_key=f"compliance-report:{workspace_id}:{result.report_id}",
+        )
+    except Exception as exc:
+        logger.warning("Failed to dispatch compliance report notification: %s", exc)
 
     return result

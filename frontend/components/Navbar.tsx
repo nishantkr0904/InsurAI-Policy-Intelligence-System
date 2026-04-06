@@ -3,7 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { getUser, hydrateSession, logout, type InsurAIUser } from "@/lib/auth";
+import {
+  type AppNotification,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "@/lib/api";
+import { useNotifications } from "@/hooks/useQueries";
+import NotificationList from "@/components/notifications/NotificationList";
 
 const ROLE_LABELS: Record<string, string> = {
   underwriter:       "Underwriter",
@@ -19,13 +28,36 @@ const ROLE_LABELS: Record<string, string> = {
 export default function Navbar() {
   const pathname  = usePathname();
   const router    = useRouter();
+  const queryClient = useQueryClient();
 
   const [authed, setAuthed]           = useState(false);
   const [user,   setUser]             = useState<InsurAIUser | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen,   setNotifOpen]   = useState(false);
+  const [busyNotificationId, setBusyNotificationId] = useState<string | null>(null);
+  const [markingAll, setMarkingAll] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef   = useRef<HTMLDivElement>(null);
+
+  const isLandingPage    = pathname === "/";
+  const isAuthPage       = pathname === "/login" || pathname === "/signup";
+  const isOnboardingPage = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+
+  const workspace = user?.workspace ?? "default";
+  const roleLabel = ROLE_LABELS[user?.role ?? ""] ?? user?.role ?? "User";
+  const canFetchNotifications = authed && !!user?.workspace;
+
+  const {
+    data: notificationData,
+    isLoading: notificationsLoading,
+    error: notificationsError,
+  } = useNotifications(user?.workspace ?? null, {
+    limit: 6,
+    enabled: canFetchNotifications,
+  });
+
+  const notifications = notificationData?.notifications ?? [];
+  const unreadCount = notificationData?.unread_count ?? 0;
 
   // Read auth state and compute role-based nav links on every pathname change
   useEffect(() => {
@@ -55,10 +87,6 @@ export default function Navbar() {
     setProfileOpen(false);
     router.push("/login");
   }
-
-  const isLandingPage    = pathname === "/";
-  const isAuthPage       = pathname === "/login" || pathname === "/signup";
-  const isOnboardingPage = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
 
   /* ── Logo (shared) ──────────────────────────────────────── */
   const Logo = (
@@ -120,9 +148,55 @@ export default function Navbar() {
     );
   }
 
-  /* ── Authenticated app navbar ────────────────────────────── */
-  const workspace = user?.workspace ?? "default";
-  const roleLabel = ROLE_LABELS[user?.role ?? ""] ?? user?.role ?? "User";
+  function notificationTarget(notification: AppNotification): string {
+    switch (notification.type) {
+      case "fraud":
+        return "/fraud";
+      case "compliance":
+        return "/compliance";
+      case "claim":
+        return "/claims";
+      case "policy":
+        return "/documents";
+      case "risk":
+        return "/dashboard/underwriter";
+      case "audit":
+        return "/audit";
+      default:
+        return "/notifications";
+    }
+  }
+
+  async function handleNotificationSelect(notification: AppNotification) {
+    if (busyNotificationId === notification.id) return;
+    setBusyNotificationId(notification.id);
+    try {
+      if (notification.status === "unread") {
+        await markNotificationRead(workspace, notification.id);
+        await queryClient.invalidateQueries({ queryKey: ["notifications", user?.workspace ?? null] });
+      }
+      setNotifOpen(false);
+      router.push(notificationTarget(notification));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to open notification");
+    } finally {
+      setBusyNotificationId(null);
+    }
+  }
+
+  async function handleMarkAllRead() {
+    if (markingAll || unreadCount === 0) return;
+    setMarkingAll(true);
+    try {
+      await markAllNotificationsRead(workspace);
+      await queryClient.invalidateQueries({ queryKey: ["notifications", user?.workspace ?? null] });
+      toast.success("All notifications marked as read");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to mark all as read");
+    } finally {
+      setMarkingAll(false);
+    }
+  }
 
   return (
     <header
@@ -189,10 +263,12 @@ export default function Navbar() {
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
             {/* Unread dot */}
-            <span
-              className="absolute rounded-full"
-              style={{ width: "7px", height: "7px", background: "var(--danger)", top: "8px", right: "8px", border: "2px solid var(--bg-surface)" }}
-            />
+            {unreadCount > 0 && (
+              <span
+                className="absolute rounded-full"
+                style={{ width: "7px", height: "7px", background: "var(--danger)", top: "8px", right: "8px", border: "2px solid var(--bg-surface)" }}
+              />
+            )}
           </button>
 
           {notifOpen && (
@@ -200,29 +276,52 @@ export default function Navbar() {
               className="absolute right-0 mt-2 rounded-xl py-1 overflow-hidden"
               style={{
                 background: "var(--bg-surface)", border: "1px solid var(--border)",
-                boxShadow: "var(--shadow-lg)", width: "320px", zIndex: 50, top: "100%",
+                boxShadow: "var(--shadow-lg)",
+                width: "min(360px, calc(100vw - 16px))",
+                zIndex: 50,
+                top: "100%",
               }}
             >
               <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
                 <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Notifications</span>
-                <span className="badge badge-danger" style={{ fontSize: "10px" }}>2 new</span>
-              </div>
-              {[
-                { icon: "⚠️", text: "Fraud alert on Claim CLM-8821", time: "15m ago", dot: "var(--danger)" },
-                { icon: "✅", text: "Policy AUTO-2024-001 indexed", time: "1h ago", dot: "var(--success)" },
-                { icon: "📋", text: "Compliance report generated", time: "2h ago", dot: "var(--accent)" },
-              ].map(({ icon, text, time, dot }) => (
-                <div key={text} className="flex items-start gap-3 px-4 py-3" style={{ borderBottom: "1px solid var(--border-subtle)", cursor: "pointer" }}>
-                  <span style={{ fontSize: "16px", flexShrink: 0, marginTop: "1px" }}>{icon}</span>
-                  <div className="flex-1">
-                    <p className="text-sm" style={{ color: "var(--text-primary)" }}>{text}</p>
-                    <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{time}</p>
-                  </div>
-                  <span className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ background: dot }} />
+                <div className="flex items-center gap-2">
+                  <span className="badge badge-danger" style={{ fontSize: "10px" }}>
+                    {unreadCount} new
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { void handleMarkAllRead(); }}
+                    disabled={markingAll || unreadCount === 0}
+                    className="text-xs"
+                    style={{
+                      color: unreadCount > 0 ? "var(--accent)" : "var(--text-muted)",
+                      background: "none",
+                      border: "none",
+                      cursor: unreadCount > 0 ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    {markingAll ? "Marking..." : "Mark all"}
+                  </button>
                 </div>
-              ))}
+              </div>
+              <NotificationList
+                notifications={notifications}
+                loading={notificationsLoading || busyNotificationId !== null}
+                errorMessage={notificationsError?.message || null}
+                compact={true}
+                onSelect={(item) => {
+                  void handleNotificationSelect(item);
+                }}
+              />
               <div className="px-4 py-2.5 text-center">
-                <span className="text-xs" style={{ color: "var(--accent)", cursor: "pointer" }}>View all notifications →</span>
+                <Link
+                  href="/notifications"
+                  onClick={() => setNotifOpen(false)}
+                  className="text-xs"
+                  style={{ color: "var(--accent)", textDecoration: "none" }}
+                >
+                  View all notifications →
+                </Link>
               </div>
             </div>
           )}

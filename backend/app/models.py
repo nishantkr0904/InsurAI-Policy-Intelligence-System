@@ -789,6 +789,70 @@ class PerformanceMetric(Base):
 
 
 # ============================================================================
+# NOTIFICATION MODEL
+# ============================================================================
+
+class Notification(Base):
+    """
+    Persistent user notifications with role-aware RBAC filtering.
+
+    Required fields:
+      - id, user_id, role, type, priority, status, metadata, created_at
+    """
+
+    __tablename__ = "notifications"
+
+    id = Column(String(36), primary_key=True, default=_generate_id)
+
+    # Targeting and RBAC
+    user_id = Column(String(255), nullable=False, index=True)
+    role = Column(String(64), nullable=False, index=True)
+    workspace_id = Column(String(64), nullable=False, index=True)
+
+    # Classification
+    type = Column(String(32), nullable=False, index=True)
+    # Values: policy, claim, compliance, fraud, audit, system
+
+    priority = Column(String(16), nullable=False, default="medium", index=True)
+    # Values: low, medium, high, critical
+
+    status = Column(String(16), nullable=False, default="unread", index=True)
+    # Values: unread, read
+
+    # Content
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+
+    # JSON metadata (column name kept as "metadata" for API clarity)
+    meta_data = Column("metadata", JSON, nullable=True)
+
+    # Optional dedupe key for idempotent event handling
+    dedupe_key = Column(String(255), nullable=True, unique=True, index=True)
+
+    read_at = Column(DateTime, nullable=True, index=True)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        server_default=func.now(),
+        index=True,
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        server_default=func.now(),
+    )
+
+    __table_args__ = (
+        Index("idx_notification_user_workspace", "user_id", "workspace_id"),
+        Index("idx_notification_role_workspace", "role", "workspace_id"),
+        Index("idx_notification_status_priority", "status", "priority", "created_at"),
+    )
+
+
+# ============================================================================
 # USER MODEL (Authentication)
 # ============================================================================
 

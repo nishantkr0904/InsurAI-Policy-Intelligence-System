@@ -25,7 +25,7 @@ def create_celery_app() -> Celery:
         "insurai",
         broker=settings.REDIS_URL,
         backend=settings.REDIS_URL,
-        include=["app.workers.ingestion_tasks"],
+        include=["app.workers.ingestion_tasks", "app.workers.notification_tasks"],
     )
 
     celery_app.conf.update(

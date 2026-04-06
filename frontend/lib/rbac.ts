@@ -109,6 +109,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/compliance",
     "/analytics",
     "/audit",
+    "/notifications",
     "/settings",
   ],
 
@@ -119,6 +120,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/documents",
     "/chat",
     "/analytics",
+    "/notifications",
     "/settings",
   ],
 
@@ -129,6 +131,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/documents",
     "/chat",
     "/claims",
+    "/notifications",
     "/settings",
   ],
 
@@ -141,6 +144,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/compliance",
     "/analytics",
     "/audit",
+    "/notifications",
     "/settings",
   ],
 
@@ -153,6 +157,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/fraud",
     "/analytics",
     "/audit",
+    "/notifications",
     "/settings",
   ],
 
@@ -161,6 +166,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/dashboard",
     "/documents",
     "/chat",
+    "/notifications",
     "/settings",
   ],
 
@@ -172,6 +178,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/compliance",
     "/analytics",
     "/audit",
+    "/notifications",
     "/settings",
   ],
 
@@ -180,6 +187,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/dashboard",
     "/documents",
     "/chat",
+    "/notifications",
     "/settings",
   ],
 };

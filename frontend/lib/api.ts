@@ -1072,3 +1072,111 @@ export async function acknowledgeFirstLogin(): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Notifications API
+// ---------------------------------------------------------------------------
+
+export type NotificationType = "policy" | "risk" | "claim" | "compliance" | "fraud" | "audit" | "system";
+export type NotificationPriority = "low" | "medium" | "high" | "critical";
+export type NotificationStatus = "unread" | "read";
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  role: string;
+  workspace_id: string;
+  type: NotificationType;
+  priority: NotificationPriority;
+  status: NotificationStatus;
+  title: string;
+  message: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  read_at?: string | null;
+}
+
+export interface NotificationsResponse {
+  notifications: AppNotification[];
+  total: number;
+  unread_count: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+}
+
+export async function fetchNotifications(
+  workspaceId: string,
+  options?: {
+    status?: NotificationStatus;
+    type?: NotificationType;
+    priority?: NotificationPriority;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<NotificationsResponse> {
+  const params = new URLSearchParams({
+    workspace_id: workspaceId,
+    limit: String(options?.limit ?? 20),
+    offset: String(options?.offset ?? 0),
+  });
+
+  if (options?.status) params.append("status_filter", options.status);
+  if (options?.type) params.append("type_filter", options.type);
+  if (options?.priority) params.append("priority_filter", options.priority);
+
+  const res = await fetch(`${BASE}/notifications?${params.toString()}`, {
+    method: "GET",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const data = (await res.json()) as { detail?: string };
+      detail = data.detail ? ` - ${data.detail}` : "";
+    } catch {
+      // ignore non-JSON payloads
+    }
+    throw new Error(`Failed to fetch notifications: ${res.status}${detail}`);
+  }
+  return res.json() as Promise<NotificationsResponse>;
+}
+
+export async function markNotificationRead(
+  workspaceId: string,
+  notificationId: string,
+): Promise<void> {
+  const params = new URLSearchParams({ workspace_id: workspaceId });
+  const res = await fetch(
+    `${BASE}/notifications/${encodeURIComponent(notificationId)}/read?${params.toString()}`,
+    {
+      method: "PATCH",
+      credentials: "include",
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to mark notification as read: ${res.status}`);
+  }
+}
+
+export async function markAllNotificationsRead(
+  workspaceId: string,
+  options?: {
+    type?: NotificationType;
+    priority?: NotificationPriority;
+  },
+): Promise<number> {
+  const params = new URLSearchParams({ workspace_id: workspaceId });
+  if (options?.type) params.append("type_filter", options.type);
+  if (options?.priority) params.append("priority_filter", options.priority);
+
+  const res = await fetch(`${BASE}/notifications/read-all?${params.toString()}`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to mark all notifications as read: ${res.status}`);
+  }
+  const data = (await res.json()) as { updated: number };
+  return data.updated;
+}
+

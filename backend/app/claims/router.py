@@ -12,10 +12,14 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.claims.schemas import ClaimValidationRequest, ClaimValidationResponse
 from app.claims.service import validate_claim
+from app.database import get_db
+from app.notifications.schemas import NotificationPriority, NotificationType
+from app.notifications.service import dispatch_notification_for_actor
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +36,11 @@ router = APIRouter(prefix="/api/v1/claims", tags=["Claims"])
         "Uses RAG to retrieve relevant clauses and LLM to evaluate coverage."
     ),
 )
-async def validate_claim_endpoint(request: ClaimValidationRequest) -> ClaimValidationResponse:
+async def validate_claim_endpoint(
+  request: ClaimValidationRequest,
+  http_request: Request,
+  session: AsyncSession = Depends(get_db),
+) -> ClaimValidationResponse:
     """
     Validate a claim against policy documents.
 
@@ -81,5 +89,31 @@ async def validate_claim_endpoint(request: ClaimValidationRequest) -> ClaimValid
         result.approval_status.value,
         result.risk_score,
     )
+
+    try:
+      await dispatch_notification_for_actor(
+        request=http_request,
+        session=session,
+        workspace_id=request.workspace_id,
+        notification_type=NotificationType.CLAIM,
+        priority=(
+          NotificationPriority.HIGH
+          if result.severity.value in {"high", "critical"}
+          else NotificationPriority.MEDIUM
+        ),
+        title=f"Claim {result.claim_id} validated ({result.approval_status.value})",
+        message=f"Risk score {result.risk_score:.1f}. Review validation details and next steps.",
+        metadata={
+          "claim_id": result.claim_id,
+          "policy_number": result.policy_number,
+          "approval_status": result.approval_status.value,
+          "severity": result.severity.value,
+          "risk_score": result.risk_score,
+        },
+        dedupe_key=f"claim-validation:{request.workspace_id}:{result.claim_id}:{result.approval_status.value}",
+        x_user_id=request.user_id,
+      )
+    except Exception as exc:
+      logger.warning("Failed to dispatch claim notification: %s", exc)
 
     return result
