@@ -50,6 +50,19 @@ export default function AnalyticsClient() {
   const [user, setUser] = useState<any>(null);
   const [queryLogs, setQueryLogs] = useState<QueryLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeAction, setActiveAction] = useState<null | "csv" | "report" | "alerts" | "raw">(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showRawDataModal, setShowRawDataModal] = useState(false);
+  const [showAlertsModal, setShowAlertsModal] = useState(false);
+  const [reportText, setReportText] = useState("");
+  const [alertSaved, setAlertSaved] = useState(false);
+  const [copiedTarget, setCopiedTarget] = useState<null | "report" | "raw">(null);
+  const [alertsForm, setAlertsForm] = useState({
+    slowQueryThresholdMs: 1200,
+    failedQueryThreshold: 5,
+    highRiskThresholdPct: 35,
+    enabled: true,
+  });
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -237,6 +250,145 @@ export default function AnalyticsClient() {
     return { background: "var(--success-soft)", color: "var(--success)" };
   }
 
+  function downloadTextFile(content: string, filename: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function escapeCsv(value: unknown): string {
+    const str = String(value ?? "");
+    if (str.includes(",") || str.includes("\"") || str.includes("\n")) {
+      return `"${str.replace(/\"/g, '""')}"`;
+    }
+    return str;
+  }
+
+  async function copyToClipboard(content: string, target: "report" | "raw") {
+    try {
+      await navigator.clipboard.writeText(content);
+    } catch {
+      const textArea = document.createElement("textarea");
+      textArea.value = content;
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+    }
+    setCopiedTarget(target);
+    window.setTimeout(() => setCopiedTarget((current) => (current === target ? null : current)), 1400);
+  }
+
+  async function handleExportCsv() {
+    setActiveAction("csv");
+    try {
+      const headers = [
+        "query_id",
+        "query",
+        "user_id",
+        "workspace_id",
+        "timestamp",
+        "response_time_ms",
+        "model",
+        "token_usage",
+        "documents_searched",
+        "relevant_chunks",
+        "status",
+      ];
+      const rows = queryLogs.map((log) => [
+        log.query_id,
+        log.query,
+        log.user_id,
+        log.workspace_id,
+        log.timestamp,
+        log.response_time_ms,
+        log.model,
+        log.token_usage,
+        log.documents_searched,
+        log.relevant_chunks,
+        log.status,
+      ]);
+      const csv = [
+        headers.join(","),
+        ...rows.map((row) => row.map(escapeCsv).join(",")),
+      ].join("\n");
+      downloadTextFile(csv, "underwriting-query-history.csv", "text/csv;charset=utf-8;");
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
+  async function handleGenerateReport() {
+    setActiveAction("report");
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 450));
+      const total = queryLogs.length;
+      const successCount = queryLogs.filter((q) => q.status === "success").length;
+      const failedCount = total - successCount;
+      const avgResponse = total > 0
+        ? Math.round(queryLogs.reduce((sum, q) => sum + q.response_time_ms, 0) / total)
+        : 0;
+
+      const topRisk = underwritingInsights.riskDistribution
+        .sort((a, b) => b.pct - a.pct)[0];
+
+      const lines = [
+        "Underwriting Intelligence Report",
+        `Generated: ${new Date().toLocaleString()}`,
+        "",
+        "Summary",
+        `- Total queries: ${total}`,
+        `- Success rate: ${total > 0 ? Math.round((successCount / total) * 100) : 0}%`,
+        `- Failed queries: ${failedCount}`,
+        `- Avg response time: ${avgResponse} ms`,
+        "",
+        "Risk Distribution",
+        ...underwritingInsights.riskDistribution.map((r) => `- ${r.level}: ${r.pct}% (${r.count} queries)`),
+        "",
+        "Most Frequent Risk Queries",
+        ...(underwritingInsights.mostFrequentRiskQueries.length > 0
+          ? underwritingInsights.mostFrequentRiskQueries.map((q) => `- [${q.risk}] ${q.query} (x${q.count})`)
+          : ["- No risk-focused repeated queries"]),
+        "",
+        "Potential Policy Gaps",
+        ...(underwritingInsights.potentialPolicyGaps.length > 0
+          ? underwritingInsights.potentialPolicyGaps.map((g) => `- ${g.query} (x${g.count})`)
+          : ["- No repeated ambiguous gaps detected"]),
+        "",
+        "Policy Usage Insights",
+        ...underwritingInsights.topPolicies.map((p) => `- ${p.name}: ${p.count} queries`),
+        "",
+        "Most Queried Sections",
+        ...underwritingInsights.topSections.map((s) => `- ${s.name}: ${s.count} queries`),
+        "",
+        `Primary current risk signal: ${topRisk?.level ?? "N/A"}`,
+      ];
+
+      setReportText(lines.join("\n"));
+      setShowReportModal(true);
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
+  async function handleSaveAlerts() {
+    setActiveAction("alerts");
+    setAlertSaved(false);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      setAlertSaved(true);
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
   return (
     <div className="px-6 py-6 max-w-7xl mx-auto w-full space-y-8">
       {/* ── Header ──────────────────────────────────────────────── */}
@@ -411,24 +563,58 @@ export default function AnalyticsClient() {
         <h2 className="section-title">Actions</h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { label: "Export as CSV", icon: "📥", desc: "Download query logs" },
-            { label: "Generate Report", icon: "📊", desc: "Create analytics report" },
-            { label: "Set Alerts", icon: "🔔", desc: "Configure notifications" },
-            { label: "View Raw Data", icon: "📋", desc: "Inspect detailed logs" },
-          ].map(({ label, icon, desc }) => (
+            {
+              key: "csv" as const,
+              label: "Export as CSV",
+              icon: "📥",
+              desc: "Download query logs",
+              action: handleExportCsv,
+              loadingLabel: "Exporting...",
+            },
+            {
+              key: "report" as const,
+              label: "Generate Report",
+              icon: "📊",
+              desc: "Create analytics report",
+              action: handleGenerateReport,
+              loadingLabel: "Generating...",
+            },
+            {
+              key: "alerts" as const,
+              label: "Set Alerts",
+              icon: "🔔",
+              desc: "Configure notifications",
+              action: () => {
+                setAlertSaved(false);
+                setShowAlertsModal(true);
+              },
+              loadingLabel: "Saving...",
+            },
+            {
+              key: "raw" as const,
+              label: "View Raw Data",
+              icon: "📋",
+              desc: "Inspect detailed logs",
+              action: () => setShowRawDataModal(true),
+              loadingLabel: "Loading...",
+            },
+          ].map(({ key, label, icon, desc, action, loadingLabel }) => (
             <button
               key={label}
+              onClick={action}
+              disabled={activeAction !== null && activeAction !== key}
               className="card card-hover flex flex-col gap-2 text-left"
               style={{
                 background: "var(--bg-card)",
                 border: "1px solid var(--border)",
                 cursor: "pointer",
                 textDecoration: "none",
+                opacity: activeAction !== null && activeAction !== key ? 0.55 : 1,
               }}
             >
               <span className="text-lg">{icon}</span>
               <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
-                {label}
+                {activeAction === key ? loadingLabel : label}
               </span>
               <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
                 {desc}
@@ -451,6 +637,125 @@ export default function AnalyticsClient() {
           and monitor system performance. Data updates every 5 minutes.
         </p>
       </div>
+
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }}>
+          <div className="card w-full max-w-3xl max-h-[80vh] overflow-auto">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>Underwriting Report</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  className="btn-ghost"
+                  onClick={() => void copyToClipboard(reportText, "report")}
+                >
+                  {copiedTarget === "report" ? "Copied" : "Copy"}
+                </button>
+                <button className="btn-ghost" onClick={() => setShowReportModal(false)}>Close</button>
+              </div>
+            </div>
+            <pre className="text-xs whitespace-pre-wrap rounded-md p-3"
+              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+              {reportText}
+            </pre>
+            <div className="mt-3 flex justify-end">
+              <button
+                className="btn-primary"
+                onClick={() => downloadTextFile(reportText, "underwriting-intelligence-report.txt", "text/plain;charset=utf-8;")}
+              >
+                Download Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAlertsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }}>
+          <div className="card w-full max-w-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>Alert Configuration</h3>
+              <button className="btn-ghost" onClick={() => setShowAlertsModal(false)}>Close</button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-xs" style={{ color: "var(--text-secondary)" }}>
+                Slow query threshold (ms)
+                <input
+                  className="input mt-1"
+                  type="number"
+                  value={alertsForm.slowQueryThresholdMs}
+                  onChange={(e) => setAlertsForm((prev) => ({ ...prev, slowQueryThresholdMs: Number(e.target.value) || 0 }))}
+                />
+              </label>
+
+              <label className="block text-xs" style={{ color: "var(--text-secondary)" }}>
+                Failed query threshold (count/day)
+                <input
+                  className="input mt-1"
+                  type="number"
+                  value={alertsForm.failedQueryThreshold}
+                  onChange={(e) => setAlertsForm((prev) => ({ ...prev, failedQueryThreshold: Number(e.target.value) || 0 }))}
+                />
+              </label>
+
+              <label className="block text-xs" style={{ color: "var(--text-secondary)" }}>
+                High risk query threshold (%)
+                <input
+                  className="input mt-1"
+                  type="number"
+                  value={alertsForm.highRiskThresholdPct}
+                  onChange={(e) => setAlertsForm((prev) => ({ ...prev, highRiskThresholdPct: Number(e.target.value) || 0 }))}
+                />
+              </label>
+
+              <label className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                <input
+                  type="checkbox"
+                  checked={alertsForm.enabled}
+                  onChange={(e) => setAlertsForm((prev) => ({ ...prev, enabled: e.target.checked }))}
+                />
+                Enable alerts
+              </label>
+            </div>
+
+            {alertSaved && (
+              <p className="mt-3 text-xs rounded px-3 py-2" style={{ background: "var(--success-soft)", color: "var(--success)" }}>
+                Alert settings saved (mock).
+              </p>
+            )}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button className="btn-ghost" onClick={() => setShowAlertsModal(false)}>Cancel</button>
+              <button className="btn-primary" onClick={handleSaveAlerts}>
+                {activeAction === "alerts" ? "Saving..." : "Save Alerts"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRawDataModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }}>
+          <div className="card w-full max-w-4xl max-h-[80vh] overflow-auto">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>Raw Query Data (JSON)</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  className="btn-ghost"
+                  onClick={() => void copyToClipboard(JSON.stringify(queryLogs, null, 2), "raw")}
+                >
+                  {copiedTarget === "raw" ? "Copied" : "Copy"}
+                </button>
+                <button className="btn-ghost" onClick={() => setShowRawDataModal(false)}>Close</button>
+              </div>
+            </div>
+            <pre className="text-xs whitespace-pre-wrap rounded-md p-3"
+              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+              {JSON.stringify(queryLogs, null, 2)}
+            </pre>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
