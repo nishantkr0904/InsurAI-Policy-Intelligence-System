@@ -1,5 +1,7 @@
-import type { Metadata } from "next";
+"use client";
+
 import DocumentTable from "@/components/DocumentTable";
+import UploadPanel from "@/components/UploadPanel";
 import AuthGuard from "@/components/AuthGuard";
 
 /**
@@ -11,8 +13,6 @@ import AuthGuard from "@/components/AuthGuard";
  *                              document management APIs"
  *   functionality_requirements.md §2.4–2.5
  */
-
-export const metadata: Metadata = { title: "Documents – InsurAI" };
 
 /** Default workspace used across the app. Override via NEXT_PUBLIC_WORKSPACE_ID. */
 const WORKSPACE_ID =
@@ -33,7 +33,7 @@ export default function DocumentsPage() {
             </p>
           </div>
 
-          <a href="/chat" className="btn-primary text-sm">
+          <a href="#upload" className="btn-primary text-sm" onClick={(e) => { e.preventDefault(); document.getElementById("upload-section")?.scrollIntoView({ behavior: "smooth" }); }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M12 5v14M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -43,6 +43,11 @@ export default function DocumentsPage() {
 
         {/* ── Document table ── */}
         <DocumentTable workspaceId={WORKSPACE_ID} />
+
+        {/* ── Upload section ── */}
+        <div id="upload-section">
+          <UploadPanel workspaceId={WORKSPACE_ID} />
+        </div>
       </div>
     </AuthGuard>
   );
