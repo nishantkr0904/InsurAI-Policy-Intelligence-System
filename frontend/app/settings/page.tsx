@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getUser, hydrateSession, logout, ROLES, type InsurAIUser } from "@/lib/auth";
+import { getUser, hydrateSession, logout, type InsurAIUser } from "@/lib/auth";
 import { updateCurrentUser } from "@/lib/api";
 
 export default function SettingsPage() {
@@ -14,7 +14,6 @@ export default function SettingsPage() {
   const [form, setForm] = useState({
     name: "",
     email: "",
-    role: "",
     workspace: "",
   });
 
@@ -35,7 +34,6 @@ export default function SettingsPage() {
         setForm({
           name: loadedUser.name ?? "",
           email: loadedUser.email ?? "",
-          role: loadedUser.role ?? "",
           workspace: loadedUser.workspace ?? "",
         });
       }
@@ -53,7 +51,6 @@ export default function SettingsPage() {
       const response = await updateCurrentUser({
         name: form.name.trim(),
         email: form.email.trim(),
-        role: form.role,
         workspace: form.workspace.trim(),
       });
 
@@ -76,7 +73,6 @@ export default function SettingsPage() {
       setForm({
         name: updatedUser.name,
         email: updatedUser.email,
-        role: updatedUser.role,
         workspace: updatedUser.workspace,
       });
       setSaved(true);
@@ -111,11 +107,10 @@ export default function SettingsPage() {
         </div>
         <div>
           <label className="form-label">Role</label>
-          <select className="input" value={form.role} onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))} style={{ cursor: "pointer" }}>
-            {ROLES.map(({ value, label }) => (
-              <option key={value} value={value} style={{ background: "var(--bg-surface)" }}>{label}</option>
-            ))}
-          </select>
+          <input className="input" value={user.role || "Not assigned"} readOnly aria-readonly="true" />
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+            Role is managed by admin.
+          </p>
         </div>
         <div>
           <label className="form-label">Company or Organization</label>
