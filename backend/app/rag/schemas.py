@@ -58,6 +58,10 @@ class ChatRequest(BaseModel):
         default=None,
         description="Override LLM model. Defaults to settings.LLM_MODEL.",
     )
+    document_ids: Optional[List[str]] = Field(
+        default=None,
+        description="Optional list of document IDs to strictly scope retrieval.",
+    )
 
 
 class SourceCitation(BaseModel):
@@ -113,6 +117,10 @@ class ChatStreamRequest(BaseModel):
         default=None,
         description="Override LLM model. Defaults to settings.LLM_MODEL.",
     )
+    document_ids: Optional[List[str]] = Field(
+        default=None,
+        description="Optional list of document IDs to strictly scope retrieval.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -136,6 +144,10 @@ class RetrieveRequest(BaseModel):
         ge=1,
         le=20,
         description="Number of chunks to return after re-ranking.",
+    )
+    document_ids: Optional[List[str]] = Field(
+        default=None,
+        description="Optional list of document IDs to strictly scope retrieval.",
     )
 
 

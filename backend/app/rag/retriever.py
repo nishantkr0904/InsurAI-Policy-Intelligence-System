@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from app.processing.embedder import generate_embeddings
 from app.processing.vector_store import search_vectors
@@ -51,6 +51,7 @@ def retrieve(
     query: str,
     workspace_id: str,
     top_k: int = 5,
+    document_ids: Optional[List[str]] = None,
 ) -> List[RetrievedChunk]:
     """
     Hybrid retrieval: dense ANN search fused with BM25 re-ranking.
@@ -75,10 +76,13 @@ def retrieve(
 
     # ---- Step 2: Dense ANN retrieval (fetch more for re-ranking) ----
     dense_candidates = top_k * _DENSE_CANDIDATE_MULTIPLIER
+    selected_ids = [doc_id for doc_id in (document_ids or []) if doc_id]
+    print("Searching documents:", selected_ids)
     hits = search_vectors(
         query_embedding=query_vector,
         workspace_id=workspace_id,
         top_k=dense_candidates,
+        document_ids=selected_ids,
     )
     if not hits:
         logger.info("No dense hits found for workspace=%s", workspace_id)

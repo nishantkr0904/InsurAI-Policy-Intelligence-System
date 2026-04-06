@@ -67,6 +67,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
             query=request.query,
             workspace_id=request.workspace_id,
             top_k=request.top_k,
+            document_ids=request.document_ids,
         )
     except Exception as exc:
         logger.error("Retrieval failed: %s", exc)

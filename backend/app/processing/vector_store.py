@@ -23,7 +23,7 @@ Collection schema (matches _chunks.json sidecar contract):
 from __future__ import annotations
 
 import logging
-from typing import List
+from typing import List, Optional
 
 from pymilvus import (
     Collection,
@@ -156,6 +156,7 @@ def search_vectors(
     query_embedding: List[float],
     workspace_id: str,
     top_k: int = 5,
+    document_ids: Optional[List[str]] = None,
 ) -> List[dict]:
     """
     Perform approximate nearest-neighbour search.
@@ -169,12 +170,19 @@ def search_vectors(
         List of dicts with keys: document_id, chunk_index, text, score.
     """
     col = ensure_collection_exists()
+    selected_ids = [doc_id for doc_id in (document_ids or []) if doc_id]
+    expr = f'workspace_id == "{workspace_id}"'
+    if selected_ids:
+        escaped = [doc_id.replace('"', '\\"') for doc_id in selected_ids]
+        quoted_ids = ", ".join(f'"{doc_id}"' for doc_id in escaped)
+        expr = f'{expr} and document_id in [{quoted_ids}]'
+
     results = col.search(
         data=[query_embedding],
         anns_field="embedding",
         param={"metric_type": "COSINE", "params": {"ef": 64}},
         limit=top_k,
-        expr=f'workspace_id == "{workspace_id}"',
+        expr=expr,
         output_fields=["document_id", "chunk_index", "text"],
     )
     hits = []
