@@ -336,29 +336,31 @@ def ingest_document(
         Re-raises exceptions to trigger Celery retry mechanism.
     """
     async def _run() -> dict:
-        async with async_session() as session:
-            document = await session.get(Document, document_id)
-
-        if not document:
-            error_message = f"Document not found: {document_id}"
-            logger.warning(error_message)
-            return {
-                "document_id": document_id,
-                "status": "failed",
-                "error_message": error_message,
-            }
-
-        object_key = document.object_key
-        content_type = (document.content_type or "").lower().strip()
-        workspace_id = document.workspace_id
-
-        logger.info(
-            "Starting ingestion for document_id=%s object_key=%s",
-            document_id,
-            object_key,
-        )
+        workspace_id = "default"
 
         try:
+            async with async_session() as session:
+                document = await session.get(Document, document_id)
+
+            if not document:
+                error_message = f"Document not found: {document_id}"
+                logger.warning(error_message)
+                return {
+                    "document_id": document_id,
+                    "status": "failed",
+                    "error_message": error_message,
+                }
+
+            object_key = document.object_key
+            content_type = (document.content_type or "").lower().strip()
+            workspace_id = document.workspace_id
+
+            logger.info(
+                "Starting ingestion for document_id=%s object_key=%s",
+                document_id,
+                object_key,
+            )
+
             # STEP 0: Update status to processing
             await _update_document_status(
                 document_id=document_id,

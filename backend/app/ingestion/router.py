@@ -109,19 +109,9 @@ async def list_workspace_documents(
     if not documents:
         return _legacy_storage_to_metadata(workspace_id)
 
-    db_documents = [_document_to_metadata(doc) for doc in documents]
-    known_object_keys = {doc.object_key for doc in documents}
-
-    try:
-        legacy_documents = _legacy_storage_to_metadata(workspace_id)
-    except Exception:
-        legacy_documents = []
-
-    for legacy_doc in legacy_documents:
-        if legacy_doc.object_key not in known_object_keys:
-            db_documents.append(legacy_doc)
-
-    return db_documents
+    # When DB records exist, treat PostgreSQL as the source of truth.
+    # This avoids exposing ingestion sidecar objects (.txt/.json) as ghost documents.
+    return [_document_to_metadata(doc) for doc in documents]
 
 
 @router.post(
@@ -239,6 +229,29 @@ async def upload_document(
             ingest_document.delay(document_id)
         except Exception as exc:
             logger.error("enqueue failed for document_id=%s: %s", document_id, exc, exc_info=True)
+            try:
+                async with AsyncSessionLocal() as session:
+                    doc = await session.get(Document, document_id)
+                    if doc:
+                        doc.status = DocumentStatus.FAILED.value
+                        doc.error_message = f"Queue unavailable: {exc}"
+                        await session.commit()
+            except Exception:
+                logger.error(
+                    "failed to update document status after enqueue error: document_id=%s",
+                    document_id,
+                    exc_info=True,
+                )
+            return DocumentUploadResponse(
+                document_id=document_id,
+                filename=file.filename or "upload.bin",
+                size_bytes=stored.size_bytes,
+                content_type=stored.content_type,
+                workspace_id=workspace_id,
+                status=DocumentStatus.FAILED,
+                object_key=stored.object_name,
+                uploaded_at=datetime.utcnow(),
+            )
 
         return DocumentUploadResponse(
             document_id=document_id,
