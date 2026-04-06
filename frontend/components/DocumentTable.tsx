@@ -18,9 +18,11 @@ const STATUS_META: Record<
   DocumentRecord["status"],
   { label: string; color: string; bg: string }
 > = {
+  pending: { label: "Queued", color: "var(--warning)", bg: "rgba(245,158,11,0.12)" },
   uploading: { label: "Uploading", color: "var(--warning)", bg: "rgba(245,158,11,0.12)" },
   processing: { label: "Processing", color: "var(--warning)", bg: "rgba(245,158,11,0.12)" },
   indexed: { label: "Indexed", color: "var(--success)", bg: "rgba(34,197,94,0.12)" },
+  failed: { label: "Failed", color: "var(--danger)", bg: "rgba(239,68,68,0.12)" },
   error: { label: "Error", color: "var(--danger)", bg: "rgba(239,68,68,0.12)" },
 };
 
@@ -51,7 +53,7 @@ export default function DocumentTable({ workspaceId }: DocumentTableProps) {
   // Poll while any document is still in-flight
   useEffect(() => {
     const hasTransient = docs.some(
-      (d) => d.status === "uploading" || d.status === "processing",
+      (d) => d.status === "pending" || d.status === "uploading" || d.status === "processing",
     );
     if (!hasTransient) return;
     const id = setInterval(load, 8_000);
@@ -118,8 +120,9 @@ export default function DocumentTable({ workspaceId }: DocumentTableProps) {
         <tbody>
           {docs.map((doc) => {
             const meta = STATUS_META[doc.status] ?? STATUS_META.error;
-            const dateStr = doc.created_at
-              ? new Date(doc.created_at).toLocaleDateString(undefined, {
+            const timestamp = doc.created_at ?? doc.uploaded_at;
+            const dateStr = timestamp
+              ? new Date(timestamp).toLocaleDateString(undefined, {
                 month: "short", day: "numeric", year: "numeric",
               })
               : "—";
@@ -136,7 +139,11 @@ export default function DocumentTable({ workspaceId }: DocumentTableProps) {
                     {doc.filename}
                   </span>
                   {doc.error_message && (
-                    <span className="block text-xs mt-0.5 truncate" style={{ color: "var(--danger)" }}>
+                    <span
+                      className="block text-xs mt-0.5 truncate"
+                      style={{ color: "var(--danger)" }}
+                      title={doc.error_message}
+                    >
                       {doc.error_message}
                     </span>
                   )}
@@ -161,7 +168,7 @@ export default function DocumentTable({ workspaceId }: DocumentTableProps) {
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
                     style={{ color: meta.color, background: meta.bg }}
                   >
-                    {(doc.status === "uploading" || doc.status === "processing") && (
+                    {(doc.status === "pending" || doc.status === "uploading" || doc.status === "processing") && (
                       <span
                         className="inline-block w-2 h-2 rounded-full border border-current border-t-transparent animate-spin"
                         style={{ borderTopColor: "transparent" }}

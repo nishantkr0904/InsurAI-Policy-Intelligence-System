@@ -112,12 +112,15 @@ export default function DocumentProcessing({ workspaceId, isDemo }: DocumentProc
 
   function getStatusInfo(status: DocumentRecord["status"]) {
     switch (status) {
+      case "pending":
+        return { label: "Queued", color: "var(--warning)", bg: "var(--warning-soft)" };
       case "indexed":
         return { label: "Indexed", color: "var(--success)", bg: "var(--success-soft)" };
       case "processing":
         return { label: "Processing", color: "var(--warning)", bg: "var(--warning-soft)" };
       case "uploading":
         return { label: "Uploading", color: "var(--info)", bg: "var(--info-soft)" };
+      case "failed":
       case "error":
         return { label: "Failed", color: "var(--danger)", bg: "var(--danger-soft)" };
       default:
@@ -231,7 +234,7 @@ export default function DocumentProcessing({ workspaceId, isDemo }: DocumentProc
                           {doc.filename}
                         </p>
                         <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-                          {new Date(doc.created_at || "").toLocaleDateString()} ·{" "}
+                          {new Date(doc.created_at || doc.uploaded_at || "").toLocaleDateString()} ·{" "}
                           {doc.document_id}
                         </p>
                       </div>
@@ -263,6 +266,7 @@ export default function DocumentProcessing({ workspaceId, isDemo }: DocumentProc
                       <div
                         className="mt-2 text-xs p-2 rounded"
                         style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
+                        title={doc.error_message}
                       >
                         {doc.error_message}
                       </div>
@@ -282,7 +286,7 @@ export default function DocumentProcessing({ workspaceId, isDemo }: DocumentProc
                     </span>
 
                     {/* Retry Button for Failed */}
-                    {doc.status === "error" && (
+                    {(doc.status === "error" || doc.status === "failed") && (
                       <button
                         className="px-3 py-1 rounded text-xs font-medium transition-colors"
                         style={{

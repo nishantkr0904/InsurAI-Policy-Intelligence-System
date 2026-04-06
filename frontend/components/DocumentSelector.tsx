@@ -79,6 +79,7 @@ export default function DocumentSelector({
     indexed: { color: "var(--success)", bg: "var(--success-soft)" },
     processing: { color: "var(--warning)", bg: "var(--warning-soft)" },
     uploading: { color: "var(--accent)", bg: "var(--accent-soft)" },
+    failed: { color: "var(--danger)", bg: "rgba(239,68,68,0.12)" },
     error: { color: "var(--danger)", bg: "rgba(239,68,68,0.12)" },
   };
 

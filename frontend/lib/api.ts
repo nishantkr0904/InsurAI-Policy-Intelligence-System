@@ -150,9 +150,10 @@ export async function fetchChatResponse(
 export interface DocumentRecord {
   document_id: string;
   filename: string;
-  status: "uploading" | "processing" | "indexed" | "error";
+  status: "pending" | "uploading" | "processing" | "indexed" | "failed" | "error";
   workspace_id: string;
   created_at?: string;
+  uploaded_at?: string;
   error_message?: string;
 }
 

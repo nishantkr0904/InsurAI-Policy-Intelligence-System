@@ -16,19 +16,23 @@ Architecture ref:
 """
 
 import uuid
+import logging
 from datetime import datetime
 from typing import Annotated
 
+from sqlalchemy import select
 from fastapi import APIRouter, File, Form, Header, HTTPException, Query, Request, UploadFile, status
 
 from app.database import AsyncSessionLocal
 from app.ingestion.schemas import DocumentMetadata, DocumentStatus, DocumentUploadResponse
+from app.models import Document
 from app.notifications.schemas import NotificationPriority, NotificationType
 from app.notifications.service import dispatch_notification_for_actor
-from app.storage.minio_client import list_documents, upload_file
+from app.storage.minio_client import list_documents, upload_file, delete_file
 from app.workers.ingestion_tasks import ingest_document
 
 router = APIRouter(prefix="/api/v1/documents", tags=["Document Ingestion"])
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Allowed MIME types (guardrail: only process policy document formats)
@@ -43,6 +47,42 @@ ALLOWED_CONTENT_TYPES = {
 MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
+def _document_to_metadata(document: Document) -> DocumentMetadata:
+    return DocumentMetadata(
+        document_id=document.id,
+        filename=document.filename,
+        size_bytes=document.size_bytes,
+        content_type=document.content_type,
+        workspace_id=document.workspace_id,
+        status=DocumentStatus(document.status),
+        object_key=document.object_key,
+        uploaded_by=document.uploaded_by,
+        uploaded_at=document.created_at,
+        processed_at=document.processed_at,
+        chunk_count=document.chunk_count,
+        error_message=document.error_message,
+    )
+
+
+def _legacy_storage_to_metadata(workspace_id: str) -> list[DocumentMetadata]:
+    legacy_documents = []
+    for obj in list_documents(workspace_id=workspace_id):
+        document_id = obj.object_name.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+        legacy_documents.append(
+            DocumentMetadata(
+                document_id=document_id,
+                filename=obj.object_name.rsplit("/", 1)[-1],
+                size_bytes=obj.size_bytes,
+                content_type=obj.content_type,
+                workspace_id=workspace_id,
+                status=DocumentStatus.INDEXED,
+                object_key=obj.object_name,
+                uploaded_at=datetime.utcnow(),
+            )
+        )
+    return legacy_documents
+
+
 @router.get(
     "",
     response_model=list[DocumentMetadata],
@@ -51,34 +91,43 @@ MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 async def list_workspace_documents(
     workspace_id: str = Query(default="default", description="Workspace to list documents for."),
 ) -> list[DocumentMetadata]:
-    """Return all documents stored under the given workspace, sourced from MinIO."""
+    """Return all documents stored under the given workspace, sourced from PostgreSQL."""
     try:
-        stored = list_documents(workspace_id=workspace_id)
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(Document)
+                .where(Document.workspace_id == workspace_id)
+                .order_by(Document.created_at.desc())
+            )
+            documents = list(result.scalars().all())
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Object storage unavailable: {exc}",
+            detail=f"Document store unavailable: {exc}",
         ) from exc
 
-    return [
-        DocumentMetadata(
-            document_id=obj.object_name.rsplit("/", 1)[-1].rsplit(".", 1)[0],
-            filename=obj.object_name.rsplit("/", 1)[-1],
-            size_bytes=obj.size_bytes,
-            content_type=obj.content_type,
-            workspace_id=workspace_id,
-            status=DocumentStatus.INDEXED,
-            object_key=obj.object_name,
-            uploaded_at=datetime.utcnow(),
-        )
-        for obj in stored
-    ]
+    if not documents:
+        return _legacy_storage_to_metadata(workspace_id)
+
+    db_documents = [_document_to_metadata(doc) for doc in documents]
+    known_object_keys = {doc.object_key for doc in documents}
+
+    try:
+        legacy_documents = _legacy_storage_to_metadata(workspace_id)
+    except Exception:
+        legacy_documents = []
+
+    for legacy_doc in legacy_documents:
+        if legacy_doc.object_key not in known_object_keys:
+            db_documents.append(legacy_doc)
+
+    return db_documents
 
 
 @router.post(
     "/upload",
     response_model=DocumentUploadResponse,
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_200_OK,
     summary="Upload a policy document",
     description=(
         "Upload a PDF or Word document into the InsurAI ingestion pipeline. "
@@ -102,82 +151,114 @@ async def upload_document(
       4. Return a DocumentUploadResponse with status=PENDING.
       5. [Celery task enqueue will be wired in T4 worker sub-task.]
     """
-    # --- Validation ---
-    content_type = file.content_type or "application/octet-stream"
-    if content_type not in ALLOWED_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=(
-                f"Unsupported file type '{content_type}'. "
-                f"Allowed types: {', '.join(sorted(ALLOWED_CONTENT_TYPES))}"
-            ),
-        )
-
-    file_bytes = await file.read()
-
-    if len(file_bytes) > MAX_FILE_SIZE_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File exceeds maximum allowed size of {MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB.",
-        )
-
-    # --- Store in MinIO ---
     try:
-        stored = upload_file(
-            file_bytes=file_bytes,
-            filename=file.filename or "upload.bin",
-            content_type=content_type,
-            workspace_id=workspace_id,
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Object storage unavailable: {exc}",
-        ) from exc
-
-    # --- Dispatch async ingestion task ---
-    document_id = uuid.uuid4().hex
-
-    ingest_document.delay(
-        document_id=document_id,
-        object_key=stored.object_name,
-        content_type=stored.content_type,
-        workspace_id=workspace_id,
-    )
-
-    try:
-        async with AsyncSessionLocal() as session:
-            await dispatch_notification_for_actor(
-                request=request,
-                session=session,
-                workspace_id=workspace_id,
-                notification_type=NotificationType.POLICY,
-                priority=NotificationPriority.MEDIUM,
-                title="Policy document uploaded",
-                message=f"{file.filename or 'Document'} queued for ingestion.",
-                metadata={
-                    "document_id": document_id,
-                    "filename": file.filename or "upload.bin",
-                    "status": "pending",
-                },
-                dedupe_key=f"document-upload:{workspace_id}:{document_id}",
-                x_user_id=x_user_id,
+        # --- Validation ---
+        content_type = file.content_type or "application/octet-stream"
+        if content_type not in ALLOWED_CONTENT_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=(
+                    f"Unsupported file type '{content_type}'. "
+                    f"Allowed types: {', '.join(sorted(ALLOWED_CONTENT_TYPES))}"
+                ),
             )
-            await session.commit()
-    except Exception:
-        # Notification failure should not block ingestion.
-        pass
 
-    return DocumentUploadResponse(
-        document_id=document_id,
-        filename=file.filename or "upload.bin",
-        size_bytes=stored.size_bytes,
-        content_type=stored.content_type,
-        workspace_id=workspace_id,
-        status=DocumentStatus.PENDING,
-        object_key=stored.object_name,
-        uploaded_at=datetime.utcnow(),
-    )
+        file_bytes = await file.read()
+
+        if len(file_bytes) > MAX_FILE_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File exceeds maximum allowed size of {MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB.",
+            )
+
+        # --- Store in MinIO ---
+        try:
+            stored = upload_file(
+                file_bytes=file_bytes,
+                filename=file.filename or "upload.bin",
+                content_type=content_type,
+                workspace_id=workspace_id,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Object storage unavailable: {exc}",
+            ) from exc
+
+        # --- Persist metadata first, then enqueue async ingestion task ---
+        document_id = uuid.uuid4().hex
+
+        try:
+            async with AsyncSessionLocal() as session:
+                document = Document(
+                    id=document_id,
+                    workspace_id=workspace_id,
+                    filename=file.filename or "upload.bin",
+                    size_bytes=stored.size_bytes,
+                    content_type=stored.content_type,
+                    object_key=stored.object_name,
+                    status=DocumentStatus.PENDING.value,
+                    uploaded_by=x_user_id,
+                )
+                session.add(document)
+                await session.commit()
+        except Exception:
+            try:
+                delete_file(stored.object_name)
+            except Exception:
+                pass
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to persist document metadata",
+            )
+
+        try:
+            async with AsyncSessionLocal() as session:
+                await dispatch_notification_for_actor(
+                    request=request,
+                    session=session,
+                    workspace_id=workspace_id,
+                    notification_type=NotificationType.POLICY,
+                    priority=NotificationPriority.MEDIUM,
+                    title="Policy document uploaded",
+                    message=f"{file.filename or 'Document'} queued for ingestion.",
+                    metadata={
+                        "document_id": document_id,
+                        "filename": file.filename or "upload.bin",
+                        "status": "pending",
+                    },
+                    dedupe_key=f"document-upload:{workspace_id}:{document_id}",
+                    x_user_id=x_user_id,
+                )
+                await session.commit()
+        except Exception:
+            # Notification failure should not block ingestion.
+            pass
+
+        try:
+            ingest_document.delay(document_id)
+        except Exception as exc:
+            logger.error("enqueue failed for document_id=%s: %s", document_id, exc, exc_info=True)
+
+        return DocumentUploadResponse(
+            document_id=document_id,
+            filename=file.filename or "upload.bin",
+            size_bytes=stored.size_bytes,
+            content_type=stored.content_type,
+            workspace_id=workspace_id,
+            status=DocumentStatus.PENDING,
+            object_key=stored.object_name,
+            uploaded_at=datetime.utcnow(),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Unexpected upload failure: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Upload failed due to an unexpected server error",
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -337,12 +418,7 @@ async def retry_document_ingestion(
             await session.commit()
 
             # Re-dispatch Celery task
-            task = ingest_document.delay(
-                document_id=document_id,
-                object_key=doc.object_key,
-                content_type=doc.content_type,
-                workspace_id=workspace_id,
-            )
+            task = ingest_document.delay(document_id)
 
             return {
                 "document_id": document_id,

@@ -214,7 +214,7 @@ class Document(Base, BaseMixin):
     # File information
     filename = Column(String(255), nullable=False)
     size_bytes = Column(Integer, nullable=False)
-    content_type = Column(String(50), nullable=False)  # e.g., "application/pdf"
+    content_type = Column(String(128), nullable=False)  # e.g., "application/pdf"
 
     # Storage reference
     object_key = Column(String(512), nullable=False)  # MinIO path

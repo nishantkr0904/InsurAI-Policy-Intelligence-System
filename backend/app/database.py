@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 from typing import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 from app.core.config import settings
@@ -127,6 +128,15 @@ async def init_db() -> None:
         async with engine.begin() as conn:
             # Create all tables defined in Base.metadata
             await conn.run_sync(Base.metadata.create_all)
+            # Backward-compatible schema guard: older deployments used VARCHAR(50)
+            # for documents.content_type, which truncates DOCX MIME values.
+            if settings.DATABASE_URL.startswith("postgresql"):
+                await conn.execute(
+                    text(
+                        "ALTER TABLE IF EXISTS documents "
+                        "ALTER COLUMN content_type TYPE VARCHAR(128)"
+                    )
+                )
         logger.info("Database schema initialized successfully.")
     except Exception as exc:
         logger.error("Failed to initialize database schema: %s", exc)

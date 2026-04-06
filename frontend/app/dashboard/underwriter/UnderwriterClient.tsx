@@ -118,7 +118,7 @@ function OverviewTab({
       ]);
 
       const indexedDocs = docs.filter((d) => d.status === "indexed").length;
-      const processingDocs = docs.filter((d) => d.status === "processing");
+      const processingDocs = docs.filter((d) => d.status === "pending" || d.status === "processing");
       
       setDocuments(docs);
       setStats({
@@ -134,7 +134,7 @@ function OverviewTab({
           processingDocs.slice(0, 3).map((doc) => ({
             task: `Processing: ${doc.filename}`,
             status: "Processing",
-            time: `Started ${new Date(doc.created_at ?? Date.now()).toLocaleTimeString()}`,
+            time: `Started ${new Date(doc.created_at ?? doc.uploaded_at ?? Date.now()).toLocaleTimeString()}`,
             href: "/documents",
           }))
         );
@@ -154,7 +154,7 @@ function OverviewTab({
         const recentDocs = docs.slice(0, 3).map((doc) => ({
           action: `Document ${doc.status}`,
           policy: doc.filename,
-          time: new Date(doc.created_at ?? Date.now()).toLocaleTimeString(),
+            time: new Date(doc.created_at ?? doc.uploaded_at ?? Date.now()).toLocaleTimeString(),
           href: "/documents",
         }));
         setActivity(recentDocs);

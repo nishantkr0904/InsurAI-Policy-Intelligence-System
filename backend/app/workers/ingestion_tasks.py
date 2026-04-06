@@ -29,10 +29,15 @@ Architecture ref:
 import asyncio
 import json
 import logging
+import os
+import subprocess
+import shutil
 import traceback
+import zipfile
 import uuid
 from io import BytesIO
 from datetime import datetime
+from tempfile import TemporaryDirectory
 
 from app.workers.celery_app import celery_app
 from app.storage.minio_client import _get_client, upload_file
@@ -44,6 +49,30 @@ from app.database import AsyncSessionLocal
 from app.models import ErrorLog, Document
 
 logger = logging.getLogger(__name__)
+async_session = AsyncSessionLocal
+_worker_event_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _run_in_worker_loop(coro):
+    """Run async task code on a persistent loop within the current worker process."""
+    global _worker_event_loop
+    if _worker_event_loop is None or _worker_event_loop.is_closed():
+        _worker_event_loop = asyncio.new_event_loop()
+    return _worker_event_loop.run_until_complete(coro)
+
+
+SUPPORTED_CONTENT_TYPES = {
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/msword",
+    "text/plain",
+}
+
+UNSUPPORTED_FILE_MESSAGE = "Unsupported file format. Please upload DOCX/PDF/TXT"
+
+
+class InvalidDocumentError(RuntimeError):
+    """Raised when an uploaded file is not a valid supported document."""
 
 
 async def _update_document_status(
@@ -71,7 +100,7 @@ async def _update_document_status(
         Exception: If database update fails (will trigger Celery retry)
     """
     try:
-        async with AsyncSessionLocal() as session:
+        async with async_session() as session:
             # Fetch document by ID
             doc = await session.get(Document, document_id)
             if not doc:
@@ -80,7 +109,7 @@ async def _update_document_status(
 
             # Update status fields
             doc.status = status
-            if error_message:
+            if error_message is not None:
                 doc.error_message = error_message
             if chunk_count is not None:
                 doc.chunk_count = chunk_count
@@ -102,7 +131,7 @@ async def _update_document_status(
             exc_info=True,
         )
         # Don't re-raise here - we want the main task to retry, not this update call
-        # The task will retry anyway due to Celery's autoretry_for=(Exception,)
+        # The task will retry anyway due to the outer task retry path.
 
 
 def _extract_text_from_pdf(file_bytes: bytes) -> str:
@@ -121,6 +150,7 @@ def _extract_text_from_pdf(file_bytes: bytes) -> str:
 def _extract_text_from_docx(file_bytes: bytes) -> str:
     """Extract plain text from a DOCX file using python-docx."""
     try:
+        _validate_docx_bytes(file_bytes)
         from docx import Document
         doc = Document(BytesIO(file_bytes))
         paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
@@ -128,6 +158,73 @@ def _extract_text_from_docx(file_bytes: bytes) -> str:
     except ImportError:
         logger.warning("python-docx not installed – returning placeholder for DOCX.")
         return f"[DOCX text extraction unavailable – install python-docx]\n{len(file_bytes)} bytes"
+    except ValueError as exc:
+        raise InvalidDocumentError(UNSUPPORTED_FILE_MESSAGE) from exc
+    except InvalidDocumentError:
+        raise
+    except Exception as exc:
+        raise InvalidDocumentError(UNSUPPORTED_FILE_MESSAGE) from exc
+
+
+def _validate_docx_bytes(file_bytes: bytes) -> None:
+    """Validate that the payload is a well-formed DOCX package."""
+    print("DOCX VALIDATION RUNNING")
+    try:
+        in_memory = BytesIO(file_bytes)
+        if not zipfile.is_zipfile(in_memory):
+            raise InvalidDocumentError(UNSUPPORTED_FILE_MESSAGE)
+
+        with zipfile.ZipFile(BytesIO(file_bytes)) as archive:
+            if "word/document.xml" not in archive.namelist():
+                raise InvalidDocumentError(UNSUPPORTED_FILE_MESSAGE)
+            # Ensure the main Word document XML is actually readable.
+            archive.read("word/document.xml")
+    except zipfile.BadZipFile as exc:
+        raise InvalidDocumentError(UNSUPPORTED_FILE_MESSAGE) from exc
+
+
+def _convert_doc_to_docx_bytes(file_bytes: bytes, original_name: str = "document.doc") -> bytes:
+    """Convert legacy DOC bytes to DOCX using LibreOffice/soffice when available."""
+    candidates = ["soffice", "libreoffice"]
+    converter = next((candidate for candidate in candidates if shutil.which(candidate)), None)
+    if not converter:
+        raise InvalidDocumentError(UNSUPPORTED_FILE_MESSAGE)
+
+    with TemporaryDirectory() as tmpdir:
+        input_path = os.path.join(tmpdir, original_name if original_name.lower().endswith(".doc") else "document.doc")
+        output_dir = tmpdir
+        with open(input_path, "wb") as handle:
+            handle.write(file_bytes)
+
+        try:
+            completed = subprocess.run(
+                [
+                    converter,
+                    "--headless",
+                    "--convert-to",
+                    "docx",
+                    "--outdir",
+                    output_dir,
+                    input_path,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            logger.warning("DOC to DOCX conversion failed: %s", exc.stderr or exc.stdout or exc)
+            raise InvalidDocumentError(UNSUPPORTED_FILE_MESSAGE) from exc
+
+        logger.debug("DOC conversion output: %s", completed.stdout)
+        output_path = os.path.splitext(input_path)[0] + ".docx"
+        if not os.path.exists(output_path):
+            raise InvalidDocumentError(UNSUPPORTED_FILE_MESSAGE)
+
+        with open(output_path, "rb") as handle:
+            converted = handle.read()
+
+        _validate_docx_bytes(converted)
+        return converted
 
 
 def _extract_text(file_bytes: bytes, content_type: str) -> str:
@@ -138,11 +235,13 @@ def _extract_text(file_bytes: bytes, content_type: str) -> str:
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/msword",
     ):
+        if content_type == "application/msword":
+            file_bytes = _convert_doc_to_docx_bytes(file_bytes)
         return _extract_text_from_docx(file_bytes)
     elif content_type == "text/plain":
         return file_bytes.decode("utf-8", errors="replace")
     else:
-        return f"[Unsupported content type: {content_type}]"
+        raise InvalidDocumentError(UNSUPPORTED_FILE_MESSAGE)
 
 
 async def _log_celery_error(
@@ -166,7 +265,7 @@ async def _log_celery_error(
             "document_id": document_id,
         }
 
-        async with AsyncSessionLocal() as session:
+        async with async_session() as session:
             error_log = ErrorLog(
                 id=str(uuid.uuid4()),
                 error_code="CELERY_TASK_FAILED",
@@ -200,15 +299,10 @@ async def _log_celery_error(
     bind=True,
     max_retries=3,
     default_retry_delay=30,   # seconds between retries
-    autoretry_for=(Exception,),
-    retry_backoff=True,
 )
 def ingest_document(
     self,
     document_id: str,
-    object_key: str,
-    content_type: str,
-    workspace_id: str,
 ) -> dict:
     """
     Celery task: full document ingestion pipeline.
@@ -241,151 +335,189 @@ def ingest_document(
         Updates Document.status to "failed" with error details.
         Re-raises exceptions to trigger Celery retry mechanism.
     """
-    try:
+    async def _run() -> dict:
+        async with async_session() as session:
+            document = await session.get(Document, document_id)
+
+        if not document:
+            error_message = f"Document not found: {document_id}"
+            logger.warning(error_message)
+            return {
+                "document_id": document_id,
+                "status": "failed",
+                "error_message": error_message,
+            }
+
+        object_key = document.object_key
+        content_type = (document.content_type or "").lower().strip()
+        workspace_id = document.workspace_id
+
         logger.info(
             "Starting ingestion for document_id=%s object_key=%s",
             document_id,
             object_key,
         )
 
-        # ✅ STEP 0: Update status to "processing"
-        asyncio.run(
-            _update_document_status(
+        try:
+            # STEP 0: Update status to processing
+            await _update_document_status(
                 document_id=document_id,
                 status="processing",
+                error_message=None,
             )
-        )
 
-        # 1. Fetch raw bytes from MinIO
-        client = _get_client()
-        response = client.get_object(
-            bucket_name=settings.MINIO_BUCKET_DOCUMENTS,
-            object_name=object_key,
-        )
-        file_bytes = response.read()
-        response.close()
-        response.release_conn()
+            # 1. Fetch raw bytes from MinIO
+            client = _get_client()
+            response = client.get_object(
+                bucket_name=settings.MINIO_BUCKET_DOCUMENTS,
+                object_name=object_key,
+            )
+            try:
+                file_bytes = response.read()
+            finally:
+                response.close()
+                response.release_conn()
 
-        # 2. Extract text
-        extracted_text = _extract_text(file_bytes, content_type)
-        extracted_chars = len(extracted_text)
-        logger.info("Extracted %d characters from document_id=%s", extracted_chars, document_id)
+            normalized_content_type = content_type.lower().strip()
+            if normalized_content_type not in SUPPORTED_CONTENT_TYPES:
+                raise InvalidDocumentError(UNSUPPORTED_FILE_MESSAGE)
 
-        # 3. Store parsed text as a sidecar .txt file in MinIO
-        sidecar_key = object_key.rsplit(".", 1)[0] + "_parsed.txt"
-        upload_file(
-            file_bytes=extracted_text.encode("utf-8"),
-            filename=sidecar_key.split("/")[-1],
-            content_type="text/plain",
-            workspace_id=workspace_id,
-        )
-        logger.info("Sidecar text stored at %s", sidecar_key)
+            # 2. Extract text with explicit format handling
+            extracted_text = _extract_text(file_bytes, normalized_content_type)
+            extracted_chars = len(extracted_text)
+            logger.info("Extracted %d characters from document_id=%s", extracted_chars, document_id)
 
-        # 4. Semantic chunking
-        chunks = chunk_text(
-            extracted_text,
-            metadata={"document_id": document_id, "workspace_id": workspace_id},
-        )
-        logger.info("Split document_id=%s into %d chunks", document_id, len(chunks))
+            # 3. Store parsed text as a sidecar .txt file in MinIO
+            sidecar_key = object_key.rsplit(".", 1)[0] + "_parsed.txt"
+            upload_file(
+                file_bytes=extracted_text.encode("utf-8"),
+                filename=sidecar_key.split("/")[-1],
+                content_type="text/plain",
+                workspace_id=workspace_id,
+            )
+            logger.info("Sidecar text stored at %s", sidecar_key)
 
-        # 5. Generate embeddings for all chunks
-        # NOTE: If OPENAI_API_KEY is empty and EMBEDDING_MODEL requires it,
-        #       this step will raise RuntimeError → Celery will retry up to 3×.
-        chunk_texts = [c.text for c in chunks]
-        vectors = generate_embeddings(chunk_texts)
-        logger.info(
-            "Generated %d embedding vectors for document_id=%s", len(vectors), document_id
-        )
+            # 4. Semantic chunking
+            chunks = chunk_text(
+                extracted_text,
+                metadata={"document_id": document_id, "workspace_id": workspace_id},
+            )
+            logger.info("Split document_id=%s into %d chunks", document_id, len(chunks))
 
-        # 6. Build chunk manifest and store as JSON sidecar in MinIO
-        manifest = [
-            {
-                "chunk_index": chunk.chunk_index,
-                "text": chunk.text,
-                "char_start": chunk.char_start,
-                "char_end": chunk.char_end,
-                "token_estimate": chunk.token_estimate,
-                "embedding": vector,
-            }
-            for chunk, vector in zip(chunks, vectors)
-        ]
-        manifest_bytes = json.dumps(manifest, ensure_ascii=False).encode("utf-8")
-        manifest_key_prefix = object_key.rsplit(".", 1)[0]
-        upload_file(
-            file_bytes=manifest_bytes,
-            filename=f"{manifest_key_prefix.split('/')[-1]}_chunks.json",
-            content_type="application/json",
-            workspace_id=workspace_id,
-        )
-        logger.info(
-            "Chunk manifest stored for document_id=%s (%d chunks)", document_id, len(chunks)
-        )
+            # 5. Generate embeddings for all chunks
+            chunk_texts = [c.text for c in chunks]
+            vectors = generate_embeddings(chunk_texts)
+            logger.info(
+                "Generated %d embedding vectors for document_id=%s", len(vectors), document_id
+            )
 
-        # 7. Insert chunk vectors into Milvus
-        # If Milvus is unreachable the Celery retry mechanism will handle it (max 3×).
-        inserted = insert_vectors(
-            document_id=document_id,
-            workspace_id=workspace_id,
-            chunk_manifest=manifest,
-        )
-        logger.info(
-            "Indexed %d vectors in Milvus for document_id=%s", inserted, document_id
-        )
+            # 6. Build chunk manifest and store as JSON sidecar in MinIO
+            manifest = [
+                {
+                    "chunk_index": chunk.chunk_index,
+                    "text": chunk.text,
+                    "char_start": chunk.char_start,
+                    "char_end": chunk.char_end,
+                    "token_estimate": chunk.token_estimate,
+                    "embedding": vector,
+                }
+                for chunk, vector in zip(chunks, vectors)
+            ]
+            manifest_bytes = json.dumps(manifest, ensure_ascii=False).encode("utf-8")
+            manifest_key_prefix = object_key.rsplit(".", 1)[0]
+            upload_file(
+                file_bytes=manifest_bytes,
+                filename=f"{manifest_key_prefix.split('/')[-1]}_chunks.json",
+                content_type="application/json",
+                workspace_id=workspace_id,
+            )
+            logger.info(
+                "Chunk manifest stored for document_id=%s (%d chunks)", document_id, len(chunks)
+            )
 
-        # ✅ STEP 8: Update status to "indexed" with chunk count
-        asyncio.run(
-            _update_document_status(
+            # 7. Insert chunk vectors into Milvus
+            inserted = insert_vectors(
+                document_id=document_id,
+                workspace_id=workspace_id,
+                chunk_manifest=manifest,
+            )
+            logger.info(
+                "Indexed %d vectors in Milvus for document_id=%s", inserted, document_id
+            )
+
+            # 8. Update status to indexed with chunk count
+            await _update_document_status(
                 document_id=document_id,
                 status="indexed",
+                error_message=None,
                 chunk_count=len(chunks),
             )
-        )
 
-        result = {
-            "document_id": document_id,
-            "status": "indexed",
-            "extracted_chars": extracted_chars,
-            "sidecar_key": sidecar_key,
-            "chunk_count": len(chunks),
-            "inserted_vectors": inserted,
-            "embedding_dim": len(vectors[0]) if vectors else 0,
-        }
+            result = {
+                "document_id": document_id,
+                "status": "indexed",
+                "extracted_chars": extracted_chars,
+                "sidecar_key": sidecar_key,
+                "chunk_count": len(chunks),
+                "inserted_vectors": inserted,
+                "embedding_dim": len(vectors[0]) if vectors else 0,
+            }
 
-        logger.info(
-            "Ingestion complete for document_id=%s: %s",
-            document_id,
-            result,
-        )
+            logger.info(
+                "Ingestion complete for document_id=%s: %s",
+                document_id,
+                result,
+            )
 
-        return result
+            return result
 
-    except Exception as exc:
-        # ✅ NEW: Update status to "failed" with error message
-        error_msg = f"{type(exc).__name__}: {str(exc)}"
-        asyncio.run(
-            _update_document_status(
+        except (InvalidDocumentError, ValueError) as exc:
+            error_msg = str(exc) or UNSUPPORTED_FILE_MESSAGE
+            await _update_document_status(
                 document_id=document_id,
                 status="failed",
                 error_message=error_msg,
             )
-        )
-
-        # Log error asynchronously (FR029)
-        asyncio.run(
-            _log_celery_error(
+            await _log_celery_error(
                 task_name="insurai.ingest_document",
                 task_id=self.request.id,
                 error=exc,
                 document_id=document_id,
                 workspace_id=workspace_id,
             )
-        )
+            logger.warning("Invalid document rejected for document_id=%s: %s", document_id, error_msg)
+            return {
+                "document_id": document_id,
+                "status": "failed",
+                "error_message": error_msg,
+            }
 
-        # Re-raise to trigger Celery retry mechanism
-        logger.error(
-            "Ingestion failed for document_id=%s: %s",
-            document_id,
-            exc,
-            exc_info=True,
-        )
-        raise
+        except Exception as exc:
+            error_msg = f"{type(exc).__name__}: {exc}"
+            await _update_document_status(
+                document_id=document_id,
+                status="failed",
+                error_message=error_msg,
+            )
+            await _log_celery_error(
+                task_name="insurai.ingest_document",
+                task_id=self.request.id,
+                error=exc,
+                document_id=document_id,
+                workspace_id=workspace_id,
+            )
+            logger.error(
+                "Ingestion failed for document_id=%s: %s",
+                document_id,
+                exc,
+                exc_info=True,
+            )
+            if self.request.retries < self.max_retries and not isinstance(exc, (InvalidDocumentError, ValueError)):
+                raise self.retry(exc=exc, countdown=30)
+            return {
+                "document_id": document_id,
+                "status": "failed",
+                "error_message": error_msg,
+            }
+
+    return _run_in_worker_loop(_run())

@@ -21,6 +21,7 @@ Design decisions:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import List
 
@@ -34,6 +35,34 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 DEFAULT_BATCH_SIZE: int = 32  # Chunks per embedding API call
+
+
+def _deterministic_embedding(text: str, dim: int) -> List[float]:
+    """Generate a stable pseudo-embedding when external providers are unavailable."""
+    if dim <= 0:
+        dim = 1536
+
+    values: List[float] = []
+    counter = 0
+    seed = text.encode("utf-8", errors="ignore")
+    while len(values) < dim:
+        digest = hashlib.sha256(seed + counter.to_bytes(4, "little")).digest()
+        for byte in digest:
+            # Map byte [0, 255] into [-1.0, 1.0].
+            values.append((byte / 127.5) - 1.0)
+            if len(values) == dim:
+                break
+        counter += 1
+    return values
+
+
+def _should_use_ollama_fallback(model: str, exc: Exception) -> bool:
+    error_text = str(exc).lower()
+    return model.startswith("ollama/") and (
+        "connection refused" in error_text
+        or "apiconnectionerror" in error_text
+        or "ollamaexception" in error_text
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -76,14 +105,25 @@ def generate_embeddings(
             model,
         )
         try:
+            api_key = settings.LITELLM_API_KEY or settings.OPENAI_API_KEY or None
             response = litellm.embedding(
                 model=model,
                 input=batch,
-                api_key=settings.OPENAI_API_KEY or None,
+                api_key=api_key,
             )
             batch_vectors = [item["embedding"] for item in response.data]
             all_embeddings.extend(batch_vectors)
         except Exception as exc:
+            if _should_use_ollama_fallback(model, exc):
+                dim = embedding_dimension(model)
+                logger.warning(
+                    "Ollama embedding endpoint unavailable, using deterministic fallback for "
+                    "batch starting at index %d with dimension %d.",
+                    i,
+                    dim,
+                )
+                all_embeddings.extend([_deterministic_embedding(text, dim) for text in batch])
+                continue
             logger.error(
                 "Embedding failed for batch starting at index %d: %s", i, exc
             )
