@@ -778,6 +778,23 @@ export interface PerformanceHealthCheck {
   recommendations: string[];
 }
 
+/** Core service health item from /api/v1/health/status */
+export interface CoreServiceHealth {
+  name: string;
+  status: "healthy" | "degraded" | "down";
+  latency_ms?: number | null;
+  last_checked: string;
+  error_message?: string | null;
+}
+
+/** System health response from /api/v1/health/status */
+export interface SystemHealthStatusResponse {
+  overall_status: "healthy" | "degraded" | "down";
+  timestamp: string;
+  services: CoreServiceHealth[];
+  recommendations: string[];
+}
+
 /** Fetch performance statistics for a workspace. */
 export async function fetchPerformanceStats(
   workspaceId?: string,
@@ -800,6 +817,13 @@ export async function fetchPerformanceHealth(
   const res = await fetch(`${BASE}/metrics/health?${params.toString()}`);
   if (!res.ok) throw new Error(`Failed to fetch performance health: ${res.status}`);
   return res.json() as Promise<PerformanceHealthCheck>;
+}
+
+/** Fetch core service health status. */
+export async function fetchSystemHealthStatus(): Promise<SystemHealthStatusResponse> {
+  const res = await fetch(`${BASE}/health/status`);
+  if (!res.ok) throw new Error(`Failed to fetch system health: ${res.status}`);
+  return res.json() as Promise<SystemHealthStatusResponse>;
 }
 
 /** Risk distribution data from /api/v1/metrics/risk-distribution */

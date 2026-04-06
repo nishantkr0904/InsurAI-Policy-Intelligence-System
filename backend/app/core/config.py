@@ -1,6 +1,11 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
+try:
+    import litellm
+except Exception:  # pragma: no cover - optional import during tooling/bootstrap
+    litellm = None
+
 
 class Settings(BaseSettings):
     # Application
@@ -31,6 +36,7 @@ class Settings(BaseSettings):
     # "ollama/nomic-embed-text" (local, no API key needed)
     EMBEDDING_MODEL: str = "text-embedding-3-small"
     OPENAI_API_KEY: str = ""
+    LITELLM_API_KEY: str = ""
 
     # Milvus (Phase P4 – T6)
     MILVUS_HOST: str = "localhost"
@@ -66,3 +72,6 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+
+if litellm is not None:
+    litellm.api_key = settings.LITELLM_API_KEY or settings.OPENAI_API_KEY or None

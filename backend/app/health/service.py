@@ -7,8 +7,11 @@ Provides system health checks, dependency verification, and diagnostics.
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime
 from typing import List, Optional, Dict, Any
+
+from sqlalchemy import text
 
 from app.health.schemas import ServiceHealth, SystemHealthResponse, EdgeCaseWarning, QueryDiagnostics
 
@@ -69,25 +72,34 @@ async def get_system_health() -> SystemHealthResponse:
 
 async def _check_ai_service(now: str) -> ServiceHealth:
     """Check AI/LLM service health (LiteLLM)."""
+    started = time.perf_counter()
     try:
-        # In production, make an actual test API call
-        # For now, assume healthy if we can import the config
+        # Lightweight readiness check for AI configuration.
         from app.core.config import settings
+        latency_ms = max(1, int((time.perf_counter() - started) * 1000))
         
-        if not settings.LITELLM_API_KEY:
+        llm_model = str(getattr(settings, "LLM_MODEL", "")).strip().lower()
+        litellm_key = str(getattr(settings, "LITELLM_API_KEY", "")).strip()
+        openai_key = str(getattr(settings, "OPENAI_API_KEY", "")).strip()
+
+        api_key = litellm_key or openai_key
+
+        # Remote OpenAI-style models require API key; local providers may not.
+        needs_openai_key = llm_model.startswith("gpt") or llm_model.startswith("openai/")
+
+        if needs_openai_key and not api_key:
             return ServiceHealth(
                 name="AI Engine (LLM)",
                 status="degraded",
-                latency_ms=None,
+                latency_ms=latency_ms,
                 last_checked=now,
-                error_message="API key not configured",
+                error_message="AI Engine not configured",
             )
         
-        # Simulate latency check (in production: make test call)
         return ServiceHealth(
             name="AI Engine (LLM)",
             status="healthy",
-            latency_ms=245,
+            latency_ms=latency_ms,
             last_checked=now,
             error_message=None,
         )
@@ -104,24 +116,24 @@ async def _check_ai_service(now: str) -> ServiceHealth:
 
 async def _check_vector_db(now: str) -> ServiceHealth:
     """Check Vector DB (Milvus) health."""
+    started = time.perf_counter()
     try:
-        # In production, attempt to connect/query Milvus
-        # For now, assume healthy if client exists
-        from app.ingestion.vector_store import milvus_client
-        
-        if not milvus_client:
-            return ServiceHealth(
-                name="Vector DB (Milvus)",
-                status="down",
-                latency_ms=None,
-                last_checked=now,
-                error_message="Milvus client not initialized",
-            )
-        
+        # Perform a real Milvus connectivity probe.
+        from app.processing.vector_store import _connect
+        from pymilvus import utility
+
+        _connect()
+        utility.has_collection("_health_probe_collection")
+        latency_ms = max(1, int((time.perf_counter() - started) * 1000))
+
+        status = "healthy"
+        if latency_ms > 1500:
+            status = "degraded"
+
         return ServiceHealth(
             name="Vector DB (Milvus)",
-            status="healthy",
-            latency_ms=12,
+            status=status,
+            latency_ms=latency_ms,
             last_checked=now,
             error_message=None,
         )
@@ -138,15 +150,33 @@ async def _check_vector_db(now: str) -> ServiceHealth:
 
 async def _check_task_queue(now: str) -> ServiceHealth:
     """Check Task Queue (Redis/Celery) health."""
+    started = time.perf_counter()
+    redis_client = None
     try:
-        # In production, ping Redis
-        # For now, assume healthy
         from redis import asyncio as aioredis
+        from app.core.config import settings
+
+        redis_client = aioredis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
+        pong = await redis_client.ping()
+        latency_ms = max(1, int((time.perf_counter() - started) * 1000))
+
+        if not pong:
+            return ServiceHealth(
+                name="Task Queue (Redis)",
+                status="down",
+                latency_ms=latency_ms,
+                last_checked=now,
+                error_message="Redis ping failed",
+            )
+
+        status = "healthy"
+        if latency_ms > 800:
+            status = "degraded"
         
         return ServiceHealth(
             name="Task Queue (Redis)",
-            status="healthy",
-            latency_ms=8,
+            status=status,
+            latency_ms=latency_ms,
             last_checked=now,
             error_message=None,
         )
@@ -154,25 +184,34 @@ async def _check_task_queue(now: str) -> ServiceHealth:
         logger.error("Task queue health check failed: %s", exc)
         return ServiceHealth(
             name="Task Queue (Redis)",
-            status="degraded",
+            status="down",
             latency_ms=None,
             last_checked=now,
             error_message=str(exc),
         )
+    finally:
+        if redis_client is not None:
+            await redis_client.aclose()
 
 
 async def _check_database(now: str) -> ServiceHealth:
     """Check PostgreSQL database health."""
+    started = time.perf_counter()
     try:
         from app.database import AsyncSessionLocal
         
         async with AsyncSessionLocal() as session:
-            await session.execute("SELECT 1")
+            await session.execute(text("SELECT 1"))
+        latency_ms = max(1, int((time.perf_counter() - started) * 1000))
+
+        status = "healthy"
+        if latency_ms > 1200:
+            status = "degraded"
             
         return ServiceHealth(
             name="Database (PostgreSQL)",
-            status="healthy",
-            latency_ms=18,
+            status=status,
+            latency_ms=latency_ms,
             last_checked=now,
             error_message=None,
         )
