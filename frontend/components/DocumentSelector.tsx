@@ -30,6 +30,11 @@ export default function DocumentSelector({
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
 
+  // Expand by default so Query Scope is always visible on the sidebar
+  useEffect(() => {
+    setExpanded(true);
+  }, []);
+
   // Fetch documents on mount
   useEffect(() => {
     async function loadDocuments() {
@@ -85,63 +90,74 @@ export default function DocumentSelector({
 
   return (
     <div
-      className="rounded-lg overflow-hidden"
+      className="rounded-lg overflow-hidden sticky top-0 z-20"
       style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
     >
       {/* Header - always visible */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-        style={{ background: "transparent" }}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-b"
+        style={{ 
+          background: someSelected || allSelected ? "var(--accent-soft)" : "transparent",
+          borderColor: "var(--border)",
+        }}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div
-            className="w-6 h-6 rounded flex items-center justify-center"
-            style={{ background: "var(--accent-soft)" }}
+            className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
+            style={{ background: someSelected || allSelected ? "var(--accent)" : "var(--accent-soft)" }}
           >
             <svg
               width="12"
               height="12"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="currentColor"
+              stroke="white"
               strokeWidth="2"
-              style={{ color: "var(--accent)" }}
+              style={{ color: someSelected || allSelected ? "white" : "var(--accent)" }}
             >
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
               <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
             </svg>
           </div>
-          <span className="font-medium text-sm" style={{ color: "var(--text-primary)" }}>
-            Query Scope
-          </span>
-          {!loading && (
+          <div className="text-left">
+            <span className="font-semibold text-sm block" style={{ color: someSelected || allSelected ? "var(--accent)" : "var(--text-primary)" }}>
+              Query Scope
+            </span>
+            <span className="text-xs block" style={{ color: "var(--text-secondary)" }}>
+              {selectedDocIds.length} of {indexedDocs.length} selected
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {!loading && selectedDocIds.length > 1 && (
             <span
-              className="text-xs px-1.5 py-0.5 rounded-full"
+              className="text-xs px-2 py-1 rounded-full font-medium"
               style={{
-                background: someSelected || allSelected ? "var(--accent-soft)" : "var(--border)",
-                color: someSelected || allSelected ? "var(--accent)" : "var(--text-muted)",
+                background: "var(--warning-soft)",
+                color: "var(--warning)",
               }}
+              title="Multiple documents selected — answers may combine sources"
             >
-              {selectedDocIds.length}/{indexedDocs.length}
+              {selectedDocIds.length}
             </span>
           )}
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            style={{
+              color: "var(--text-muted)",
+              transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s",
+            }}
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
         </div>
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          style={{
-            color: "var(--text-muted)",
-            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 0.2s",
-          }}
-        >
-          <path d="M6 9l6 6 6-6" />
-        </svg>
       </button>
 
       {/* Expandable content */}

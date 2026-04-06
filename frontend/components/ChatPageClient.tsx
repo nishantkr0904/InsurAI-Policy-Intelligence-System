@@ -84,23 +84,63 @@ export default function ChatPageClient({ workspaceId }: Props) {
 
         {/* ── Right: Document Selector + Sources + Upload ── */}
         <aside
-          className="w-full lg:w-80 flex flex-col gap-4 p-4 overflow-y-auto lg:shrink-0 border-t lg:border-t-0"
+          className="w-full lg:w-80 flex flex-col gap-0 p-0 overflow-y-auto lg:shrink-0 border-t lg:border-t-0"
           style={{
             background: "var(--bg-base)",
             borderColor: "var(--border)",
           }}
         >
+          {/* Warning Banner for Multiple Documents */}
+          {selectedDocIds.length > 1 && (
+            <div
+              className="sticky top-0 z-30 px-4 py-3 mb-0 border-b"
+              style={{
+                background: "var(--warning-soft)",
+                borderColor: "var(--warning)",
+              }}
+            >
+              <div className="flex items-start gap-2">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="flex-shrink-0 mt-0.5"
+                  style={{ color: "var(--warning)" }}
+                >
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                </svg>
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: "var(--warning)" }}>
+                    Multiple documents selected
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                    Answers may combine sources from {selectedDocIds.length} documents
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Document Selector - FR011 Multi-Document Query */}
-          <DocumentSelector
-            workspaceId={workspaceId}
-            selectedDocIds={selectedDocIds}
-            onSelectionChange={setSelectedDocIds}
-          />
-          <SourcePanel
-            citations={citations}
-            onCitationClick={setSelectedCitation}
-          />
-          <UploadPanel workspaceId={workspaceId} />
+          <div className="p-4 pt-4">
+            <DocumentSelector
+              workspaceId={workspaceId}
+              selectedDocIds={selectedDocIds}
+              onSelectionChange={setSelectedDocIds}
+            />
+          </div>
+
+          {/* Sources and Upload */}
+          <div className="flex-1 flex flex-col gap-4 px-4 pb-4 overflow-y-auto">
+            <SourcePanel
+              citations={citations}
+              onCitationClick={setSelectedCitation}
+            />
+            <UploadPanel workspaceId={workspaceId} />
+          </div>
         </aside>
       </div>
 
