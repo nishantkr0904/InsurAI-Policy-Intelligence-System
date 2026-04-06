@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/audit", tags=["Audit Trail"])
 
-_AUDIT_EXPORT_ALLOWED_ROLES = {"compliance_officer", "auditor", "admin"}
+_AUDIT_EXPORT_ALLOWED_ROLES = {"compliance_officer", "fraud_analyst", "auditor", "admin"}
 
 
 def _normalize_role(role: str | None) -> str:

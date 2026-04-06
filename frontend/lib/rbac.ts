@@ -13,6 +13,8 @@ export type UserRole =
   | "customer"
   | "admin";
 
+const AUDIT_EXPORT_ROLES: UserRole[] = ["compliance_officer", "fraud_analyst", "auditor", "admin"];
+
 export interface NavLink {
   href: string;
   label: string;
@@ -245,6 +247,14 @@ export function getUnauthorizedMessage(role: string | null): string {
 
   const roleLabel = role.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   return `Access denied. This page is not available for ${roleLabel} role.`;
+}
+
+/**
+ * Check whether a role can export audit logs.
+ */
+export function canExportAuditLogs(role: string | null): boolean {
+  if (!role) return false;
+  return AUDIT_EXPORT_ROLES.includes(role as UserRole);
 }
 
 /**

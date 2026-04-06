@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUser, getWorkspaceId, hydrateSession, isDemoUser } from "@/lib/auth";
 import { exportAuditLogsCsv } from "@/lib/api";
+import { canExportAuditLogs } from "@/lib/rbac";
 import { useAuditLogs, useAuditAnalytics } from "@/hooks/useQueries";
 import AuditLogTable from "@/components/AuditLogTable";
 import AuditAnalytics from "@/components/AuditAnalytics";
@@ -229,10 +230,17 @@ export default function AuditClient() {
   const auditLogs = isDemo ? mockLogs : (realLogsData?.logs || []);
   const isLoading = isDemo ? mockLoading : realLogsLoading;
   const workspace = user?.workspace ?? "default";
+  const canExport = isDemo || canExportAuditLogs(user?.role || null);
   const failureLogs = auditLogs.filter((log) => log.status === "failure" || log.status === "error");
 
   async function handleExportCsv() {
     if (isExporting) return;
+
+    if (!canExport) {
+      toast.error("Export is available to compliance officers, fraud analysts, auditors, and admins");
+      return;
+    }
+
     setIsExporting(true);
 
     try {
@@ -376,18 +384,24 @@ export default function AuditClient() {
             <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
               Download complete audit trail for compliance and regulatory purposes
             </p>
+            {!canExport && !isDemo && (
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                Export is available to compliance officers, fraud analysts, auditors, and admins.
+              </p>
+            )}
           </div>
           <button
             onClick={() => {
               void handleExportCsv();
             }}
-            disabled={isExporting || isLoading}
+            disabled={isExporting || isLoading || !canExport}
             className="btn-primary shrink-0"
             style={{
               textDecoration: "none",
-              cursor: isExporting || isLoading ? "not-allowed" : "pointer",
-              opacity: isExporting || isLoading ? 0.7 : 1,
+              cursor: isExporting || isLoading || !canExport ? "not-allowed" : "pointer",
+              opacity: isExporting || isLoading || !canExport ? 0.7 : 1,
             }}
+            title={!canExport ? "Export is available to compliance officers, fraud analysts, auditors, and admins" : undefined}
           >
             {isExporting ? "⏳ Exporting..." : "📥 Export as CSV"}
           </button>
