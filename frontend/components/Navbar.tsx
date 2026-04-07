@@ -382,7 +382,7 @@ export default function Navbar() {
                 // Add role-specific links
                 switch (user?.role) {
                   case "underwriter":
-                    roleQuickLinks.push({ icon: "📋", label: "Risk Assessment", href: "/dashboard/underwriter" });
+                    roleQuickLinks.push({ icon: "📋", label: "Risk Assessment", href: "/risk-assessment" });
                     roleQuickLinks.push({ icon: "📈", label: "Analytics", href: "/analytics" });
                     break;
                   case "claims_adjuster":

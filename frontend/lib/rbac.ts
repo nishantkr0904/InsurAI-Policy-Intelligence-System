@@ -41,6 +41,7 @@ export const ROLE_DEFAULT_ROUTES: Record<UserRole, string> = {
 export const ROLE_SIDEBAR_LINKS: Record<UserRole, NavLink[]> = {
   underwriter: [
     { href: "/dashboard/underwriter", label: "Overview", icon: "📊" },
+    { href: "/risk-assessment", label: "Risk Assessment", icon: "📋" },
     { href: "/documents", label: "Policies", icon: "📄" },
     { href: "/chat", label: "Policy Chat", icon: "💬" },
     { href: "/analytics", label: "Analytics", icon: "📈" },
@@ -102,6 +103,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   // Admin can access everything
   admin: [
     "/dashboard",
+    "/risk-assessment",
     "/documents",
     "/chat",
     "/claims",
@@ -117,6 +119,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   underwriter: [
     "/dashboard",
     "/dashboard/underwriter",
+    "/risk-assessment",
     "/documents",
     "/chat",
     "/analytics",
