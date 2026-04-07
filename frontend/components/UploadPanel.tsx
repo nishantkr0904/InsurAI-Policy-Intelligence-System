@@ -9,8 +9,13 @@
  */
 
 import { useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { uploadDocumentWithProgress } from "@/lib/api";
+import {
+  normalizeDocumentStatus,
+  type DocumentRecord,
+  uploadDocumentWithProgress,
+} from "@/lib/api";
 
 interface UploadPanelProps {
   workspaceId: string;
@@ -18,6 +23,7 @@ interface UploadPanelProps {
 }
 
 export default function UploadPanel({ workspaceId, onUploaded }: UploadPanelProps) {
+  const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
@@ -34,6 +40,30 @@ export default function UploadPanel({ workspaceId, onUploaded }: UploadPanelProp
 
     try {
       const res = await uploadDocumentWithProgress(file, workspaceId, setProgress);
+
+      // Optimistically insert the uploaded document so users see it immediately.
+      const normalizedUploadStatus = normalizeDocumentStatus(res.status);
+      const optimisticStatus: DocumentRecord["status"] =
+        normalizedUploadStatus === "processing"
+          ? "processing"
+          : normalizedUploadStatus === "failed" || normalizedUploadStatus === "error"
+            ? "failed"
+            : "pending";
+
+      const optimisticDoc: DocumentRecord = {
+        document_id: res.document_id,
+        filename: file.name,
+        workspace_id: workspaceId,
+        status: optimisticStatus,
+        created_at: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData<DocumentRecord[]>(["documents", workspaceId], (current) => {
+        const existing = current ?? [];
+        const withoutDuplicate = existing.filter((doc) => doc.document_id !== res.document_id);
+        return [optimisticDoc, ...withoutDuplicate];
+      });
+
       setStatus({ ok: true, msg: `✓ ${file.name} queued (${res.document_id.slice(0, 8)}…)` });
       onUploaded?.(res.document_id);
 

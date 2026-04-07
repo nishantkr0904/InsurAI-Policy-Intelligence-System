@@ -147,14 +147,42 @@ export async function fetchChatResponse(
 }
 
 /** Shape of a single document record returned by GET /api/v1/documents. */
+export type DocumentStatus =
+  | "pending"
+  | "uploading"
+  | "processing"
+  | "indexed"
+  | "failed"
+  | "error";
+
 export interface DocumentRecord {
   document_id: string;
   filename: string;
-  status: "pending" | "uploading" | "processing" | "indexed" | "failed" | "error";
+  status: DocumentStatus;
   workspace_id: string;
   created_at?: string;
   uploaded_at?: string;
   error_message?: string;
+}
+
+const DOCUMENT_STATUS_MAP: Record<string, DocumentStatus> = {
+  pending: "pending",
+  uploading: "uploading",
+  processing: "processing",
+  indexed: "indexed",
+  failed: "failed",
+  error: "error",
+  PENDING: "pending",
+  UPLOADING: "uploading",
+  PROCESSING: "processing",
+  INDEXED: "indexed",
+  FAILED: "failed",
+  ERROR: "error",
+};
+
+export function normalizeDocumentStatus(status: string | null | undefined): DocumentStatus {
+  if (!status) return "error";
+  return DOCUMENT_STATUS_MAP[status] ?? DOCUMENT_STATUS_MAP[status.toLowerCase()] ?? "error";
 }
 
 /** Fetch the list of documents for a given workspace. */
@@ -165,7 +193,11 @@ export async function fetchDocuments(
     `${BASE}/documents?workspace_id=${encodeURIComponent(workspaceId)}`,
   );
   if (!res.ok) throw new Error(`Failed to fetch documents: ${res.status}`);
-  return res.json() as Promise<DocumentRecord[]>;
+  const data = (await res.json()) as DocumentRecord[];
+  return data.map((doc) => ({
+    ...doc,
+    status: normalizeDocumentStatus(doc.status),
+  }));
 }
 
 /** Upload a single PDF/DOCX file for ingestion. */

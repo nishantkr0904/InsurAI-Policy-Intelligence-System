@@ -3,7 +3,7 @@
 /**
  * DocumentTable – lists uploaded policy documents and their ingestion status.
  *
- * Fetches from GET /api/v1/documents and auto-refreshes every 8 s while any
+ * Fetches from GET /api/v1/documents and auto-refreshes every 3 s while any
  * document is still in a transient state (uploading / processing).
  *
  * Architecture ref:
@@ -11,7 +11,7 @@
  *   functionality_requirements.md §2.4–2.5
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { fetchDocuments, type DocumentRecord } from "@/lib/api";
 
 const STATUS_META: Record<
@@ -31,34 +31,23 @@ interface DocumentTableProps {
 }
 
 export default function DocumentTable({ workspaceId }: DocumentTableProps) {
-  const [docs, setDocs] = useState<DocumentRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      const data = await fetchDocuments(workspaceId);
-      setDocs(data);
-      setError(null);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceId]);
-
-  // Initial load
-  useEffect(() => { load(); }, [load]);
-
-  // Poll while any document is still in-flight
-  useEffect(() => {
-    const hasTransient = docs.some(
-      (d) => d.status === "pending" || d.status === "uploading" || d.status === "processing",
-    );
-    if (!hasTransient) return;
-    const id = setInterval(load, 8_000);
-    return () => clearInterval(id);
-  }, [docs, load]);
+  const {
+    data: docs = [],
+    isLoading: loading,
+    error,
+  } = useQuery<DocumentRecord[], Error>({
+    queryKey: ["documents", workspaceId],
+    queryFn: () => fetchDocuments(workspaceId),
+    enabled: Boolean(workspaceId),
+    refetchInterval: (query) => {
+      const currentDocs = (query.state.data ?? []) as DocumentRecord[];
+      const hasTransient = currentDocs.some(
+        (d) => d.status === "pending" || d.status === "uploading" || d.status === "processing",
+      );
+      return hasTransient ? 3_000 : false;
+    },
+    refetchIntervalInBackground: true,
+  });
 
   if (loading) {
     return (
@@ -83,7 +72,7 @@ export default function DocumentTable({ workspaceId }: DocumentTableProps) {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
-        {error}
+        {error.message}
       </div>
     );
   }
