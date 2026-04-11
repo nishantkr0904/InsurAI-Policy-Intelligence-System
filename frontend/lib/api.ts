@@ -264,6 +264,7 @@ export function uploadDocumentWithProgress(
 /** Shape of claim validation request matching backend schema. */
 export interface ClaimValidationRequest {
   claim_id: string;
+  policy_id?: string;
   policy_number: string;
   claim_type: "health" | "auto" | "home" | "life" | "disability" | "property" | "liability" | "other";
   claim_amount: number;
@@ -285,6 +286,7 @@ export interface ReferencedClause {
 /** Shape of claim validation response from backend. */
 export interface ClaimValidationResponse {
   claim_id: string;
+  policy_id?: string;
   policy_number: string;
   approval_status: "approved" | "denied" | "pending" | "needs_review";
   risk_score: number;
@@ -307,6 +309,75 @@ export async function validateClaim(
   });
   if (!res.ok) throw new Error(`Claim validation failed: ${res.status}`);
   return res.json() as Promise<ClaimValidationResponse>;
+}
+
+/** Claims queue item returned by GET /api/v1/claims. */
+export interface ClaimQueueItem {
+  claim_id: string;
+  policy_id: string;
+  policy_number: string;
+  claimant_name: string;
+  claim_type: string;
+  amount: number;
+  submission_date: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  status: "pending" | "in_review" | "validated";
+  description?: string;
+}
+
+/** Create-claim request body for POST /api/v1/claims. */
+export interface ClaimCreateRequest {
+  claim_id: string;
+  policy_id: string;
+  policy_number: string;
+  claimant_name: string;
+  claim_type: "health" | "auto" | "home" | "life" | "disability" | "property" | "liability" | "other";
+  amount: number;
+  submission_date?: string;
+  priority?: "low" | "medium" | "high" | "urgent";
+  status?: "pending" | "in_review" | "validated";
+  description?: string;
+  workspace_id: string;
+}
+
+export interface ClaimDecisionRequest {
+  workspace_id: string;
+  decision: "approved" | "approved_with_conditions" | "rejected" | "escalated";
+  adjuster_notes?: string;
+  override_reason?: string;
+  user_id?: string;
+}
+
+/** Fetch claims queue for a workspace. */
+export async function fetchClaimsQueue(workspaceId: string): Promise<ClaimQueueItem[]> {
+  const res = await fetch(`${BASE}/claims?workspace_id=${encodeURIComponent(workspaceId)}`);
+  if (!res.ok) throw new Error(`Failed to fetch claims queue: ${res.status}`);
+  return res.json() as Promise<ClaimQueueItem[]>;
+}
+
+/** Create or update a claim queue record. */
+export async function createClaim(request: ClaimCreateRequest): Promise<ClaimQueueItem> {
+  const res = await fetch(`${BASE}/claims`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) throw new Error(`Failed to create claim: ${res.status}`);
+  return res.json() as Promise<ClaimQueueItem>;
+}
+
+/** Submit final decision for a claim. */
+export async function submitClaimDecision(
+  claimId: string,
+  request: ClaimDecisionRequest,
+): Promise<ClaimQueueItem> {
+  const res = await fetch(`${BASE}/claims/${encodeURIComponent(claimId)}/decision`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) throw new Error(`Failed to submit claim decision: ${res.status}`);
+  return res.json() as Promise<ClaimQueueItem>;
 }
 
 /** Shape of a fraud alert from the backend. */

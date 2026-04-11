@@ -6,8 +6,8 @@ import ValidationResults, { type ValidationResult } from "./ValidationResults";
 import ClaimDecision, { type ClaimDecision as ClaimDecisionType } from "./ClaimDecision";
 import ClaimChat from "./ClaimChat";
 import ClaimDocumentUpload from "@/components/ClaimDocumentUpload";
-import { validateClaim, type ClaimValidationRequest } from "@/lib/api";
-import { getWorkspaceId, isDemoUser } from "@/lib/auth";
+import { submitClaimDecision, validateClaim, type ClaimValidationRequest } from "@/lib/api";
+import { getUser, getWorkspaceId, isDemoUser } from "@/lib/auth";
 
 type Tab = "queue" | "validate" | "decision" | "chat";
 
@@ -15,6 +15,15 @@ interface UploadedDocument {
   id: string;
   filename: string;
   size: number;
+}
+
+function isBackendAIFallback(reasoning?: string, nextSteps?: string[]): boolean {
+  const text = (reasoning || "").toLowerCase();
+  if (text.includes("ai service unavailable")) return true;
+  if (text.includes("basic validation completed") && text.includes("manual review is required")) return true;
+
+  const steps = (nextSteps || []).map((step) => step.toLowerCase());
+  return steps.some((step) => step.includes("retry ai validation when service is available"));
 }
 
 type ClaimType = ClaimValidationRequest["claim_type"];
@@ -36,8 +45,14 @@ function isValidClaimType(value: string): value is ClaimType {
   return (VALID_CLAIM_TYPES as string[]).includes(value);
 }
 
+function normalizeToDateInput(value: string): string {
+  if (!value) return "";
+  return value.includes("T") ? value.split("T")[0] : value;
+}
+
 export default function ClaimsClient() {
   const isDemo = isDemoUser();
+  const workspaceId = getWorkspaceId() || "default";
   const [activeTab, setActiveTab] = useState<Tab>("queue");
   const [selectedClaim, setSelectedClaim] = useState<PendingClaim | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -48,6 +63,7 @@ export default function ClaimsClient() {
   // Form state for manual validation
   const [form, setForm] = useState({
     claimId: "",
+    policyId: "",
     policyNumber: "",
     claimType: "auto",
     incidentDate: "",
@@ -66,11 +82,12 @@ export default function ClaimsClient() {
 
     setForm({
       claimId: claim.claim_id,
+      policyId: claim.policy_id || "",
       policyNumber: claim.policy_number,
       claimType: claimType,
-      incidentDate: claim.submission_date,
+      incidentDate: normalizeToDateInput(claim.submission_date),
       amount: claim.amount.toString(),
-      description: "",
+      description: claim.description || "",
     });
     setValidationResult(null);
     setActiveTab("validate");
@@ -125,24 +142,26 @@ export default function ClaimsClient() {
       } else {
         const response = await validateClaim({
           claim_id: form.claimId,
+          policy_id: form.policyId || undefined,
           policy_number: form.policyNumber,
           claim_type: normalizedClaimType,
           claim_amount: parseFloat(form.amount) || 0,
           description: form.description || "No description provided",
           claim_date: form.incidentDate,
-          workspace_id: getWorkspaceId() || "default",
+          workspace_id: workspaceId,
         });
 
-        // Detect fallback response (AI unavailable)
-        const isFallback = response.confidence_score === 0;
+        // Detect true backend fallback only when backend indicates service failure.
+        const isFallback = isBackendAIFallback(response.reasoning, response.next_steps);
 
         // Map API response to ValidationResult
         const result: ValidationResult = {
           claim_id: form.claimId,
-          approval_status: response.approval_status === "denied" ? "denied" :
-                          response.approval_status === "pending" ? "requires_review" :
-                          response.approval_status === "needs_review" ? "requires_review" :
-                          response.risk_score > 50 ? "approved_with_conditions" : "approved",
+          approval_status: response.approval_status === "approved"
+            ? "approved"
+            : response.approval_status === "denied"
+              ? "denied"
+              : "requires_review",
           risk_score: response.risk_score,
           severity: response.severity as "low" | "medium" | "high" | "critical",
           referenced_clauses: (response.referenced_clauses || []).map((c) => ({
@@ -154,6 +173,7 @@ export default function ClaimsClient() {
           confidence_score: response.confidence_score / 100, // Convert to 0-1 scale
           reasoning: response.reasoning,
           next_steps: response.next_steps || ["Review validation result", "Make final decision"],
+          is_fallback: isFallback,
         };
         setValidationResult(result);
 
@@ -194,8 +214,13 @@ export default function ClaimsClient() {
     setIsSubmittingDecision(true);
 
     try {
-      // In production, submit to audit API
-      await new Promise((r) => setTimeout(r, 1000));
+      await submitClaimDecision(decision.claim_id, {
+        workspace_id: workspaceId,
+        decision: decision.decision,
+        adjuster_notes: decision.adjuster_notes,
+        override_reason: decision.override_reason,
+        user_id: getUser()?.email,
+      });
 
       toast.success(`Claim ${decision.claim_id} ${decision.decision.replace(/_/g, " ")}`);
 
@@ -208,6 +233,7 @@ export default function ClaimsClient() {
       setValidationResult(null);
       setForm({
         claimId: "",
+        policyId: "",
         policyNumber: "",
         claimType: "auto",
         incidentDate: "",
@@ -272,7 +298,10 @@ export default function ClaimsClient() {
       {/* Tab Content */}
       <div className="min-h-[500px]">
         {activeTab === "queue" && (
-          <ClaimsQueue onSelectClaim={handleSelectClaim} isDemo={isDemo} />
+          <ClaimsQueue
+            onSelectClaim={handleSelectClaim}
+            workspaceId={workspaceId}
+          />
         )}
 
         {activeTab === "validate" && (

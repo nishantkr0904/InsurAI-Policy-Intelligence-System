@@ -1,8 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { fetchClaimsQueue, type ClaimQueueItem } from "@/lib/api";
 
 export interface PendingClaim {
   claim_id: string;
+  policy_id?: string;
   policy_number: string;
   claimant_name: string;
   claim_type: string;
@@ -10,65 +12,13 @@ export interface PendingClaim {
   submission_date: string;
   priority: "low" | "medium" | "high" | "urgent";
   status: "pending" | "in_review" | "validated";
+  description?: string;
 }
 
 interface ClaimsQueueProps {
   onSelectClaim: (claim: PendingClaim) => void;
-  isDemo?: boolean;
+  workspaceId: string;
 }
-
-const MOCK_CLAIMS: PendingClaim[] = [
-  {
-    claim_id: "CLM-2024-00456",
-    policy_number: "POL-AUTO-789",
-    claimant_name: "John Smith",
-    claim_type: "auto",
-    amount: 15000,
-    submission_date: "2024-03-20",
-    priority: "high",
-    status: "pending",
-  },
-  {
-    claim_id: "CLM-2024-00457",
-    policy_number: "POL-HOME-123",
-    claimant_name: "Sarah Johnson",
-    claim_type: "property",
-    amount: 8500,
-    submission_date: "2024-03-19",
-    priority: "medium",
-    status: "pending",
-  },
-  {
-    claim_id: "CLM-2024-00458",
-    policy_number: "POL-BIZ-456",
-    claimant_name: "Acme Corp",
-    claim_type: "liability",
-    amount: 75000,
-    submission_date: "2024-03-18",
-    priority: "urgent",
-    status: "in_review",
-  },
-  {
-    claim_id: "CLM-2024-00459",
-    policy_number: "POL-MED-321",
-    claimant_name: "Emily Davis",
-    claim_type: "health",
-    amount: 3200,
-    submission_date: "2024-03-17",
-    priority: "low",
-    status: "pending",
-  },
-  {
-    claim_id: "CLM-2024-00460",
-    policy_number: "POL-AUTO-654",
-    claimant_name: "Robert Wilson",
-    claim_type: "liability",
-    amount: 25000,
-    submission_date: "2024-03-16",
-    priority: "high",
-    status: "pending",
-  },
-];
 
 const PRIORITY_STYLES: Record<string, { bg: string; color: string }> = {
   low: { bg: "rgba(156,163,175,0.15)", color: "var(--text-secondary)" },
@@ -83,11 +33,58 @@ const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }
   validated: { bg: "rgba(34,197,94,0.15)", color: "var(--success)", label: "Validated" },
 };
 
-export default function ClaimsQueue({ onSelectClaim, isDemo = true }: ClaimsQueueProps) {
+export default function ClaimsQueue({ onSelectClaim, workspaceId }: ClaimsQueueProps) {
   const [filter, setFilter] = useState<"all" | "pending" | "in_review" | "urgent">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [claims, setClaims] = useState<PendingClaim[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const claims = MOCK_CLAIMS; // In production, fetch from API
+  useEffect(() => {
+    let active = true;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    async function loadClaims(showSpinner: boolean) {
+      if (showSpinner) {
+        setLoading(true);
+      }
+      try {
+        const data = await fetchClaimsQueue(workspaceId);
+        if (!active) return;
+        const mapped: PendingClaim[] = data.map((claim: ClaimQueueItem) => ({
+          claim_id: claim.claim_id,
+          policy_id: claim.policy_id,
+          policy_number: claim.policy_number,
+          claimant_name: claim.claimant_name,
+          claim_type: claim.claim_type,
+          amount: claim.amount,
+          submission_date: claim.submission_date,
+          priority: claim.priority,
+          status: claim.status,
+          description: claim.description,
+        }));
+        setClaims(mapped);
+        setLoadError(null);
+      } catch (error) {
+        if (!active) return;
+        setLoadError((error as Error).message || "Failed to load claims queue");
+      } finally {
+        if (active && showSpinner) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadClaims(true);
+    intervalId = setInterval(() => {
+      void loadClaims(false);
+    }, 5000);
+
+    return () => {
+      active = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [workspaceId]);
 
   const filteredClaims = claims.filter((claim) => {
     // Filter by status/priority
@@ -171,9 +168,20 @@ export default function ClaimsQueue({ onSelectClaim, isDemo = true }: ClaimsQueu
 
       {/* Claims List */}
       <div className="space-y-2">
-        {filteredClaims.length === 0 ? (
+        {loading ? (
           <div className="card p-8 text-center">
-            <p style={{ color: "var(--text-secondary)" }}>No claims match your filters</p>
+            <p style={{ color: "var(--text-secondary)" }}>Loading claims queue…</p>
+          </div>
+        ) : filteredClaims.length === 0 ? (
+          <div className="card p-8 text-center">
+            <p style={{ color: "var(--text-secondary)" }}>
+              {loadError ? "Unable to load claims queue" : `No claims found for workspace \"${workspaceId}\"`}
+            </p>
+            {loadError && (
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                {loadError}
+              </p>
+            )}
           </div>
         ) : (
           filteredClaims.map((claim) => {
@@ -234,12 +242,6 @@ export default function ClaimsQueue({ onSelectClaim, isDemo = true }: ClaimsQueu
           })
         )}
       </div>
-
-      {isDemo && (
-        <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
-          Demo data shown. Connect to backend for real claims queue.
-        </p>
-      )}
     </div>
   );
 }

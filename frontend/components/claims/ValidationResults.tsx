@@ -16,6 +16,7 @@ export interface ValidationResult {
   next_steps: string[];
   conditions?: string[];
   exclusions?: string[];
+  is_fallback?: boolean;
 }
 
 interface ValidationResultsProps {
@@ -63,6 +64,15 @@ function getConfidenceLevel(score: number): "high" | "medium" | "low" {
   return "low";
 }
 
+function isBackendAIFallback(reasoning?: string, nextSteps?: string[]): boolean {
+  const text = (reasoning || "").toLowerCase();
+  if (text.includes("ai service unavailable")) return true;
+  if (text.includes("basic validation completed") && text.includes("manual review is required")) return true;
+
+  const steps = (nextSteps || []).map((step) => step.toLowerCase());
+  return steps.some((step) => step.includes("retry ai validation when service is available"));
+}
+
 export default function ValidationResults({
   result,
   onViewClause,
@@ -72,8 +82,7 @@ export default function ValidationResults({
   const confidenceLevel = getConfidenceLevel(result.confidence_score);
   const confidenceStyle = CONFIDENCE_STYLES[confidenceLevel];
 
-  // Detect AI fallback mode (confidence_score === 0)
-  const isAIUnavailable = result.confidence_score === 0;
+  const isAIUnavailable = result.is_fallback ?? isBackendAIFallback(result.reasoning, result.next_steps);
 
   return (
     <div className="space-y-5">
