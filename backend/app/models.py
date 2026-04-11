@@ -186,6 +186,31 @@ class Workspace(Base):
         Index("idx_workspace_active", "is_active", "deleted_at"),
     )
 
+# ============================================================================
+# POLICY MODEL
+# ============================================================================
+
+class Policy(Base, BaseMixin):
+    """
+    Structured policy entity linked to uploaded policy documents.
+
+    Enables claims workflows to target concrete policy IDs rather than
+    free-form document filename matching.
+    """
+
+    __tablename__ = "policies"
+
+    policy_id = Column(String(64), nullable=False, unique=True, index=True)
+    policy_name = Column(String(255), nullable=False)
+    policy_type = Column(String(50), nullable=False, default="general")
+    primary_document_id = Column(String(36), ForeignKey("documents.id"), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+
+    __table_args__ = (
+        Index("idx_policy_workspace_type", "workspace_id", "policy_type"),
+        Index("idx_policy_workspace_created", "workspace_id", "created_at"),
+    )
+
 
 # ============================================================================
 # DOCUMENT MODEL
@@ -218,6 +243,9 @@ class Document(Base, BaseMixin):
 
     # Storage reference
     object_key = Column(String(512), nullable=False)  # MinIO path
+
+    # Structured policy linkage
+    policy_id = Column(String(64), ForeignKey("policies.policy_id"), nullable=True, index=True)
 
     # Ingestion status
     status = Column(String(20), nullable=False, default="pending", index=True)
@@ -512,6 +540,34 @@ class ClaimValidation(Base, BaseMixin):
         Index("idx_claim_policy", "policy_number"),
         Index("idx_claim_workspace_created", "workspace_id", "created_at"),
         Index("idx_claim_date", "claim_date"),
+    )
+
+# ============================================================================
+# CLAIM MODEL
+# ============================================================================
+
+class Claim(Base, BaseMixin):
+    """
+    Operational claims queue records used by Claims Adjuster workflows.
+    """
+
+    __tablename__ = "claims"
+
+    claim_id = Column(String(64), nullable=False, unique=True, index=True)
+    policy_id = Column(String(64), ForeignKey("policies.policy_id"), nullable=False, index=True)
+    policy_number = Column(String(50), nullable=False, index=True)
+    claimant_name = Column(String(255), nullable=True)
+    claim_type = Column(String(50), nullable=False)
+    amount = Column(Float, nullable=False)
+    submission_date = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    priority = Column(String(20), nullable=False, default="medium", index=True)
+    description = Column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("idx_claims_workspace_status", "workspace_id", "status"),
+        Index("idx_claims_workspace_priority", "workspace_id", "priority"),
+        Index("idx_claims_workspace_submission", "workspace_id", "submission_date"),
     )
 
 

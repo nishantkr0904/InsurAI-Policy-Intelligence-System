@@ -31,6 +31,7 @@ class DocumentUploadResponse(BaseModel):
     size_bytes: int = Field(..., description="File size in bytes.")
     content_type: str = Field(..., description="MIME type of the uploaded file.")
     workspace_id: str = Field(..., description="Workspace this document belongs to.")
+    policy_id: Optional[str] = Field(default=None, description="Structured policy identifier linked to this document.")
     status: DocumentStatus = Field(
         default=DocumentStatus.PENDING,
         description="Initial processing status.",
@@ -50,6 +51,7 @@ class DocumentMetadata(BaseModel):
     size_bytes: int
     content_type: str
     workspace_id: str
+    policy_id: Optional[str] = None
     status: DocumentStatus
     object_key: str
     uploaded_by: Optional[str] = None

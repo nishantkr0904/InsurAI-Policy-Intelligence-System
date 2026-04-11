@@ -21,6 +21,7 @@ import logging
 from typing import List
 
 import litellm
+from sqlalchemy import func, select
 
 from app.claims.schemas import (
     ApprovalStatus,
@@ -29,6 +30,9 @@ from app.claims.schemas import (
     ReferencedClause,
     SeverityLevel,
 )
+from app.core.llm_provider import get_litellm_provider_kwargs, normalize_model_name
+from app.database import AsyncSessionLocal
+from app.models import Document, Policy
 from app.rag.retriever import retrieve, RetrievedChunk
 from app.core.config import settings
 
@@ -95,6 +99,7 @@ def _create_fallback_response(
 
     return ClaimValidationResponse(
         claim_id=request.claim_id,
+        policy_id=request.policy_id,
         policy_number=request.policy_number,
         approval_status=ApprovalStatus.NEEDS_REVIEW,
         risk_score=50.0,  # Neutral risk score
@@ -153,6 +158,54 @@ def _build_claim_query(request: ClaimValidationRequest) -> str:
         f"Is {request.claim_type.value} claim for ${request.claim_amount} covered? "
         f"Claim: {request.description[:500]}"
     )
+
+
+async def _resolve_policy_document_ids(
+    workspace_id: str,
+    policy_id: str | None,
+    policy_number: str,
+) -> list[str]:
+    """Find indexed document IDs linked to the requested policy."""
+    resolved_policy_id = (policy_id or "").strip()
+    normalized_policy_number = (policy_number or "").strip().lower()
+
+    async with AsyncSessionLocal() as session:
+        if not resolved_policy_id and normalized_policy_number:
+            matched_policy = await session.scalar(
+                select(Policy).where(
+                    Policy.workspace_id == workspace_id,
+                    func.lower(Policy.policy_id) == normalized_policy_number,
+                )
+            )
+            if matched_policy is not None:
+                resolved_policy_id = matched_policy.policy_id
+
+        if resolved_policy_id:
+            result = await session.execute(
+                select(Document.id)
+                .where(
+                    Document.workspace_id == workspace_id,
+                    Document.status == "indexed",
+                    Document.policy_id == resolved_policy_id,
+                )
+                .limit(50)
+            )
+            return [doc_id for (doc_id,) in result.all()]
+
+        if not normalized_policy_number:
+            return []
+
+        # Backward-compatible fallback for legacy records without policy_id linkage.
+        result = await session.execute(
+            select(Document.id)
+            .where(
+                Document.workspace_id == workspace_id,
+                Document.status == "indexed",
+                func.lower(Document.filename).contains(normalized_policy_number),
+            )
+            .limit(50)
+        )
+        return [doc_id for (doc_id,) in result.all()]
 
 
 def _extract_json_response(text: str) -> dict:
@@ -243,17 +296,59 @@ async def validate_claim(
         request.claim_amount,
     )
 
-    model = model or settings.LLM_MODEL
+    model = normalize_model_name(model, settings.LLM_MODEL)
 
     # Step 1: Retrieve relevant policy clauses (with fallback)
     query = _build_claim_query(request)
     chunks = []
+    policy_document_ids: list[str] = []
+
+    try:
+        policy_document_ids = await _resolve_policy_document_ids(
+            workspace_id=request.workspace_id,
+            policy_id=request.policy_id,
+            policy_number=request.policy_number,
+        )
+    except Exception:
+        logger.warning(
+            "Policy document lookup failed for policy_number=%s.",
+            request.policy_number,
+            exc_info=True,
+        )
+
+    if not policy_document_ids:
+        logger.info(
+            "No indexed documents linked to policy_id=%s policy_number=%s in workspace=%s",
+            request.policy_id,
+            request.policy_number,
+            request.workspace_id,
+        )
+        return ClaimValidationResponse(
+            claim_id=request.claim_id,
+            policy_id=request.policy_id,
+            policy_number=request.policy_number,
+            approval_status=ApprovalStatus.NEEDS_REVIEW,
+            risk_score=55.0,
+            severity=SeverityLevel.HIGH,
+            reasoning=(
+                "No indexed policy context was found for this claim's policy linkage. "
+                "Validate the policy mapping and re-run claim validation."
+            ),
+            referenced_clauses=[],
+            confidence_score=10.0,
+            next_steps=[
+                "Ensure the claim is linked to a valid policy_id",
+                "Confirm the linked policy document is indexed",
+                "Retry validation after policy mapping is corrected",
+            ],
+        )
 
     try:
         chunks = retrieve(
             query=query,
             workspace_id=request.workspace_id,
             top_k=10,  # Get more context for claim validation
+            document_ids=policy_document_ids,
         )
     except Exception as exc:
         # Log the full error internally
@@ -312,6 +407,7 @@ Determine:
 
     # Step 4: Call LLM for evaluation (with fallback)
     try:
+        provider_kwargs = get_litellm_provider_kwargs(model)
         response = litellm.completion(
             model=model,
             messages=[
@@ -320,6 +416,7 @@ Determine:
             ],
             temperature=0.2,  # Low temperature for consistent decisions
             timeout=30,
+            **provider_kwargs,
         )
         llm_response = response.choices[0].message.content
     except Exception as exc:
@@ -367,6 +464,7 @@ Determine:
 
     return ClaimValidationResponse(
         claim_id=request.claim_id,
+        policy_id=request.policy_id,
         policy_number=request.policy_number,
         approval_status=approval_status,
         risk_score=risk_score,

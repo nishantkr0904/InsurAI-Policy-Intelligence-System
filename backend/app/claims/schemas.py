@@ -56,6 +56,7 @@ class ReferencedClause(BaseModel):
 class ClaimValidationRequest(BaseModel):
     """Request body for POST /api/v1/claims/validate."""
     claim_id: str = Field(..., description="Unique claim identifier")
+    policy_id: Optional[str] = Field(default=None, description="Structured policy ID linked to documents")
     policy_number: str = Field(..., description="Associated policy number")
     claim_type: ClaimType = Field(..., description="Type of insurance claim")
     claim_amount: float = Field(..., gt=0, description="Claim amount in USD")
@@ -76,6 +77,7 @@ class ClaimValidationRequest(BaseModel):
 class ClaimValidationResponse(BaseModel):
     """Response body from POST /api/v1/claims/validate."""
     claim_id: str
+    policy_id: Optional[str] = None
     policy_number: str
     approval_status: ApprovalStatus = Field(..., description="APPROVED | DENIED | PENDING | NEEDS_REVIEW")
     risk_score: float = Field(..., ge=0.0, le=100.0, description="Risk assessment score (0-100)")
@@ -91,3 +93,38 @@ class ClaimValidationResponse(BaseModel):
         description="Recommended actions (e.g., 'Manual review required', 'Approve and process')"
     )
     processed_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+
+class ClaimQueueItem(BaseModel):
+    claim_id: str
+    policy_id: str
+    policy_number: str
+    claimant_name: str
+    claim_type: str
+    amount: float
+    submission_date: str
+    priority: str
+    status: str
+    description: Optional[str] = None
+
+
+class ClaimCreateRequest(BaseModel):
+    claim_id: str = Field(..., description="Unique claim identifier")
+    policy_id: str = Field(..., description="Structured policy ID")
+    policy_number: str = Field(..., description="Human-readable policy number")
+    claimant_name: str = Field(..., description="Claimant display name")
+    claim_type: ClaimType = Field(..., description="Type of insurance claim")
+    amount: float = Field(..., gt=0, description="Claim amount in USD")
+    submission_date: Optional[str] = Field(default=None, description="ISO 8601 submission date")
+    priority: str = Field(default="medium", description="low | medium | high | urgent")
+    status: str = Field(default="pending", description="pending | in_review | validated")
+    description: Optional[str] = Field(default=None, description="Optional claim description")
+    workspace_id: str = Field(default="default", description="Workspace namespace")
+
+
+class ClaimDecisionRequest(BaseModel):
+    workspace_id: str = Field(default="default", description="Workspace namespace")
+    decision: str = Field(..., description="approved | approved_with_conditions | rejected | escalated")
+    adjuster_notes: Optional[str] = Field(default=None, description="Adjuster notes")
+    override_reason: Optional[str] = Field(default=None, description="Reason when overriding AI decision")
+    user_id: Optional[str] = Field(default=None, description="User submitting the decision")

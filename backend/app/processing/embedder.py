@@ -28,6 +28,7 @@ from typing import List
 import litellm
 
 from app.core.config import settings
+from app.core.llm_provider import get_litellm_provider_kwargs, normalize_model_name
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ def generate_embeddings(
     if not texts:
         return []
 
-    model = model or settings.EMBEDDING_MODEL
+    model = normalize_model_name(model, settings.EMBEDDING_MODEL)
     all_embeddings: List[List[float]] = []
 
     for i in range(0, len(texts), batch_size):
@@ -105,11 +106,11 @@ def generate_embeddings(
             model,
         )
         try:
-            api_key = settings.LITELLM_API_KEY or settings.OPENAI_API_KEY or None
+            provider_kwargs = get_litellm_provider_kwargs(model)
             response = litellm.embedding(
                 model=model,
                 input=batch,
-                api_key=api_key,
+                **provider_kwargs,
             )
             batch_vectors = [item["embedding"] for item in response.data]
             all_embeddings.extend(batch_vectors)

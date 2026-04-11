@@ -137,6 +137,12 @@ async def init_db() -> None:
                         "ALTER COLUMN content_type TYPE VARCHAR(128)"
                     )
                 )
+                await conn.execute(
+                    text(
+                        "ALTER TABLE IF EXISTS documents "
+                        "ADD COLUMN IF NOT EXISTS policy_id VARCHAR(64)"
+                    )
+                )
         logger.info("Database schema initialized successfully.")
     except Exception as exc:
         logger.error("Failed to initialize database schema: %s", exc)

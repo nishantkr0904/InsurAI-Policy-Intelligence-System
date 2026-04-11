@@ -17,6 +17,7 @@ Architecture ref:
 
 import uuid
 import logging
+import re
 from datetime import datetime
 from typing import Annotated
 
@@ -25,7 +26,7 @@ from fastapi import APIRouter, File, Form, Header, HTTPException, Query, Request
 
 from app.database import AsyncSessionLocal
 from app.ingestion.schemas import DocumentMetadata, DocumentStatus, DocumentUploadResponse
-from app.models import Document
+from app.models import Document, Policy
 from app.notifications.schemas import NotificationPriority, NotificationType
 from app.notifications.service import dispatch_notification_for_actor
 from app.storage.minio_client import list_documents, upload_file, delete_file
@@ -46,6 +47,30 @@ ALLOWED_CONTENT_TYPES = {
 
 MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 
+_POLICY_ID_PATTERN = re.compile(r"(POL-[A-Z0-9\-]+)", re.IGNORECASE)
+
+
+def _infer_policy_type(filename: str) -> str:
+    lower = filename.lower()
+    if "auto" in lower or "vehicle" in lower or "motor" in lower:
+        return "auto"
+    if "health" in lower or "medical" in lower:
+        return "health"
+    if "home" in lower or "property" in lower:
+        return "property"
+    if "liability" in lower:
+        return "liability"
+    if "life" in lower:
+        return "life"
+    return "general"
+
+
+def _derive_policy_id(filename: str) -> str:
+    match = _POLICY_ID_PATTERN.search(filename)
+    if match:
+        return match.group(1).upper()
+    return f"POL-{uuid.uuid4().hex[:8].upper()}"
+
 
 def _document_to_metadata(document: Document) -> DocumentMetadata:
     return DocumentMetadata(
@@ -54,6 +79,7 @@ def _document_to_metadata(document: Document) -> DocumentMetadata:
         size_bytes=document.size_bytes,
         content_type=document.content_type,
         workspace_id=document.workspace_id,
+        policy_id=document.policy_id,
         status=DocumentStatus(document.status),
         object_key=document.object_key,
         uploaded_by=document.uploaded_by,
@@ -177,6 +203,7 @@ async def upload_document(
 
         # --- Persist metadata first, then enqueue async ingestion task ---
         document_id = uuid.uuid4().hex
+        linked_policy_id: str | None = None
 
         try:
             async with AsyncSessionLocal() as session:
@@ -191,6 +218,31 @@ async def upload_document(
                     uploaded_by=x_user_id,
                 )
                 session.add(document)
+
+                # Register a structured policy entity and link the document.
+                policy_id = _derive_policy_id(file.filename or "upload.bin")
+                existing_policy = await session.scalar(
+                    select(Policy).where(
+                        Policy.workspace_id == workspace_id,
+                        Policy.policy_id == policy_id,
+                    )
+                )
+                if existing_policy is None:
+                    policy = Policy(
+                        workspace_id=workspace_id,
+                        policy_id=policy_id,
+                        policy_name=(file.filename or "upload.bin").rsplit(".", 1)[0],
+                        policy_type=_infer_policy_type(file.filename or "upload.bin"),
+                    )
+                    session.add(policy)
+                else:
+                    policy = existing_policy
+
+                document.policy_id = policy.policy_id
+                linked_policy_id = policy.policy_id
+                if policy.primary_document_id is None:
+                    policy.primary_document_id = document_id
+
                 await session.commit()
         except Exception:
             try:
@@ -259,6 +311,7 @@ async def upload_document(
             size_bytes=stored.size_bytes,
             content_type=stored.content_type,
             workspace_id=workspace_id,
+            policy_id=linked_policy_id,
             status=DocumentStatus.PENDING,
             object_key=stored.object_name,
             uploaded_at=datetime.utcnow(),

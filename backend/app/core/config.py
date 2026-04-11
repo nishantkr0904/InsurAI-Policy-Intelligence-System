@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     # LiteLLM model string, e.g. "gpt-4o-mini", "ollama/llama3"
     LLM_MODEL: str = "gpt-4o-mini"
     LLM_TEMPERATURE: float = 0.1
+    OLLAMA_API_BASE: str = "http://localhost:11434"
 
     # Cross-encoder re-ranker (Phase P5 – T8)
     # LiteLLM rerank model, e.g. "cohere/rerank-english-v3.0"
